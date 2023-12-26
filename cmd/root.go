@@ -44,7 +44,7 @@ func initConfig() {
 		os.Exit(1)
 	}
 
-	err = log.Setup(c.CloudHome, logStderr, false)
+	err = log.Setup(c.CloudHome, "", logStderr, false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to rotate and open log file: %v\n", err)
 		os.Exit(1)

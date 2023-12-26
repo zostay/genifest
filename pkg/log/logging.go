@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// location of the current log file
+	// LogFile is the default location of the current log file
 	LogFile = "log/genifest.log"
 )
 
@@ -28,11 +28,11 @@ var (
 
 // Setup rotates the log files if the first line is from a different day,
 // then opens up the current log file for append.
-func Setup(cloudHome string, useStderr, forceRotate bool) error {
+func Setup(cloudHome, logPath string, useStderr, forceRotate bool) error {
 	if useStderr {
 		logger = os.Stderr
 	} else {
-		f, err := RotateAndOpenLogfile(cloudHome, forceRotate)
+		f, err := RotateAndOpenLogfile(cloudHome, logPath, forceRotate)
 		if err != nil {
 			return err
 		}
@@ -57,8 +57,12 @@ var dateMatch = regexp.MustCompile(`(\d{4}-\d{2}-\d{2})`)
 // date of the first entry to the end ofthe log filename and renaming the file
 // to that. It will then open the current log file for append, creating a new
 // log file if one does not exist following rotation.
-func RotateAndOpenLogfile(cloudHome string, force bool) (io.WriteCloser, error) {
-	logFile := filepath.Join(cloudHome, LogFile)
+func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser, error) {
+	if logPath == "" {
+		logPath = LogFile
+	}
+
+	logFile := filepath.Join(cloudHome, logPath)
 	if lfi, err := os.Stat(logFile); err == nil && !lfi.IsDir() {
 		r, err := os.Open(logFile)
 		if err != nil {
