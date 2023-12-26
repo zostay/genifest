@@ -66,7 +66,7 @@ func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser
 	if lfi, err := os.Stat(logFile); err == nil && !lfi.IsDir() {
 		r, err := os.Open(logFile)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
 
 		lines := bufio.NewScanner(r)
@@ -101,7 +101,7 @@ func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser
 				fmt.Printf("Rotating old %q to %q\n", logFile, arcLogFile)
 				err := os.Rename(logFile, arcLogFile)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("unable to rename file to rotate: %w", err)
 				}
 			}
 		}
