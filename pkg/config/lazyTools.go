@@ -31,8 +31,6 @@ type LazyTools struct {
 
 	kube *k8s.Client
 	iam  *iam.Client
-
-	region string
 }
 
 func (t *LazyTools) Kube() (*k8s.Client, error) {
@@ -88,7 +86,7 @@ func (t *LazyTools) makeFuncMap(
 			ddbKey[k] = &dynamodb.AttributeValue{S: aws.String(v.(string))}
 		}
 		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(t.region),
+			Region: aws.String(t.c.AWS.Region),
 		})
 		if err != nil {
 			return "", err
@@ -141,7 +139,7 @@ func (t *LazyTools) makeFuncMap(
 	// Lookup an EFS file systems description
 	awsDescribeEfsFileSystemId := func(token string) (string, error) {
 		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(t.region),
+			Region: aws.String(t.c.AWS.Region),
 		})
 		if err != nil {
 			return "", err
@@ -160,7 +158,7 @@ func (t *LazyTools) makeFuncMap(
 	// Lookup EFS mount targets
 	awsDescribeEfsMountTargets := func(id string) (*efs.DescribeMountTargetsOutput, error) {
 		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(t.region),
+			Region: aws.String(t.c.AWS.Region),
 		})
 		if err != nil {
 			return nil, err
