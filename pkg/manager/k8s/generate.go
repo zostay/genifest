@@ -35,7 +35,7 @@ func GenerateK8sResources(
 		return fmt.Errorf("k8s.ConfigFiles: %w", err)
 	}
 
-	tools := cfg.Tools(cluster.AWS.Region, cluster)
+	tools := cfg.Tools(cluster)
 
 	kube, err := tools.Kube()
 	if err != nil {
