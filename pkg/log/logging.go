@@ -66,7 +66,7 @@ func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser
 	if lfi, err := os.Stat(logFile); err == nil && !lfi.IsDir() {
 		r, err := os.Open(logFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open log file: %w", err)
+			return nil, fmt.Errorf("failed to open log file for reading: %w", err)
 		}
 
 		lines := bufio.NewScanner(r)
@@ -107,7 +107,11 @@ func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser
 		}
 	}
 
-	return os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open log file for writing: %w", err)
+	}
+	return f, nil
 }
 
 // Line records a log message with the given prefix.
