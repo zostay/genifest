@@ -132,8 +132,8 @@ func InitConfig(cfgFile string) (*Config, error) {
 	return &config, nil
 }
 
-func (c *Config) Tools(cluster *Cluster) *LazyTools {
-	return &LazyTools{cf: c, c: cluster}
+func (c *Config) Tools(cluster *Cluster, noApi bool) *LazyTools {
+	return &LazyTools{cf: c, c: cluster, noApi: noApi}
 }
 
 func makeSet(list []string) map[string]struct{} {

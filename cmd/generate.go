@@ -22,10 +22,12 @@ var (
 	}
 
 	skipSecrets bool
+	disableApi  bool
 )
 
 func init() {
 	generateManifestsCmd.Flags().BoolVar(&skipSecrets, "skip-secrets", true, "skip generating deploy manifests containing secrets")
+	generateManifestsCmd.Flags().BoolVar(&disableApi, "disable-api", false, "prevent kubernetes API calls")
 }
 
 // RunGenerateManifests performs argument parsing and startup, generates
@@ -51,7 +53,7 @@ func RunGenerateManifests(cmd *cobra.Command, args []string) {
 
 	var err error
 	for _, cluster := range c.Clusters {
-		err = k8s.GenerateK8sResources(ctx, c, &cluster, match, skipSecrets)
+		err = k8s.GenerateK8sResources(ctx, c, &cluster, match, skipSecrets, disableApi)
 		if err != nil {
 			err = fmt.Errorf("GenerateManifests: %w", err)
 			break

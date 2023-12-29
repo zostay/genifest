@@ -31,9 +31,15 @@ type LazyTools struct {
 
 	kube *k8s.Client
 	iam  *iam.Client
+
+	noApi bool
 }
 
 func (t *LazyTools) Kube() (*k8s.Client, error) {
+	if t.noApi {
+		return nil, fmt.Errorf("no k8s API access")
+	}
+
 	if t.kube == nil {
 		kube, err := k8s.New(t.c.Context)
 		if err != nil {

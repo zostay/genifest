@@ -21,6 +21,7 @@ func GenerateK8sResources(
 	cluster *config.Cluster,
 	match string,
 	skipSecrets bool,
+	disableApi bool,
 ) error {
 	log.Line("TASK", "Generate deployment resource manifests from source templates.")
 
@@ -35,7 +36,7 @@ func GenerateK8sResources(
 		return fmt.Errorf("k8s.ConfigFiles: %w", err)
 	}
 
-	tools := cfg.Tools(cluster)
+	tools := cfg.Tools(cluster, disableApi)
 
 	kube, err := tools.Kube()
 	if err != nil {
