@@ -75,8 +75,6 @@ func (c *Client) SerializeResource(
 		ns = "default"
 	}
 
-	name := un.GetName()
-
 	var dr dynamic.ResourceInterface
 	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 		dr = c.dyn.Resource(mapping.Resource).Namespace(ns)
@@ -89,7 +87,7 @@ func (c *Client) SerializeResource(
 		return nil, fmt.Errorf("json.Marshal(): %w", err)
 	}
 
-	return &SerializedResource{un, dr, ns, name, gvk, data}, nil
+	return NewSerializedResource(un, dr, data), nil
 }
 
 // ApplyResource serializes a resource and then applies.

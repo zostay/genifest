@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/zostay/genifest/pkg/client/k8s"
 	"github.com/zostay/genifest/pkg/config"
 	"github.com/zostay/genifest/pkg/config/kubecfg"
 	"github.com/zostay/genifest/pkg/log"
@@ -38,9 +41,17 @@ func GenerateK8sResources(
 
 	tools := cfg.Tools(cluster, disableApi)
 
-	kube, err := tools.Kube()
-	if err != nil {
-		return fmt.Errorf("tools.Kube(): %w", err)
+	var serializeResource func(un *unstructured.Unstructured) (*k8s.SerializedResource, error)
+	if disableApi {
+		log.Line("SKIP", "Skipping API calls.")
+		serializeResource = k8scfg.SerializeResource
+	} else {
+		kc, err := tools.Kube()
+		if err != nil {
+			return fmt.Errorf("tools.Kube(): %w", err)
+		}
+
+		serializeResource = kc.SerializeResource
 	}
 
 	allowedKind := cluster.Limits.KindsSet()
@@ -75,7 +86,7 @@ func GenerateK8sResources(
 				continue
 			}
 
-			sr, err := kube.SerializeResource(r.Data)
+			sr, err := serializeResource(r.Data)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("kube.SerializeResource(): %w", err))
 				errsThisTime++

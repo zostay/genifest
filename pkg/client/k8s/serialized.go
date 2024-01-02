@@ -28,6 +28,31 @@ type SerializedResource struct {
 	data []byte
 }
 
+// NewSerializedResource creates a new SerializedResource from an unstructured
+// resource and a dynamic resource interface and the serialized bytes.
+func NewSerializedResource(
+	un *unstructured.Unstructured,
+	dr dynamic.ResourceInterface,
+	data []byte,
+) *SerializedResource {
+	gvk := un.GroupVersionKind()
+
+	ns := un.GetNamespace()
+	if ns == "" {
+		ns = "default"
+	}
+
+	name := un.GetName()
+
+	return &SerializedResource{un, dr, ns, name, gvk, data}
+}
+
+// HasDynamicResource returns true if the serialized resource has a dynamic
+// resource interface set.
+func (s *SerializedResource) HasDynamicResource() bool {
+	return s.dr != nil
+}
+
 // ResourceID returns a resource identifier consisting of
 // "ns/group/version/kind/name" which provides a convenient naming scheme for
 // comparing one revision of a resource to another.
