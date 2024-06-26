@@ -27,7 +27,7 @@ type Client struct {
 func New(context string) (*Client, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("cannot find HOME: %v", err)
+		return nil, fmt.Errorf("cannot find HOME: %w", err)
 	}
 
 	config, restErr := rest.InClusterConfig()
@@ -45,23 +45,23 @@ func New(context string) (*Client, error) {
 		config, localErr = cfg.ClientConfig()
 
 		if localErr != nil {
-			return nil, fmt.Errorf("error loading k8s configs, REST (%v) and local (%v)", restErr, localErr)
+			return nil, fmt.Errorf("error loading k8s configs, REST (%w) and local (%w)", restErr, localErr)
 		}
 	}
 
 	kube, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("error loading typed k8s client: %v", err)
+		return nil, fmt.Errorf("error loading typed k8s client: %w", err)
 	}
 
 	dyn, err := dynamic.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("error loading untyped k8s client: %v", err)
+		return nil, fmt.Errorf("error loading untyped k8s client: %w", err)
 	}
 
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("error loading k8s discoverer: %v", err)
+		return nil, fmt.Errorf("error loading k8s discoverer: %w", err)
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(

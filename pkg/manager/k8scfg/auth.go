@@ -18,7 +18,7 @@ import (
 const (
 	AnnotationRotationEnabled   = "qubling.cloud/key-rotation"
 	AnnotationIAMUser           = "iam.amazonaws.com/user"
-	AnnotationManagedSecretName = "qubling.cloud/managed-secret-name"
+	AnnotationManagedSecretName = "qubling.cloud/managed-secret-name" //nolint:gosec // this is not a secret
 
 	AnnotationValueRotationEnabled = "perform"
 )
@@ -96,7 +96,6 @@ func rewriteAuth(
 	replaceSecret := false
 	res := make([]k8scfg.ProcessedResource, 0, 2)
 	if !rewriteOpt.SkipSecrets {
-
 		iamc, err := tools.IAM()
 		if err != nil {
 			return nil, fmt.Errorf("tools.IAM(): %w", err)
@@ -114,13 +113,14 @@ func rewriteAuth(
 		}
 
 		// check to see if the secret needs rotation and replacement
-		if userKey == "" {
+		switch {
+		case userKey == "":
 			log.Line("ACCESSKEY", "No API key found.")
 			replaceSecret = true
-		} else if time.Since(keyDate) > AccessKeyLifetime {
+		case time.Since(keyDate) > AccessKeyLifetime:
 			log.Linef("ACCESSKEY", "API key is too old (%v).", keyDate)
 			replaceSecret = true
-		} else {
+		default:
 			ak, err := kube.CurrentAccessKeyFromSecrets(ctx, ns, name)
 			if err != nil {
 				return nil, fmt.Errorf("kube.CurrentAccessKeyFromSecrets(): %w", err)

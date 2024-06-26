@@ -61,7 +61,7 @@ func GhostSecret(name string) (string, error) {
 	return s.Password(), nil
 }
 
-// KubeSeal runs the kubeseal command to output a raw sealed secret
+// KubeSeal runs the kubeseal command to output a raw sealed secret.
 func KubeSeal(ns, name, secret string) (string, error) {
 	cmd := exec.Command(
 		"kubeseal", "--raw",
@@ -93,7 +93,7 @@ func MakeMatch(match string) string {
 	}
 
 	if filepath.Ext(match) == "" {
-		match = match + ".yaml"
+		match += ".yaml"
 	}
 
 	return match

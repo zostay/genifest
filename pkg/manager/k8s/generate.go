@@ -101,22 +101,24 @@ func GenerateK8sResources(
 			}
 		}
 
-		if skipped > 0 || len(resources) == 0 {
-			if skipped == len(resources) {
+		switch {
+		case skipped > 0 || len(resources) == 0:
+			switch {
+			case skipped == len(resources):
 				if errsThisTime > 0 {
 					fmt.Println("skipped with ERRORS (see below).")
 				} else {
 					fmt.Println("skipped.")
 				}
-			} else if errsThisTime > 0 {
+			case errsThisTime > 0:
 				fmt.Printf("done with ERRORS (see below), skipped %d of %d.\n",
 					skipped, len(resources))
-			} else {
+			default:
 				fmt.Printf("done, skipped %d of %d.\n", skipped, len(resources))
 			}
-		} else if errsThisTime > 0 {
+		case errsThisTime > 0:
 			fmt.Println("ERRORS (see below).")
-		} else {
+		default:
 			fmt.Println("done.")
 		}
 	}

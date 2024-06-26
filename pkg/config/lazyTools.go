@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -187,7 +186,7 @@ func (t *LazyTools) makeFuncMap(
 			return "", err
 		}
 
-		bs, err := ioutil.ReadFile(filepath.Join(home, ".ssh", name))
+		bs, err := os.ReadFile(filepath.Join(home, ".ssh", name))
 		if err != nil {
 			return "", err
 		}
@@ -206,7 +205,7 @@ func (t *LazyTools) makeFuncMap(
 
 	file := func(app, path string) (string, error) {
 		p := filepath.Join(t.cf.CloudHome, "files", app+path)
-		data, err := ioutil.ReadFile(p)
+		data, err := os.ReadFile(p)
 		log.LineBytes("EMBED", data)
 		if err != nil {
 			return "", err

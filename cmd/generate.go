@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	// generateManifestsCmd is the command configuration for generate-manifests
+	// generateManifestsCmd is the command configuration for generate-manifests.
 	generateManifestsCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Generate deployment manifests from template source for gitops",

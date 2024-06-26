@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// LogFile is the default location of the current log file
+	// LogFile is the default location of the current log file.
 	LogFile = "log/genifest.log"
 )
 
@@ -49,7 +49,7 @@ func Setup(cloudHome, logPath string, useStderr, forceRotate bool) error {
 }
 
 // used to match the date on the first line of the log file to test for the need
-// to rotate
+// to rotate.
 var dateMatch = regexp.MustCompile(`(\d{4}-\d{2}-\d{2})`)
 
 // RotateAndOpenLogfile tests to see if the first line of the log is from a

@@ -11,7 +11,7 @@ import (
 // be able to incorporate kustomize to do much of it and specialized annotations
 // to do the rest.
 
-// TemplateConfigFile takes the given template string and templates teh file as
+// TemplateConfigFile takes the given template string and templates the file as
 // a configuration. It returns the output of the templating.
 func (c *Client) TemplateConfigFile(name string, data []byte) (string, error) {
 	tmpl := template.New(name)

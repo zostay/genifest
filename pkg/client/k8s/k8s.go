@@ -16,7 +16,7 @@ const (
 	AwsAccessKeyId  = "aws_access_key_id"
 	SecretAccessKey = "secret_access_key"
 
-	AnnotationManagedSecret = "qubling.cloud/managed-secret"
+	AnnotationManagedSecret = "qubling.cloud/managed-secret" //nolint:gosec // this is not a secret
 )
 
 // GetSecret will the secret data for the identified secret.
