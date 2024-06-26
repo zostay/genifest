@@ -11,7 +11,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
+	github.com/stretchr/testify v1.9.0
 	github.com/zostay/ghost v0.4.2
+	github.com/zostay/go-std v0.8.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
@@ -59,6 +61,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/zenity v0.10.10 // indirect
 	github.com/oklog/ulid/v2 v2.1.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/randall77/makefat v0.0.0-20210315173500-7ddd0e42c844 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
@@ -71,7 +74,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tobischo/gokeepasslib/v3 v3.5.1 // indirect
 	github.com/zostay/fssafe v0.1.1 // indirect
-	github.com/zostay/go-std v0.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.16.0 // indirect

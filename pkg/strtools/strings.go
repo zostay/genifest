@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zostay/ghost/pkg/secrets"
-
 	"github.com/zostay/ghost/pkg/config"
 	"github.com/zostay/ghost/pkg/keeper"
+	"github.com/zostay/ghost/pkg/secrets"
+	zstrings "github.com/zostay/go-std/strings"
 
 	_ "github.com/zostay/ghost/pkg/secrets/cache"
 	_ "github.com/zostay/ghost/pkg/secrets/http"
@@ -21,16 +21,7 @@ import (
 )
 
 func IndentSpaces(n int, s string) string {
-	var out strings.Builder
-	first := true
-	for _, line := range strings.SplitAfter(s, "\n") {
-		if !first {
-			fmt.Fprint(&out, strings.Repeat(" ", n))
-		}
-		fmt.Fprint(&out, line)
-		first = false
-	}
-	return out.String()
+	return zstrings.Indent(s, strings.Repeat(" ", n))
 }
 
 func GhostSecret(name string) (string, error) {
