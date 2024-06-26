@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"regexp"
@@ -11,6 +12,9 @@ import (
 	"github.com/zostay/genifest/pkg/config"
 	"github.com/zostay/genifest/pkg/log"
 )
+
+//go:embed version.txt
+var Version string
 
 var (
 	logStderr   bool
@@ -23,6 +27,14 @@ var (
 		Use:   "genifest",
 		Short: "Prepare the configuration of the kubenetes cluster from templates",
 	}
+
+	printVersionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Print the version of the genifest tool",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("genifest v%s\n", Version)
+		},
+	}
 )
 
 func init() {
@@ -32,7 +44,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "name of the configuration file to use")
 	rootCmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "only work with the cluster with this name")
 
-	rootCmd.AddCommand(generateManifestsCmd)
+	rootCmd.AddCommand(generateManifestsCmd, printVersionCmd)
 }
 
 func initConfig() {
