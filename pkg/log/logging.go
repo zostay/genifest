@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	// LogFile is the default location of the current log file.
-	LogFile = "log/genifest.log"
+	// File is the default location of the current log file.
+	File = "log/genifest.log"
 )
 
 var (
@@ -59,7 +59,7 @@ var dateMatch = regexp.MustCompile(`(\d{4}-\d{2}-\d{2})`)
 // log file if one does not exist following rotation.
 func RotateAndOpenLogfile(cloudHome, logPath string, force bool) (io.WriteCloser, error) {
 	if logPath == "" {
-		logPath = LogFile
+		logPath = File
 	}
 
 	logFile := filepath.Join(cloudHome, logPath)
