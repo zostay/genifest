@@ -2,6 +2,8 @@
 
 This is a tool for generating kubernetes manifests that I use to deploy my applications. It is public primarily to make it easy for projects using it to grab and install it.
 
+I'm using it more and more, so I plan to expand the documentation here soon.
+
 # LICENSE
 
 Copyright © 2023 Qubling LLC
