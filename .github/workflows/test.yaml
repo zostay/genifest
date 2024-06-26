@@ -1,0 +1,25 @@
+---
+name: Test Application
+on:
+  push:
+
+jobs:
+  unit-testing:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Setup golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+          args: --timeout=5m
+      - name: Install dependencies
+        run: go mod download
+      - name: Run tests
+        run: go test ./...

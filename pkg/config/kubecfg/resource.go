@@ -63,8 +63,6 @@ func (r *Resource) ProcessedResource() ProcessedResource {
 }
 
 var (
-	spaceSplit = regexp.MustCompile(`\s+`)
-
 	emptyLine = regexp.MustCompile(`^\s*(?:#.*)?$`)
 )
 
@@ -158,7 +156,7 @@ func (c *Client) WriteResourceFile(
 		return fmt.Errorf("os.MkdirAll(%q): %w", configDir, err)
 	}
 
-	err = os.WriteFile(configPath, bs, 0644)
+	err = os.WriteFile(configPath, bs, 0644) //nolint:gosec // 0644 is fine
 	if err != nil {
 		return fmt.Errorf("os.WriteFile(%q): %w", configPath, err)
 	}

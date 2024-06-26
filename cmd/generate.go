@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	// generateManifestsCmd is the command configuration for generate-manifests
+	// generateManifestsCmd is the command configuration for generate-manifests.
 	generateManifestsCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Generate deployment manifests from template source for gitops",
@@ -33,7 +33,7 @@ func init() {
 // RunGenerateManifests performs argument parsing and startup, generates
 // deployment manifests from source templates, and reports any errors that
 // occur.
-func RunGenerateManifests(cmd *cobra.Command, args []string) {
+func RunGenerateManifests(_ *cobra.Command, args []string) {
 	match := ""
 	if len(args) > 0 {
 		match = args[0]

@@ -12,7 +12,6 @@ const MaxAccessKeys = 2
 
 var (
 	ErrNoOldKey     = fmt.Errorf("no old key")
-	ErrNoKey        = fmt.Errorf("no key")
 	ErrRecentlyUsed = fmt.Errorf("recently used")
 )
 
