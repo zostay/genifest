@@ -53,12 +53,12 @@ func (t *LazyTools) Kube() (*k8s.Client, error) {
 
 func (t *LazyTools) IAM() (*iam.Client, error) {
 	if t.iam == nil {
-		iam, err := iam.New()
+		client, err := iam.New()
 		if err != nil {
 			return nil, err
 		}
 
-		t.iam = iam
+		t.iam = client
 	}
 
 	return t.iam, nil
