@@ -56,4 +56,5 @@ linters-settings:
           - "$test"
         allow:
           - "$gostd"
+          - github.com/zostay
           - "github.com/stretchr/testify/assert"

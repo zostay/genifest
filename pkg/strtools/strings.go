@@ -1,4 +1,4 @@
-package cfgstr
+package strtools
 
 import (
 	"context"
