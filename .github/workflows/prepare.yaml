@@ -41,3 +41,18 @@ jobs:
           echo "Release Notes Will be..."
           echo "========================"
           cat release-notes.md
+      - name: Linux 64-bit Build
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+      - name: Apple Silicon Build
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+      - name: Apple Intel Build
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
