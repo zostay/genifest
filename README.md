@@ -4,6 +4,20 @@ This is a tool for generating kubernetes manifests that I use to deploy my appli
 
 I'm using it more and more, so I plan to expand the documentation here soon.
 
+## Installation
+
+To install the tool, run the following command:
+
+```bash
+curl -L https://raw.githubusercontent.com/zostay/genifest/master/tools/install.sh | sh
+```
+
+Or to install from source, you'll need go 1.22 installed:
+
+```bash
+go install github.com/zostay/genifest/cmd/genifest@latest
+```
+
 # LICENSE
 
 Copyright © 2023 Qubling LLC
