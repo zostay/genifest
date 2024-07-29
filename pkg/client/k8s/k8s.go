@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appcorev1 "k8s.io/client-go/applyconfigurations/core/v1"
 
-	cfgstr "github.com/zostay/genifest/pkg/strtools"
+	cfgstr "github.com/zostay/genifest/pkg/tmpltools"
 )
 
 const (

@@ -79,9 +79,9 @@ type Limits struct {
 
 // Ghost defines the ghost configuration to use.
 type Ghost struct {
-	// Config is the path to the ghost configuration file to use (default is the
+	// ConfigFile is the path to the ghost configuration file to use (default is the
 	// user's default ghost configuration file).
-	Config string
+	ConfigFile string `mapstructure:"config_file"`
 
 	// Keeper is the name of the keeper to use (default is the master keeper
 	// defined in the ghost configuration file)..

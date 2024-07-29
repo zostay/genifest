@@ -1,4 +1,4 @@
-package strtools
+package tmpltools
 
 import (
 	"context"

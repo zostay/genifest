@@ -6,11 +6,11 @@ import (
 	"text/template"
 
 	"github.com/zostay/genifest/pkg/client/aws/iam"
+	"github.com/zostay/genifest/pkg/tmpltools"
 
 	"github.com/zostay/genifest/pkg/client/k8s"
 
 	k8scfg "github.com/zostay/genifest/pkg/config/kubecfg"
-	cfgstr "github.com/zostay/genifest/pkg/strtools"
 )
 
 type LazyTools struct {
@@ -66,31 +66,35 @@ func (t *LazyTools) makeFuncMap(
 	rmgr *k8scfg.Client,
 ) template.FuncMap {
 
-	aws := cfgstr.AWS{
+	aws := tmpltools.AWS{
 		Region: t.c.AWS.Region,
 	}
 
-	ghost := cfgstr.Ghost{
+	ghost := tmpltools.Ghost{
 		Context:    ctx,
 		Config:     t.c.Ghost.ConfigFile,
 		KeeperName: t.c.Ghost.Keeper,
 	}
 
 	file := func(app, path string) (string, error) {
-		return cfgstr.File(t.cf.CloudHome, app, path)
+		return tmpltools.File(t.cf.CloudHome, app, path)
+	}
+
+	applyTemplate := func(name, data string) (string, error) {
+		return rmgr.TemplateConfigFile(name, []byte(data))
 	}
 
 	return template.FuncMap{
-		"tomlize":                    cfgstr.Tomlize,
+		"tomlize":                    tmpltools.Tomlize,
 		"secretDict":                 ghost.SecretDict,
 		"ddbLookup":                  aws.DDBLookup,
 		"awsDescribeEfsFileSystemId": aws.DescribeEfsFileSystemId,
 		"awsDescribeEfsMountTargets": aws.DescribeEfsMountTargets,
-		"sshKey":                     cfgstr.SSHKey,
-		"sshKnownHost":               cfgstr.SSHKnownHost,
+		"sshKey":                     tmpltools.SSHKey,
+		"sshKnownHost":               tmpltools.SSHKnownHost,
 		"file":                       file,
-		"applyTemplate":              rmgr.TemplateConfigFile,
+		"applyTemplate":              applyTemplate,
 		"zostaySecret":               ghost.Secret,
-		"kubeseal":                   cfgstr.KubeSeal,
+		"kubeseal":                   tmpltools.KubeSeal,
 	}
 }
