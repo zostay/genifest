@@ -11,6 +11,7 @@ import (
 	_ "github.com/zostay/ghost/pkg/secrets/human"
 	_ "github.com/zostay/ghost/pkg/secrets/keepass"
 	_ "github.com/zostay/ghost/pkg/secrets/lastpass"
+	_ "github.com/zostay/ghost/pkg/secrets/onepassword"
 	_ "github.com/zostay/ghost/pkg/secrets/policy"
 )
 
