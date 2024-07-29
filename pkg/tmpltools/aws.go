@@ -55,7 +55,7 @@ func (a AWS) DDBLookup(table, field string, key map[string]any) (string, error) 
 }
 
 // DescribeEfsFileSystemId returns a function that lookups up an EFS file
-// systems description
+// systems description.
 func (a AWS) DescribeEfsFileSystemId(token string) (string, error) {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(a.Region),
@@ -74,7 +74,7 @@ func (a AWS) DescribeEfsFileSystemId(token string) (string, error) {
 	return aws.StringValue(out.FileSystems[0].FileSystemId), nil
 }
 
-// DescribeEfsMountTargets Lookup EFS mount targets
+// DescribeEfsMountTargets Lookup EFS mount targets.
 func (a AWS) DescribeEfsMountTargets(id string) (*efs.DescribeMountTargetsOutput, error) {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(a.Region),

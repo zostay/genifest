@@ -65,7 +65,6 @@ func (t *LazyTools) makeFuncMap(
 	ctx context.Context,
 	rmgr *k8scfg.Client,
 ) template.FuncMap {
-
 	aws := tmpltools.AWS{
 		Region: t.c.AWS.Region,
 	}
