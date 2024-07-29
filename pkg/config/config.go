@@ -53,6 +53,9 @@ type Cluster struct {
 	// Limits is a set of allowlists that define which resources genifest
 	// will attempt to manage.
 	Limits Limits
+
+	// Ghost is the ghost configuration to use.
+	Ghost Ghost
 }
 
 // Limits defines the allowlists and blocklists that identify resources the
@@ -72,6 +75,17 @@ type Limits struct {
 	// tool will not attempt to manage.
 	NotResourceFiles        []string `mapstructure:"not_resources"`
 	notResourceFilesMatches []string
+}
+
+// Ghost defines the ghost configuration to use.
+type Ghost struct {
+	// Config is the path to the ghost configuration file to use (default is the
+	// user's default ghost configuration file).
+	Config string
+
+	// Keeper is the name of the keeper to use (default is the master keeper
+	// defined in the ghost configuration file)..
+	Keeper string
 }
 
 // AWS defines AWS specific configuration.

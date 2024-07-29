@@ -55,18 +55,25 @@ func (t *LazyTools) IAM() (*iam.Client, error) {
 
 func (t *LazyTools) ResMgr(ctx context.Context) (*k8scfg.Client, error) {
 	rmgr := k8scfg.New(t.cf.CloudHome)
-	rmgr.SetFuncMap(t.makeFuncMap(rmgr))
+	rmgr.SetFuncMap(t.makeFuncMap(ctx, rmgr))
 	return rmgr, nil
 }
 
 // MakeFuncMap builds a template function map that is used while templating
 // resource and configuration files.
 func (t *LazyTools) makeFuncMap(
+	ctx context.Context,
 	rmgr *k8scfg.Client,
 ) template.FuncMap {
 
 	aws := cfgstr.AWS{
 		Region: t.c.AWS.Region,
+	}
+
+	ghost := cfgstr.Ghost{
+		Context:    ctx,
+		Config:     t.c.Ghost.ConfigFile,
+		KeeperName: t.c.Ghost.Keeper,
 	}
 
 	file := func(app, path string) (string, error) {
@@ -75,7 +82,7 @@ func (t *LazyTools) makeFuncMap(
 
 	return template.FuncMap{
 		"tomlize":                    cfgstr.Tomlize,
-		"secretDict":                 cfgstr.SecretDict,
+		"secretDict":                 ghost.SecretDict,
 		"ddbLookup":                  aws.DDBLookup,
 		"awsDescribeEfsFileSystemId": aws.DescribeEfsFileSystemId,
 		"awsDescribeEfsMountTargets": aws.DescribeEfsMountTargets,
@@ -83,7 +90,7 @@ func (t *LazyTools) makeFuncMap(
 		"sshKnownHost":               cfgstr.SSHKnownHost,
 		"file":                       file,
 		"applyTemplate":              rmgr.TemplateConfigFile,
-		"zostaySecret":               cfgstr.GhostSecret,
+		"zostaySecret":               ghost.Secret,
 		"kubeseal":                   cfgstr.KubeSeal,
 	}
 }

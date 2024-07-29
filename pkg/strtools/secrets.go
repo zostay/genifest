@@ -11,8 +11,42 @@ import (
 	"github.com/zostay/ghost/pkg/secrets"
 )
 
+type Ghost struct {
+	Config     string
+	KeeperName string
+	Context    context.Context
+
+	k secrets.Keeper
+}
+
+func (g *Ghost) initialize() error {
+	if g.k != nil {
+		return nil
+	}
+
+	c := config.Instance()
+	err := c.Load(g.Config)
+	if err != nil {
+		return err
+	}
+
+	keeperName := g.KeeperName
+	if keeperName == "" {
+		keeperName = c.MasterKeeper
+	}
+
+	ctx := keeper.WithBuilder(context.Background(), c)
+	k, err := keeper.Build(ctx, keeperName)
+	if err != nil {
+		return err
+	}
+
+	g.k = k
+	return nil
+}
+
 // SecretDict will generate a map of key => secret pairs, where the secret is looked up.
-func SecretDict(sd ...string) (map[string]any, error) {
+func (g *Ghost) SecretDict(sd ...string) (map[string]any, error) {
 	var k string
 	dict := make(map[string]any)
 	for i, v := range sd {
@@ -20,7 +54,7 @@ func SecretDict(sd ...string) (map[string]any, error) {
 			k = v
 		} else {
 			var err error
-			dict[k], err = GhostSecret(v)
+			dict[k], err = g.Secret(v)
 			if err != nil {
 				return nil, err
 			}
@@ -29,20 +63,17 @@ func SecretDict(sd ...string) (map[string]any, error) {
 	return dict, nil
 }
 
-func GhostSecret(name string) (string, error) {
-	c := config.Instance()
-	err := c.Load("")
-	if err != nil {
+func (g *Ghost) Secret(name string) (string, error) {
+	if err := g.initialize(); err != nil {
 		return "", err
 	}
 
-	ctx := keeper.WithBuilder(context.Background(), c)
-	k, err := keeper.Build(ctx, c.MasterKeeper)
-	if err != nil {
-		return "", err
+	ctx := g.Context
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	ss, err := k.GetSecretsByName(ctx, name)
+	ss, err := g.k.GetSecretsByName(ctx, name)
 	if err != nil {
 		return "", err
 	}
