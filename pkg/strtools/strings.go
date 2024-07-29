@@ -1,15 +1,9 @@
 package strtools
 
 import (
-	"context"
-	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/zostay/ghost/pkg/config"
-	"github.com/zostay/ghost/pkg/keeper"
-	"github.com/zostay/ghost/pkg/secrets"
 	zstrings "github.com/zostay/go-std/strings"
 
 	_ "github.com/zostay/ghost/pkg/secrets/cache"
@@ -22,56 +16,6 @@ import (
 
 func IndentSpaces(n int, s string) string {
 	return zstrings.Indent(s, strings.Repeat(" ", n))
-}
-
-func GhostSecret(name string) (string, error) {
-	c := config.Instance()
-	err := c.Load("")
-	if err != nil {
-		return "", err
-	}
-
-	ctx := keeper.WithBuilder(context.Background(), c)
-	k, err := keeper.Build(ctx, c.MasterKeeper)
-	if err != nil {
-		return "", err
-	}
-
-	ss, err := k.GetSecretsByName(ctx, name)
-	if err != nil {
-		return "", err
-	}
-
-	var s secrets.Secret
-	if len(ss) == 1 {
-		s = ss[0]
-	} else {
-		return "", fmt.Errorf("wrong number of secrets %d found for secret named %q", len(ss), name)
-	}
-
-	return s.Password(), nil
-}
-
-// KubeSeal runs the kubeseal command to output a raw sealed secret.
-func KubeSeal(ns, name, secret string) (string, error) {
-	cmd := exec.Command(
-		"kubeseal", "--raw",
-		"--namespace", ns,
-		"--name", name,
-		"--from-file", "/dev/stdin",
-	)
-
-	cmd.Stdin = strings.NewReader(secret)
-
-	sealed := new(strings.Builder)
-	cmd.Stdout = sealed
-
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-
-	return sealed.String(), nil
 }
 
 func MakeMatch(match string) string {

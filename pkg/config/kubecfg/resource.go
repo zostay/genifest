@@ -68,8 +68,16 @@ var (
 
 // New returns a client for reading kubernetes configuration files and
 // processing them.
-func New(cloudHome string, funcMap template.FuncMap) *Client {
-	return &Client{cloudHome, funcMap}
+func New(cloudHome string) *Client {
+	return &Client{cloudHome: cloudHome}
+}
+
+// SetFuncMap sets the function map associated with the Client to the provided
+// map.
+func (c *Client) SetFuncMap(
+	funcMap template.FuncMap,
+) {
+	c.funcMap = funcMap
 }
 
 // SetFunc modifies the function map associated with the Client to replace or
