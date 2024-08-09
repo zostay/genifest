@@ -1,3 +1,7 @@
+## WIP  TBD
+
+ * Upgraded to Ghost v0.6.2
+
 ## v0.1.1  2024-08-09
 
  * Fix a bug in `file` that caused it to files when `files_dir` was set.
