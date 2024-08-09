@@ -1,3 +1,7 @@
+## v0.1.1  2024-08-09
+
+ * Fix a bug in `file` that caused it to files when `files_dir` was set.
+
 ## v0.1.0  2024-08-09
 
  * Added the `files_dir` setting to cluster configuration to set the location of the directory used to load files when calling the `files` function when templating.
