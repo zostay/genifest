@@ -11,6 +11,7 @@ import (
 	"github.com/zostay/genifest/pkg/client/k8s"
 
 	k8scfg "github.com/zostay/genifest/pkg/config/kubecfg"
+	k8smgr "github.com/zostay/genifest/pkg/manager/k8scfg"
 )
 
 type LazyTools struct {
@@ -53,9 +54,9 @@ func (t *LazyTools) IAM() (*iam.Client, error) {
 	return t.iam, nil
 }
 
-func (t *LazyTools) ResMgr(ctx context.Context) (*k8scfg.Client, error) {
+func (t *LazyTools) ResMgr(ctx context.Context, skipSecrets bool) (*k8scfg.Client, error) {
 	rmgr := k8scfg.New(t.cf.CloudHome)
-	rmgr.SetFuncMap(t.makeFuncMap(ctx, rmgr))
+	rmgr.SetFuncMap(t.makeFuncMap(ctx, rmgr, skipSecrets))
 	return rmgr, nil
 }
 
@@ -64,6 +65,7 @@ func (t *LazyTools) ResMgr(ctx context.Context) (*k8scfg.Client, error) {
 func (t *LazyTools) makeFuncMap(
 	ctx context.Context,
 	rmgr *k8scfg.Client,
+	skipSecrets bool,
 ) template.FuncMap {
 	aws := tmpltools.AWS{
 		Region: t.c.AWS.Region,
@@ -83,7 +85,7 @@ func (t *LazyTools) makeFuncMap(
 		return rmgr.TemplateConfigFile(name, []byte(data))
 	}
 
-	return template.FuncMap{
+	fm := template.FuncMap{
 		"tomlize":                    tmpltools.Tomlize,
 		"secretDict":                 ghost.SecretDict,
 		"ddbLookup":                  aws.DDBLookup,
@@ -96,4 +98,15 @@ func (t *LazyTools) makeFuncMap(
 		"zostaySecret":               ghost.Secret,
 		"kubeseal":                   tmpltools.KubeSeal,
 	}
+
+	if skipSecrets {
+		secretsDie := func(_ ...interface{}) (string, error) {
+			return "", k8smgr.ErrSecret
+		}
+		fm["kubeseal"] = secretsDie
+		fm["sshKey"] = secretsDie
+		fm["zostaySecret"] = secretsDie
+	}
+
+	return fm
 }

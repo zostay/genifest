@@ -11,7 +11,7 @@ import (
 type Tools interface {
 	Kube() (*k8s.Client, error)
 
-	ResMgr(context.Context) (*k8scfg.Client, error)
+	ResMgr(context.Context, bool) (*k8scfg.Client, error)
 
 	IAM() (*iam.Client, error)
 }

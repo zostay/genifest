@@ -28,18 +28,9 @@ func ProcessResourceFile(
 	config string,
 	skipSecrets bool,
 ) ([]k8scfg.Resource, error) {
-	c, err := tools.ResMgr(ctx)
+	c, err := tools.ResMgr(ctx, skipSecrets)
 	if err != nil {
 		return nil, fmt.Errorf("tools.ResMgr(): %w", err)
-	}
-
-	if skipSecrets {
-		secretsDie := func(_ ...interface{}) (string, error) {
-			return "", ErrSecret
-		}
-		c.SetFunc("kubeseal", secretsDie)
-		c.SetFunc("sshKey", secretsDie)
-		c.SetFunc("zostaySecret", secretsDie)
 	}
 
 	cfs, err := c.ReadResourceFile(config)
