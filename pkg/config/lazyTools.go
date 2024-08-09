@@ -86,6 +86,8 @@ func (t *LazyTools) makeFuncMap(
 		} else {
 			filesRoot = filepath.Join(filesRoot, filesDir)
 		}
+	} else {
+		filesRoot = filepath.Join(filesRoot, "files")
 	}
 
 	file := func(app, path string) (string, error) {
