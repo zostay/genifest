@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/zostay/genifest/pkg/client/aws/iam"
@@ -77,8 +79,17 @@ func (t *LazyTools) makeFuncMap(
 		KeeperName: t.c.Ghost.Keeper,
 	}
 
+	filesRoot := t.cf.CloudHome
+	if filesDir := t.c.FilesDir; filesDir != "" {
+		if strings.HasPrefix(filesDir, "/") {
+			filesRoot = filesDir
+		} else {
+			filesRoot = filepath.Join(filesRoot, filesDir)
+		}
+	}
+
 	file := func(app, path string) (string, error) {
-		return tmpltools.File(t.cf.CloudHome, app, path)
+		return tmpltools.File(filesRoot, app, path)
 	}
 
 	applyTemplate := func(name, data string) (string, error) {
