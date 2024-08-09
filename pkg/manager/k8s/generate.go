@@ -93,7 +93,7 @@ func GenerateK8sResources(
 				continue
 			}
 
-			err = k8scfg.SaveResourceFile(ctx, tools, appDir, sr)
+			err = k8scfg.SaveResourceFile(ctx, tools, appDir, sr, skipSecrets)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("k8scfg.SaveResourceFile(): %w", err))
 				errsThisTime++

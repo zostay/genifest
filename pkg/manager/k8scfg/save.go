@@ -15,8 +15,9 @@ func SaveResourceFile(
 	tools Tools,
 	saveDir string,
 	sr *k8s.SerializedResource,
+	skipSecrets bool,
 ) error {
-	c, err := tools.ResMgr(ctx)
+	c, err := tools.ResMgr(ctx, skipSecrets)
 	if err != nil {
 		return fmt.Errorf("tools.ResMgr(): %w", err)
 	}
