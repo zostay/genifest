@@ -1,4 +1,4 @@
-## WIP  TBD
+## v0.1.2  2024-08-09
 
  * Upgraded to Ghost v0.6.2
 
