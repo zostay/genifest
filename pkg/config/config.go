@@ -28,6 +28,10 @@ type Cluster struct {
 	// which are applied to the cluster.
 	KubeDir string `mapstructure:"kube_dir"`
 
+	// FilesDir tells genifiest where to locate files that are loaded when
+	// templating using the files template function.
+	FilesDir string `mapstructure:"files_dir"`
+
 	// SourceDir tells genifest where to find the source files to use for
 	// generating the deployment resources.
 	SourceDir string `mapstructure:"source_dir"`
