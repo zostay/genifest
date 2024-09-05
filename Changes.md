@@ -1,4 +1,4 @@
-## WIP  TBD
+## v0.1.3  2024-09-05
 
  * Adding Arm64 builds for Linux.
 
