@@ -15,7 +15,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
 	github.com/zostay/ghost v0.6.2
-	github.com/zostay/go-std v0.8.0
+	github.com/zostay/go-std v0.9.1
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
