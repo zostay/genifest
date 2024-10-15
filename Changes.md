@@ -1,3 +1,7 @@
+## v0.1.4  2024-10-15
+
+ * Upgraded to go-std v0.9.1 to fix a bug in string indents.
+
 ## v0.1.3  2024-09-05
 
  * Adding Arm64 builds for Linux.
