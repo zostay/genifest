@@ -6,7 +6,7 @@ toolchain go1.22.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/aws/aws-sdk-go v1.49.9
+	github.com/aws/aws-sdk-go v1.55.6
 	github.com/bitnami-labs/sealed-secrets v0.24.5
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/kr/pretty v0.3.1
@@ -25,8 +25,6 @@ require (
 	github.com/1Password/connect-sdk-go v1.5.3 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
-	github.com/aead/argon2 v0.0.0-20180111183520-a87724528b07 // indirect
-	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/ansd/lastpass-go v0.4.0 // indirect
@@ -97,7 +95,6 @@ require (
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
