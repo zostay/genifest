@@ -10,7 +10,7 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.24.5
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/kr/pretty v0.3.1
-	github.com/pelletier/go-toml/v2 v2.1.0
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.10.0
