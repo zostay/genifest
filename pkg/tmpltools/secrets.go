@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/zostay/genifest/pkg/log"
 	"github.com/zostay/ghost/pkg/config"
 	"github.com/zostay/ghost/pkg/keeper"
 	"github.com/zostay/ghost/pkg/secrets"
@@ -90,6 +91,7 @@ func (g *Ghost) Secret(name string) (string, error) {
 
 // KubeSeal runs the kubeseal command to output a raw sealed secret.
 func KubeSeal(ns, name, secret string) (string, error) {
+	// TODO This doesn't select context, but should.
 	cmd := exec.Command(
 		"kubeseal", "--raw",
 		"--namespace", ns,
@@ -102,8 +104,12 @@ func KubeSeal(ns, name, secret string) (string, error) {
 	sealed := new(strings.Builder)
 	cmd.Stdout = sealed
 
+	errors := new(strings.Builder)
+	cmd.Stderr = errors
+
 	err := cmd.Run()
 	if err != nil {
+		log.LineAndSay("STDERR", errors.String())
 		return "", err
 	}
 
