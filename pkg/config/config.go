@@ -130,7 +130,7 @@ func InitConfig(cfgFile string) (*Config, error) {
 	viper.SetEnvPrefix("genifest")
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
-		return &config, fmt.Errorf("Error reading in clusters.yaml: %w", err)
+		return &config, fmt.Errorf("error reading in clusters.yaml: %w", err)
 	}
 
 	// separate file for secret config in production
