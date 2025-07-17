@@ -1,3 +1,12 @@
+## v0.2.0  2025-07-17
+
+ * The ddbLookup function in templates now supports `BOOL` fields and also nested fields with `M` (e.g., `Counter.M.prod.N`).
+ * Updated github.com/bmatcuk/doublestar/v4 to v4.9.0
+ * Updated k8s.io/apimachinery to v0.33.2
+ * Updated k8s.io/client-go to v0.33.2
+ * Updated github.com/spf13/cobra to v1.9.1
+ * Updated github.com/bitnami/labs to v0.30.0
+
 ## v0.1.4  2024-10-15
 
  * Upgraded to go-std v0.9.1 to fix a bug in string indents.
