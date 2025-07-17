@@ -15,7 +15,7 @@ require (
 	github.com/zostay/ghost v0.6.2
 	github.com/zostay/go-std v0.9.1
 	k8s.io/api v0.33.2
-	k8s.io/apimachinery v0.33.2
+	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.2
 )
 
