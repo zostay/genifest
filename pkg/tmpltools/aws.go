@@ -14,6 +14,44 @@ type AWS struct {
 	Region string
 }
 
+var scalarTypes = map[string]struct{}{
+	"N":    {},
+	"S":    {},
+	"BOOL": {},
+}
+
+func lookupAttributeValue(field string, val map[string]*dynamodb.AttributeValue) (string, error) {
+	parts := strings.SplitN(field, ".", 3)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("%s is not a valid dynamodb attribute name must be of a form similar to name.S or name.M.name.N", field)
+	}
+
+	var next string
+	name, fieldType := parts[0], parts[1]
+	if len(parts) == 3 {
+		next = parts[2]
+	}
+
+	if _, isScalar := scalarTypes[fieldType]; isScalar && next != "" {
+		return "", fmt.Errorf("field expression %q has a nested value that does not make sense", field)
+	}
+
+	nextVal := val[name]
+	switch fieldType {
+	case "N":
+		return aws.StringValue(nextVal.N), nil
+	case "S":
+		return aws.StringValue(nextVal.S), nil
+	case "BOOL":
+		bv := aws.BoolValue(nextVal.BOOL)
+		return fmt.Sprintf("%t", bv), nil
+	case "M":
+		return lookupAttributeValue(next, nextVal.M)
+	default:
+		return "", fmt.Errorf("field expression %q has an unsupported value type (only N, S, BOOL, and M are supported)", field)
+	}
+}
+
 // DDBLookup returns a function that performs a simple map lookup function in
 // DynamoDB.
 func (a AWS) DDBLookup(table, field string, key map[string]any) (string, error) {
@@ -37,21 +75,7 @@ func (a AWS) DDBLookup(table, field string, key map[string]any) (string, error) 
 		return "", err
 	}
 
-	fps := strings.SplitN(field, ".", 2)
-	fieldName, fieldType := fps[0], fps[1]
-
-	if out.Item == nil {
-		return "", fmt.Errorf("no counter named %s", key["Project"])
-	}
-
-	switch fieldType {
-	case "S":
-		return aws.StringValue(out.Item[fieldName].S), nil
-	case "N":
-		return aws.StringValue(out.Item[fieldName].N), nil
-	default:
-		return "", fmt.Errorf("unknown field type %q", fieldType)
-	}
+	return lookupAttributeValue(field, out.Item)
 }
 
 // DescribeEfsFileSystemId returns a function that lookups up an EFS file
