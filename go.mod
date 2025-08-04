@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/aws/aws-sdk-go v1.55.6
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/bitnami-labs/sealed-secrets v0.30.0
 	github.com/bmatcuk/doublestar/v4 v4.9.0
 	github.com/kr/pretty v0.3.1
