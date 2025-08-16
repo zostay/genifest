@@ -28,24 +28,12 @@ linters:
           allow:
             - $gostd
             - github.com/zostay
-            - github.com/Masterminds/sprig/v3
-            - github.com/aws/aws-sdk-go
-            - github.com/bitnami-labs/sealed-secrets
-            - github.com/bmatcuk/doublestar/v4
-            - github.com/kr/pretty
-            - github.com/pelletier/go-toml/v2
-            - github.com/spf13/cobra
-            - github.com/spf13/viper
-            - k8s.io/api
-            - k8s.io/apimachinery
-            - k8s.io/client-go
+            - gopkg.in/yaml.v3
         tests:
           files:
             - $test
           allow:
             - $gostd
-            - github.com/zostay
-            - github.com/stretchr/testify/assert
   exclusions:
     generated: lax
     presets:
