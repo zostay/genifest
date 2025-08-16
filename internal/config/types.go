@@ -39,6 +39,8 @@ type Config struct {
 }
 
 // PathContext represents a path with context about where it was defined.
+// It combines a relative path with information about the configuration file
+// where the path was originally specified.
 type PathContext struct {
 	// contextPath is the directory path where this configuration was found
 	contextPath string
@@ -74,6 +76,7 @@ func (pc *PathContext) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // PathContexts is a slice of PathContext that implements custom YAML marshalling.
+// It appears as a simple string array in YAML files but maintains context information.
 type PathContexts []PathContext
 
 // MarshalYAML implements yaml.Marshaler for PathContexts.
@@ -100,6 +103,8 @@ func (pcs *PathContexts) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+// MetaConfig contains metadata about the genifest configuration including
+// directory paths for scripts, manifests, and files, as well as the cloudHome boundary.
 type MetaConfig struct {
 	// CloudHome is the path to the root of the configuration. No genifest.yaml
 	// configuration or work will be done outside of this folder. This is always
@@ -124,6 +129,8 @@ type MetaConfig struct {
 	Files PathContexts `yaml:"files"`
 }
 
+// ChangeOrder represents a modification to be applied to managed files.
+// It specifies which file and key to change, along with the new value.
 type ChangeOrder struct {
 	// path is the path where this change order was discovered before config
 	// merger was performed.
@@ -139,6 +146,8 @@ type ChangeOrder struct {
 	ValueFrom ValueFrom `yaml:"valueFrom"`
 }
 
+// FunctionDefinition defines a reusable function that can be called from change orders.
+// Functions have parameters and return values computed from ValueFrom expressions.
 type FunctionDefinition struct {
 	// path is the path within which this function definition is available
 	path string
@@ -153,6 +162,8 @@ type FunctionDefinition struct {
 	ValueFrom ValueFrom `yaml:"valueFrom"`
 }
 
+// Parameter defines a function parameter with a name, optional default value,
+// and whether it's required.
 type Parameter struct {
 	// Name is the name of the parameter.
 	Name string `yaml:"name"`
@@ -166,11 +177,13 @@ type Parameter struct {
 }
 
 // DocumentSelector is a map from YAML keys to values the document must have.
-// This is intended to be a very simple selection criteria.
+// This is intended to be a very simple selection criteria for identifying
+// specific YAML documents within a file.
 type DocumentSelector map[string]string
 
 // ValueFrom defines a value from one of the definitions within. Only one
-// kind of value is permitted per ValueFrom.
+// kind of value is permitted per ValueFrom. This is a union type that supports
+// various ways of computing or retrieving values.
 type ValueFrom struct {
 	// FunctionCall calls the named function with the named arguments. The value
 	// is the result of the function call.
@@ -203,7 +216,7 @@ type ValueFrom struct {
 }
 
 // FunctionCall looks up a function in the functions list and executes the
-// ValueOf for that function.
+// ValueFrom for that function with the provided arguments.
 type FunctionCall struct {
 	// Name of the function to execute.
 	Name string `yaml:"function"`
@@ -212,7 +225,8 @@ type FunctionCall struct {
 	Arguments Arguments `yaml:"args"`
 }
 
-// Argument defines an argument to pass to a ValueOF.
+// Argument defines an argument to pass to a ValueFrom expression.
+// It consists of a name and a value computed from another ValueFrom.
 type Argument struct {
 	// Name of the argument to set.
 	Name string `yaml:"name"`
@@ -221,15 +235,16 @@ type Argument struct {
 	ValueFrom ValueFrom `yaml:"valueFrom"`
 }
 
-// Arguments is a list of Argument values..
+// Arguments is a list of Argument values for function calls and templates.
 type Arguments []Argument
 
 // CallPipeline defines a list of functions or scripts to call. The output of
 // the first feeds into an argument to the second. The second feeds into the
-// third and so-on until the final output, which is the value ot use.
+// third and so-on until the final output, which is the value to use.
 type CallPipeline []CallPipe
 
-// CallPipe is an individual element of a CallPipeline.
+// CallPipe is an individual element of a CallPipeline that defines
+// a single step in a processing pipeline.
 type CallPipe struct {
 	// ValueFrom is the value to pull in for the pipeline. The first CallPipe
 	// in a pipeline may be any type of value. However, subsequent pipelines
@@ -242,7 +257,7 @@ type CallPipe struct {
 }
 
 // FileInclusion looks up a file in the files directory. The content of the file
-// becomes the value.
+// becomes the value. Files are organized by application subdirectories.
 type FileInclusion struct {
 	// App is the application sub-directory to use. If not specified, it will
 	// ue the same app folder as the change.
@@ -253,6 +268,7 @@ type FileInclusion struct {
 }
 
 // BasicTemplate turns a string with $style variables into a string value.
+// Variables are replaced with values from the provided arguments.
 type BasicTemplate struct {
 	// String is the template with $style variables that must match the names
 	// of arguments. If $style is ambiguous, you may use ${style}. If you need
@@ -264,6 +280,7 @@ type BasicTemplate struct {
 }
 
 // ScriptExec executes a program, usually a script, from the scripts folder.
+// It supports passing arguments, environment variables, and stdin data.
 type ScriptExec struct {
 	// ExecCommand is the name of the script to execute. The path is relative
 	// to the scripts folder.
@@ -281,21 +298,21 @@ type ScriptExec struct {
 }
 
 // ArgumentRef is permitted inside of a CallPipeline to refer to the output
-// variable of a previous CalLPipe or within a function definition to refer
+// variable of a previous CallPipe or within a function definition to refer
 // to a parameter. It is an error to use this in other contexts.
 type ArgumentRef struct {
 	// Name is the name of the parameter to use.
 	Name string `yaml:"name"`
 }
 
-// DefaultValue is a literal value.
+// DefaultValue is a literal value that provides a static string result.
 type DefaultValue struct {
 	// Value is the literal value to set.
 	Value string `yaml:"value"`
 }
 
 // DocumentRef looks up a key in a document. The FileSelector and
-// DocumentSelector are optional. The KeySelector is required.
+// DocumentSelector are optional. The KeySelector is required and uses yq syntax.
 type DocumentRef struct {
 	// FileSelector may be omitted. In a ChangeOrder, omitting this value means
 	// that the DocumentSelector and KeySelector will be applied to all files in
@@ -323,6 +340,8 @@ var (
 )
 
 // isValidIdentifier checks if a string is a valid kebab-case identifier for names.
+// Valid identifiers start with a lowercase letter, contain only lowercase letters,
+// numbers, and hyphens, and end with a letter or number.
 func isValidIdentifier(s string) bool {
 	if s == "" {
 		return false
@@ -331,6 +350,7 @@ func isValidIdentifier(s string) bool {
 }
 
 // isValidKebabTag checks if a string is a valid kebab-case tag (looser than identifier).
+// Tags follow the same rules as identifiers but are optional (empty string is valid).
 func isValidKebabTag(s string) bool {
 	if s == "" {
 		return true // tags are optional
@@ -338,7 +358,8 @@ func isValidKebabTag(s string) bool {
 	return kebabPattern.MatchString(s)
 }
 
-// ValidationContext provides context for validation including available functions.
+// ValidationContext provides context for validation including available functions
+// and the current path for function scope resolution.
 type ValidationContext struct {
 	Functions   []FunctionDefinition
 	CurrentPath string
@@ -347,6 +368,7 @@ type ValidationContext struct {
 // LookupFunction finds the best available function for the given name from the current path.
 // It returns the function definition and true if found, or nil and false if not found.
 // Functions are available if they are defined in the same path or in a parent path.
+// When multiple functions with the same name exist, the one from the deepest (closest) path is chosen.
 func (ctx *ValidationContext) LookupFunction(name string) (*FunctionDefinition, bool) {
 	var bestMatch *FunctionDefinition
 	var bestDepth int = -1
@@ -373,6 +395,8 @@ func (ctx *ValidationContext) LookupFunction(name string) (*FunctionDefinition, 
 
 // isFunctionAvailable checks if a function defined at functionPath is available from currentPath.
 // A function is available if it's defined in the same path or in a parent path.
+// This implements the scoping rules where functions can only be called from the same
+// directory or subdirectories where they are defined.
 func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 	// Normalize paths
 	currentPath := filepath.Clean(ctx.CurrentPath)
@@ -395,6 +419,8 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 
 // Validate methods
 
+// Validate validates the entire configuration including metadata, changes, and functions.
+// It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
 	ctx := &ValidationContext{
 		Functions: c.Functions,
@@ -421,10 +447,13 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// Validate validates the metadata configuration without context.
 func (m *MetaConfig) Validate() error {
 	return m.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates the metadata configuration, ensuring all paths
+// are within the cloudHome boundary to prevent path traversal attacks.
 func (m *MetaConfig) ValidateWithContext(_ *ValidationContext) error {
 	// Validate that all paths are within cloudHome
 	if m.CloudHome != "" {
@@ -451,6 +480,8 @@ func (m *MetaConfig) ValidateWithContext(_ *ValidationContext) error {
 }
 
 // validatePathWithinHome checks if a relative path would resolve to a location within cloudHome.
+// This security validation prevents path traversal attacks by ensuring paths don't escape
+// the cloudHome boundary using ".." directory references.
 func (m *MetaConfig) validatePathWithinHome(relativePath, pathType string) error {
 	if relativePath == "" {
 		return nil // empty paths are allowed
@@ -472,10 +503,13 @@ func (m *MetaConfig) validatePathWithinHome(relativePath, pathType string) error
 	return nil
 }
 
+// Validate validates a change order without context.
 func (c *ChangeOrder) Validate() error {
 	return c.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a change order including its document reference,
+// tag format, and valueFrom expression using the provided validation context.
 func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	if err := c.DocumentRef.ValidateWithContext(ctx); err != nil {
 		return fmt.Errorf("document ref validation failed: %w", err)
@@ -492,10 +526,13 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a function definition without context.
 func (f *FunctionDefinition) Validate() error {
 	return f.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a function definition including its name,
+// parameters, and valueFrom expression using the provided validation context.
 func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
 		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
@@ -514,10 +551,13 @@ func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a parameter without context.
 func (p *Parameter) Validate() error {
 	return p.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a parameter ensuring the name is a valid identifier
+// and that required parameters don't have default values.
 func (p *Parameter) ValidateWithContext(_ *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
 		return fmt.Errorf("parameter name '%s' is not a valid identifier", p.Name)
@@ -528,10 +568,13 @@ func (p *Parameter) ValidateWithContext(_ *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a ValueFrom expression without context.
 func (v *ValueFrom) Validate() error {
 	return v.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a ValueFrom expression ensuring exactly one field is set
+// and that the chosen field is valid according to its own validation rules.
 func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	count := 0
 
@@ -591,10 +634,13 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a function call without context.
 func (f *FunctionCall) Validate() error {
 	return f.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a function call including checking that the
+// referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
 		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
@@ -614,10 +660,13 @@ func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates an argument without context.
 func (a *Argument) Validate() error {
 	return a.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates an argument ensuring the name is a valid identifier
+// and the valueFrom expression is valid.
 func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
 		return fmt.Errorf("argument name '%s' is not a valid identifier", a.Name)
@@ -630,10 +679,12 @@ func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a list of arguments without context.
 func (a Arguments) Validate() error {
 	return a.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates all arguments in the list using the provided context.
 func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 	for i, arg := range a {
 		if err := arg.ValidateWithContext(ctx); err != nil {
@@ -643,10 +694,13 @@ func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a call pipeline without context.
 func (c CallPipeline) Validate() error {
 	return c.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a call pipeline ensuring it's not empty and that
+// subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
 		return fmt.Errorf("call pipeline cannot be empty")
@@ -667,10 +721,12 @@ func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a file inclusion without context.
 func (f *FileInclusion) Validate() error {
 	return f.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a file inclusion ensuring the source field is provided.
 func (f *FileInclusion) ValidateWithContext(_ *ValidationContext) error {
 	// App is optional - if not specified, uses same app folder as the change
 	if f.Source == "" {
@@ -679,10 +735,13 @@ func (f *FileInclusion) ValidateWithContext(_ *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a basic template without context.
 func (b *BasicTemplate) Validate() error {
 	return b.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a basic template ensuring the string field is provided
+// and all variables are valid.
 func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 	if b.String == "" {
 		return fmt.Errorf("string field is required")
@@ -695,10 +754,13 @@ func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a script execution without context.
 func (s *ScriptExec) Validate() error {
 	return s.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a script execution ensuring the exec field is provided
+// and all arguments, environment variables, and stdin are valid.
 func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 	if s.ExecCommand == "" {
 		return fmt.Errorf("exec field is required")
@@ -721,10 +783,12 @@ func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 	return nil
 }
 
+// Validate validates an argument reference without context.
 func (a *ArgumentRef) Validate() error {
 	return a.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
 func (a *ArgumentRef) ValidateWithContext(_ *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
 		return fmt.Errorf("argument ref name '%s' is not a valid identifier", a.Name)
@@ -732,10 +796,12 @@ func (a *ArgumentRef) ValidateWithContext(_ *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a default value without context.
 func (d *DefaultValue) Validate() error {
 	return d.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a default value ensuring the value field is provided.
 func (d *DefaultValue) ValidateWithContext(_ *ValidationContext) error {
 	if d.Value == "" {
 		return fmt.Errorf("value field is required")
@@ -743,10 +809,13 @@ func (d *DefaultValue) ValidateWithContext(_ *ValidationContext) error {
 	return nil
 }
 
+// Validate validates a document reference without context.
 func (d *DocumentRef) Validate() error {
 	return d.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a document reference ensuring the keySelector is provided.
+// FileSelector and DocumentSelector are optional per the documentation.
 func (d *DocumentRef) ValidateWithContext(_ *ValidationContext) error {
 	if d.KeySelector == "" {
 		return fmt.Errorf("keySelector is required")
@@ -755,11 +824,13 @@ func (d *DocumentRef) ValidateWithContext(_ *ValidationContext) error {
 	return nil
 }
 
-// CallPipe validation.
+// Validate validates a call pipe without context.
 func (c *CallPipe) Validate() error {
 	return c.ValidateWithContext(nil)
 }
 
+// ValidateWithContext validates a call pipe ensuring the valueFrom expression
+// and output name are valid.
 func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
 	if err := c.ValueFrom.ValidateWithContext(ctx); err != nil {
 		return fmt.Errorf("valueFrom validation failed: %w", err)
@@ -773,6 +844,7 @@ func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
 }
 
 // validateSubsequentPipe checks that subsequent pipes in a pipeline are FunctionCall or ScriptExec.
+// This enforces the constraint that only the first pipe can use any ValueFrom type.
 func (c *CallPipe) validateSubsequentPipe() error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
 		return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")

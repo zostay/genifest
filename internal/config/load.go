@@ -55,6 +55,7 @@ func LoadFromDirectory(rootDir string) (*Config, error) {
 	return result, nil
 }
 
+// configWithPath holds a configuration along with metadata about where it was loaded from.
 type configWithPath struct {
 	config    *Config
 	path      string
@@ -63,6 +64,7 @@ type configWithPath struct {
 }
 
 // loadingContext tracks the state during recursive config loading.
+// It maintains a list of loaded configs and prevents infinite recursion.
 type loadingContext struct {
 	configs     []configWithPath
 	rootDir     string
@@ -70,6 +72,7 @@ type loadingContext struct {
 	primaryHome string          // The primary cloudHome from root
 }
 
+// loadConfigFile loads a single genifest.yaml configuration file from the given path.
 func loadConfigFile(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -85,7 +88,8 @@ func loadConfigFile(path string) (*Config, error) {
 }
 
 // createSyntheticConfig creates a config for directories without genifest.yaml
-// containing all .yaml and .yml files in the directory.
+// containing all .yaml and .yml files in the directory. This allows directories
+// to be included in the configuration even without explicit genifest.yaml files.
 func createSyntheticConfig(dir string) (*Config, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -109,6 +113,8 @@ func createSyntheticConfig(dir string) (*Config, error) {
 }
 
 // loadDirectoryConfig loads a config from a directory, either from genifest.yaml or synthetic.
+// If genifest.yaml exists, it loads that; otherwise it creates a synthetic config
+// with all YAML files in the directory.
 func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string) (configWithPath, error) {
 	genifestPath := filepath.Join(dirPath, "genifest.yaml")
 	var config *Config
@@ -137,6 +143,7 @@ func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string) 
 }
 
 // loadMetadataPaths processes paths from metadata (Scripts, Manifests, Files).
+// It loads each specified directory up to maxDepth levels, respecting the cloudHome boundary.
 func (lc *loadingContext) loadMetadataPaths(basePath string, paths PathContexts, maxDepth int, cloudHome string) error {
 	for _, pathCtx := range paths {
 		fullPath := filepath.Join(basePath, pathCtx.Path)
@@ -161,6 +168,8 @@ func (lc *loadingContext) loadMetadataPaths(basePath string, paths PathContexts,
 }
 
 // loadDirectoryRecursive loads a directory and its subdirectories up to maxDepth.
+// It prevents infinite recursion by tracking processed directories and loads both
+// explicit genifest.yaml files and creates synthetic configs for YAML-only directories.
 func (lc *loadingContext) loadDirectoryRecursive(dirPath string, currentDepth, maxDepth int, cloudHome string) error {
 	// Avoid processing the same directory twice
 	if lc.processed[dirPath] {
@@ -208,6 +217,8 @@ func (lc *loadingContext) loadDirectoryRecursive(dirPath string, currentDepth, m
 }
 
 // processConfigMetadata processes metadata from a loaded config to discover additional directories.
+// It handles cloudHome changes and loads directories specified in Scripts, Manifests, and Files
+// metadata with appropriate depth limits (Scripts: 0 levels, Manifests/Files: 1 level).
 func (lc *loadingContext) processConfigMetadata(configWP configWithPath, configDir string) error {
 	config := configWP.config
 	effectiveCloudHome := configWP.cloudHome
@@ -240,6 +251,9 @@ func (lc *loadingContext) processConfigMetadata(configWP configWithPath, configD
 	return nil
 }
 
+// mergeConfigs combines multiple configurations into a single Config.
+// It merges metadata paths, files, changes, and functions while preserving
+// the context path information for proper scoping.
 func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 	// Sort by depth (shallower first) for metadata merging
 	sort.Slice(configs, func(i, j int) bool {
