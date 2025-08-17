@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/zostay/genifest/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // setupTestContext creates a test evaluation context with common test data.
@@ -480,6 +481,132 @@ func TestEmptyValueFrom(t *testing.T) {
 	expectedMsg := "no ValueFrom type specified"
 	if err.Error() != expectedMsg {
 		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, err.Error())
+	}
+}
+
+// TestDocumentRef tests document reference evaluation.
+func TestDocumentRef(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Create a test YAML document
+	yamlContent := `
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: default
+spec:
+  replicas: 3
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: test-app
+`
+
+	var doc yaml.Node
+	err := yaml.Unmarshal([]byte(yamlContent), &doc)
+	if err != nil {
+		t.Fatalf("Failed to parse test YAML: %v", err)
+	}
+
+	// Set the document in context
+	ctx = ctx.WithDocument(&doc)
+
+	testCases := []struct {
+		name     string
+		selector string
+		expected string
+	}{
+		{
+			name:     "simple field",
+			selector: ".kind",
+			expected: "Service",
+		},
+		{
+			name:     "nested field",
+			selector: ".metadata.name",
+			expected: "test-service",
+		},
+		{
+			name:     "deeper nested field",
+			selector: ".spec.replicas",
+			expected: "3",
+		},
+		{
+			name:     "array access",
+			selector: ".spec.ports[0].port",
+			expected: "80",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			valueFrom := config.ValueFrom{
+				DocumentRef: &config.DocumentRef{
+					KeySelector: tc.selector,
+				},
+			}
+
+			result, err := ctx.Evaluate(valueFrom)
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if result != tc.expected {
+				t.Errorf("Expected '%s', got '%s'", tc.expected, result)
+			}
+		})
+	}
+}
+
+// TestDocumentRefErrors tests error cases for document reference.
+func TestDocumentRefErrors(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Test with no document
+	valueFrom := config.ValueFrom{
+		DocumentRef: &config.DocumentRef{
+			KeySelector: ".metadata.name",
+		},
+	}
+
+	_, err := ctx.Evaluate(valueFrom)
+	if err == nil {
+		t.Fatal("Expected error for missing document, got none")
+	}
+
+	expectedMsg := "no current document available for document reference"
+	if err.Error() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, err.Error())
+	}
+
+	// Test with invalid selector
+	yamlContent := `
+metadata:
+  name: test
+`
+	var doc yaml.Node
+	err = yaml.Unmarshal([]byte(yamlContent), &doc)
+	if err != nil {
+		t.Fatalf("Failed to parse test YAML: %v", err)
+	}
+
+	ctx = ctx.WithDocument(&doc)
+
+	valueFrom = config.ValueFrom{
+		DocumentRef: &config.DocumentRef{
+			KeySelector: ".metadata.missing",
+		},
+	}
+
+	_, err = ctx.Evaluate(valueFrom)
+	if err == nil {
+		t.Fatal("Expected error for missing key, got none")
+	}
+
+	if !strings.Contains(err.Error(), "key \"missing\" not found") {
+		t.Errorf("Expected error about missing key, got: %v", err)
 	}
 }
 
