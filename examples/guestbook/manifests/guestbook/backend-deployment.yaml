@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guestbook-backend
+  namespace: guestbook
+  labels:
+    app: guestbook-backend
+    component: backend
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: guestbook-backend
+  template:
+    metadata:
+      labels:
+        app: guestbook-backend
+        component: backend
+        tier: api
+    spec:
+      containers:
+      - name: backend
+        image: guestbook-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: guestbook-config
+              key: database-host
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: guestbook-config
+              key: database-port
+        - name: DATABASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: guestbook-config
+              key: database-name
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: guestbook-secrets
+              key: database-user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: guestbook-secrets
+              key: database-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: guestbook-secrets
+              key: jwt-secret
+        - name: PORT
+          value: "8080"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5

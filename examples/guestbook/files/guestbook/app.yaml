@@ -1,0 +1,72 @@
+app:
+  name: "Guestbook Application"
+  version: "1.0.0"
+  description: "A simple guestbook application with React frontend and Node.js backend"
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+  cors:
+    origin: 
+      - "https://guestbook.example.com"
+      - "http://localhost:3000"
+    credentials: true
+  rateLimit:
+    windowMs: 900000  # 15 minutes
+    max: 100          # limit each IP to 100 requests per windowMs
+
+database:
+  host: "${DATABASE_HOST}"
+  port: "${DATABASE_PORT}"
+  name: "${DATABASE_NAME}"
+  user: "${DATABASE_USER}"
+  password: "${DATABASE_PASSWORD}"
+  ssl: false
+  pool:
+    min: 2
+    max: 10
+    idle: 10000
+
+auth:
+  jwt:
+    secret: "${JWT_SECRET}"
+    expiresIn: "24h"
+  session:
+    secret: "${SESSION_SECRET}"
+    maxAge: 86400000  # 24 hours
+
+features:
+  maxEntries: 100
+  enableModeration: true
+  allowAnonymous: true
+  pagination:
+    defaultPageSize: 10
+    maxPageSize: 50
+
+logging:
+  level: "info"
+  format: "json"
+  includeRequest: true
+  excludePaths:
+    - "/health"
+    - "/metrics"
+
+monitoring:
+  healthCheck:
+    enabled: true
+    path: "/health"
+  metrics:
+    enabled: true
+    path: "/metrics"
+
+frontend:
+  title: "Welcome to our Guestbook"
+  subtitle: "Share your thoughts with us!"
+  theme:
+    primaryColor: "#3B82F6"
+    secondaryColor: "#10B981"
+    backgroundColor: "#F9FAFB"
+  features:
+    darkMode: true
+    autoRefresh: true
+    refreshInterval: 30000  # 30 seconds

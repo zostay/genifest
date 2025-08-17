@@ -137,7 +137,7 @@ type ChangeOrder struct {
 	path string
 
 	// DocumentRef defines the file, document, and key to change.
-	DocumentRef
+	DocumentRef `yaml:",inline"`
 
 	// Tag is used to select which change orders to run.
 	Tag string `yaml:"tag"`
