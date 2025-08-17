@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zostay/genifest/internal/config"
 	"gopkg.in/yaml.v3"
+
+	"github.com/zostay/genifest/internal/config"
 )
 
 // setupTestContext creates a test evaluation context with common test data.

@@ -12,7 +12,7 @@ func TestGuestbookIntegration(t *testing.T) {
 	// Load the guestbook configuration
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
-	
+
 	cfg, err := config.LoadFromDirectory(guestbookDir)
 	if err != nil {
 		t.Fatalf("Failed to load guestbook configuration: %v", err)
@@ -189,7 +189,7 @@ func TestEvalContextWithRealConfig(t *testing.T) {
 	// Load the guestbook configuration
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
-	
+
 	cfg, err := config.LoadFromDirectory(guestbookDir)
 	if err != nil {
 		t.Fatalf("Failed to load guestbook configuration: %v", err)

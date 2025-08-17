@@ -10,8 +10,8 @@ import (
 
 // Applier applies changes to configurations using the evaluation system.
 type Applier struct {
-	config    *config.Config
-	evalCtx   *EvalContext
+	config  *config.Config
+	evalCtx *EvalContext
 }
 
 // NewApplier creates a new change applier for the given configuration.
@@ -39,11 +39,16 @@ func NewApplier(cfg *config.Config) *Applier {
 	}
 }
 
+// GetEvalContext returns the evaluation context for this applier.
+func (a *Applier) GetEvalContext() *EvalContext {
+	return a.evalCtx
+}
+
 // EvaluateChangeValue evaluates a change order's value in the context of a specific file.
 func (a *Applier) EvaluateChangeValue(change config.ChangeOrder, filePath string) (string, error) {
 	// Create context for this specific file
 	ctx := a.evalCtx.WithFile(filePath)
-	
+
 	// Evaluate the change's ValueFrom
 	return ctx.Evaluate(change.ValueFrom)
 }
@@ -88,10 +93,10 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 		}
 
 		results = append(results, ChangeResult{
-			Change:    change,
-			FilePath:  filePath,
-			Value:     value,
-			KeyPath:   change.KeySelector,
+			Change:   change,
+			FilePath: filePath,
+			Value:    value,
+			KeyPath:  change.KeySelector,
 		})
 	}
 
@@ -118,11 +123,11 @@ func matchesGlobPattern(pattern, path string) bool {
 	if pattern == "" || pattern == "*" {
 		return true
 	}
-	
+
 	// Split pattern and path into segments
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
-	
+
 	// If lengths don't match and there are no wildcards, no match
 	if len(patternParts) != len(pathParts) {
 		// Check if pattern has wildcards that could account for the difference
@@ -137,17 +142,17 @@ func matchesGlobPattern(pattern, path string) bool {
 			return false
 		}
 	}
-	
+
 	// For this simplified implementation, let's handle the specific patterns we need
 	// Pattern: "manifests/*/deployment.yaml" should match "manifests/guestbook/deployment.yaml"
 	// but also "manifests/postgres/deployment.yaml"
-	
+
 	if len(patternParts) == len(pathParts) {
 		for i, patternPart := range patternParts {
 			if patternPart == "*" {
 				continue // Wildcard matches anything
 			}
-			
+
 			// Use filepath.Match for individual segments
 			matched, err := filepath.Match(patternPart, pathParts[i])
 			if err != nil || !matched {
@@ -156,6 +161,6 @@ func matchesGlobPattern(pattern, path string) bool {
 		}
 		return true
 	}
-	
+
 	return false
 }
