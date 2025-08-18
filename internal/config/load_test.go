@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -228,10 +229,8 @@ func getProjectRoot(t *testing.T) string {
 	dir := cwd
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
-		if _, err := filepath.Glob(goModPath); err == nil {
-			if matches, _ := filepath.Glob(goModPath); len(matches) > 0 {
-				return dir
-			}
+		if _, err := os.Stat(goModPath); err == nil {
+			return dir
 		}
 
 		parent := filepath.Dir(dir)
