@@ -97,7 +97,7 @@ func TestDetermineTags(t *testing.T) { //nolint:tparallel // Subtests cannot run
 			includeTags = tt.includeTags
 			excludeTags = tt.excludeTags
 
-			got := determineTags(cfg)
+			got := determineTagsWithFlags(cfg, tt.includeTags, tt.excludeTags)
 
 			// Sort both slices for comparison since order doesn't matter
 			gotMap := make(map[string]bool)
@@ -307,7 +307,7 @@ func TestCLIBasicFunctionality(t *testing.T) {
 	includeTags = []string{"production"}
 	excludeTags = nil
 
-	tags := determineTags(cfg)
+	tags := determineTagsWithFlags(cfg, nil, nil)
 	found := false
 	for _, tag := range tags {
 		if tag == "production" {
