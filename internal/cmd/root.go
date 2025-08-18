@@ -200,7 +200,9 @@ func processFile(applier *changes.Applier, filePath string, tagsToProcess []stri
 	fullPath := filepath.Join(workDir, filePath)
 
 	// Check if file exists
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+	var fi os.FileInfo
+	var err error
+	if fi, err = os.Stat(fullPath); os.IsNotExist(err) {
 		fmt.Printf("Warning: file %s does not exist, skipping\n", filePath)
 		return nil
 	}
@@ -252,7 +254,7 @@ func processFile(applier *changes.Applier, filePath string, tagsToProcess []stri
 
 	// Write back if modified
 	if modified {
-		err := writeYAMLFile(fullPath, documents)
+		err := writeYAMLFile(fullPath, documents, fi.Mode())
 		if err != nil {
 			return fmt.Errorf("failed to write modified file: %w", err)
 		}
@@ -330,8 +332,7 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 		}
 
 		// Handle array indexing like "ports[0]"
-		if strings.Contains(part, "[") {
-			bracketStart := strings.Index(part, "[")
+		if bracketStart := strings.Index(part, "["); bracketStart >= 0 {
 			fieldName := part[:bracketStart]
 			indexPart := part[bracketStart:]
 
@@ -413,8 +414,7 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 	finalKey := parts[len(parts)-1]
 
 	// Handle array indexing in final key
-	if strings.Contains(finalKey, "[") {
-		bracketStart := strings.Index(finalKey, "[")
+	if bracketStart := strings.Index(finalKey, "["); bracketStart >= 0 {
 		fieldName := finalKey[:bracketStart]
 		indexPart := finalKey[bracketStart:]
 
@@ -493,7 +493,7 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 }
 
 // writeYAMLFile writes YAML documents to a file.
-func writeYAMLFile(filePath string, documents []yaml.Node) error {
+func writeYAMLFile(filePath string, documents []yaml.Node, mode os.FileMode) error {
 	var output strings.Builder
 
 	for i, doc := range documents {
@@ -513,5 +513,5 @@ func writeYAMLFile(filePath string, documents []yaml.Node) error {
 		}
 	}
 
-	return os.WriteFile(filePath, []byte(output.String()), 0644)
+	return os.WriteFile(filePath, []byte(output.String()), mode)
 }

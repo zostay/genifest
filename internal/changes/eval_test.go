@@ -55,6 +55,7 @@ func setupTestContext(t *testing.T) (*EvalContext, string) {
 
 // TestDefaultValue tests evaluation of default values.
 func TestDefaultValue(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -73,6 +74,7 @@ func TestDefaultValue(t *testing.T) {
 
 // TestArgumentRef tests evaluation of argument references.
 func TestArgumentRef(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 	ctx.SetVariable("test-arg", "argument-value")
 
@@ -92,6 +94,7 @@ func TestArgumentRef(t *testing.T) {
 
 // TestArgumentRefNotFound tests error handling for missing arguments.
 func TestArgumentRefNotFound(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -111,6 +114,7 @@ func TestArgumentRefNotFound(t *testing.T) {
 
 // TestBasicTemplate tests template evaluation with variable substitution.
 func TestBasicTemplate(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -142,6 +146,7 @@ func TestBasicTemplate(t *testing.T) {
 
 // TestBasicTemplateWithDollarEscape tests dollar sign escaping in templates.
 func TestBasicTemplateWithDollarEscape(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -169,6 +174,7 @@ func TestBasicTemplateWithDollarEscape(t *testing.T) {
 
 // TestFunctionCall tests function call evaluation.
 func TestFunctionCall(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -200,6 +206,7 @@ func TestFunctionCall(t *testing.T) {
 
 // TestFunctionCallWithDefaults tests function call with default parameter values.
 func TestFunctionCallWithDefaults(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -228,6 +235,7 @@ func TestFunctionCallWithDefaults(t *testing.T) {
 
 // TestFunctionCallMissingRequired tests error handling for missing required parameters.
 func TestFunctionCallMissingRequired(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -252,6 +260,7 @@ func TestFunctionCallMissingRequired(t *testing.T) {
 
 // TestFunctionCallNotFound tests error handling for unknown functions.
 func TestFunctionCallNotFound(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -274,6 +283,7 @@ func TestFunctionCallNotFound(t *testing.T) {
 
 // TestScriptExec tests script execution.
 func TestScriptExec(t *testing.T) {
+	t.Parallel()
 	ctx, tempDir := setupTestContext(t)
 
 	// Create a test script
@@ -281,7 +291,7 @@ func TestScriptExec(t *testing.T) {
 	scriptContent := `#!/bin/bash
 echo "Hello from script: $1"
 `
-	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0700) //nolint:gosec // need an executable for testing
 	if err != nil {
 		t.Fatalf("Failed to create test script: %v", err)
 	}
@@ -311,6 +321,7 @@ echo "Hello from script: $1"
 
 // TestScriptExecWithEnv tests script execution with environment variables.
 func TestScriptExecWithEnv(t *testing.T) {
+	t.Parallel()
 	ctx, tempDir := setupTestContext(t)
 
 	// Create a test script that uses environment variables
@@ -318,7 +329,7 @@ func TestScriptExecWithEnv(t *testing.T) {
 	scriptContent := `#!/bin/bash
 echo "ENV_VAR: $TEST_ENV_VAR"
 `
-	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0700) //nolint:gosec // need an executable for testing
 	if err != nil {
 		t.Fatalf("Failed to create test script: %v", err)
 	}
@@ -348,6 +359,7 @@ echo "ENV_VAR: $TEST_ENV_VAR"
 
 // TestScriptExecNotFound tests error handling for missing scripts.
 func TestScriptExecNotFound(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{
@@ -368,12 +380,13 @@ func TestScriptExecNotFound(t *testing.T) {
 
 // TestFileInclusion tests file inclusion.
 func TestFileInclusion(t *testing.T) {
+	t.Parallel()
 	ctx, tempDir := setupTestContext(t)
 
 	// Create a test file
 	testContent := "This is test file content"
 	filePath := filepath.Join(tempDir, "files", "test.txt")
-	err := os.WriteFile(filePath, []byte(testContent), 0644)
+	err := os.WriteFile(filePath, []byte(testContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -396,6 +409,7 @@ func TestFileInclusion(t *testing.T) {
 
 // TestFileInclusionWithApp tests file inclusion with app subdirectory.
 func TestFileInclusionWithApp(t *testing.T) {
+	t.Parallel()
 	ctx, tempDir := setupTestContext(t)
 
 	// Create app subdirectory and test file
@@ -407,7 +421,7 @@ func TestFileInclusionWithApp(t *testing.T) {
 
 	testContent := "App-specific content"
 	filePath := filepath.Join(appDir, "config.yaml")
-	err = os.WriteFile(filePath, []byte(testContent), 0644)
+	err = os.WriteFile(filePath, []byte(testContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -431,6 +445,7 @@ func TestFileInclusionWithApp(t *testing.T) {
 
 // TestCallPipeline tests pipeline execution.
 func TestCallPipeline(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	pipeline := config.CallPipeline{
@@ -470,6 +485,7 @@ func TestCallPipeline(t *testing.T) {
 
 // TestEmptyValueFrom tests error handling for empty ValueFrom.
 func TestEmptyValueFrom(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	valueFrom := config.ValueFrom{} // Empty ValueFrom
@@ -487,6 +503,7 @@ func TestEmptyValueFrom(t *testing.T) {
 
 // TestDocumentRef tests document reference evaluation.
 func TestDocumentRef(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	// Create a test YAML document
@@ -543,6 +560,7 @@ spec:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			valueFrom := config.ValueFrom{
 				DocumentRef: &config.DocumentRef{
 					KeySelector: tc.selector,
@@ -563,6 +581,7 @@ spec:
 
 // TestDocumentRefErrors tests error cases for document reference.
 func TestDocumentRefErrors(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 
 	// Test with no document
@@ -613,6 +632,7 @@ metadata:
 
 // TestContextImmutability tests that context operations don't modify the original.
 func TestContextImmutability(t *testing.T) {
+	t.Parallel()
 	ctx, _ := setupTestContext(t)
 	ctx.SetVariable("original", "value")
 

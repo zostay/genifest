@@ -10,6 +10,7 @@ import (
 
 // TestPathContext_YAMLMarshalling tests the YAML marshalling and unmarshalling of PathContext.
 func TestPathContext_YAMLMarshalling(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		pc       PathContext
@@ -34,6 +35,7 @@ func TestPathContext_YAMLMarshalling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Test marshalling
 			data, err := yaml.Marshal(tt.pc)
 			if err != nil {
@@ -62,6 +64,7 @@ func TestPathContext_YAMLMarshalling(t *testing.T) {
 
 // TestPathContext_Methods tests the PathContext methods.
 func TestPathContext_Methods(t *testing.T) {
+	t.Parallel()
 	pc := PathContext{
 		contextPath: "/base/dir",
 		Path:        "scripts",
@@ -81,6 +84,7 @@ func TestPathContext_Methods(t *testing.T) {
 
 // TestPathContexts_YAMLMarshalling tests the YAML marshalling of PathContexts slice.
 func TestPathContexts_YAMLMarshalling(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		pcs      PathContexts
@@ -111,6 +115,7 @@ func TestPathContexts_YAMLMarshalling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Test marshalling
 			data, err := yaml.Marshal(tt.pcs)
 			if err != nil {
@@ -147,6 +152,7 @@ func TestPathContexts_YAMLMarshalling(t *testing.T) {
 
 // TestIsValidIdentifier tests the identifier validation function.
 func TestIsValidIdentifier(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -176,6 +182,7 @@ func TestIsValidIdentifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isValidIdentifier(tt.input)
 			if result != tt.expected {
 				t.Errorf("isValidIdentifier(%q) = %v, expected %v", tt.input, result, tt.expected)
@@ -186,6 +193,7 @@ func TestIsValidIdentifier(t *testing.T) {
 
 // TestIsValidKebabTag tests the kebab-case tag validation function.
 func TestIsValidKebabTag(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -212,6 +220,7 @@ func TestIsValidKebabTag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isValidKebabTag(tt.input)
 			if result != tt.expected {
 				t.Errorf("isValidKebabTag(%q) = %v, expected %v", tt.input, result, tt.expected)
@@ -222,6 +231,7 @@ func TestIsValidKebabTag(t *testing.T) {
 
 // TestValidationContext_LookupFunction tests function lookup and scoping rules.
 func TestValidationContext_LookupFunction(t *testing.T) {
+	t.Parallel()
 	functions := []FunctionDefinition{
 		{Name: "root-func", path: "."},
 		{Name: "app-func", path: "apps/app1"},
@@ -267,6 +277,7 @@ func TestValidationContext_LookupFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := &ValidationContext{
 				Functions:   functions,
 				CurrentPath: tt.currentPath,
@@ -306,6 +317,7 @@ func TestValidationContext_LookupFunction(t *testing.T) {
 
 // TestValidationContext_isFunctionAvailable tests the function availability logic.
 func TestValidationContext_isFunctionAvailable(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		currentPath  string
@@ -336,6 +348,7 @@ func TestValidationContext_isFunctionAvailable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := &ValidationContext{
 				CurrentPath: tt.currentPath,
 			}
@@ -351,6 +364,7 @@ func TestValidationContext_isFunctionAvailable(t *testing.T) {
 
 // TestMetaConfig_validatePathWithinHome tests path security validation.
 func TestMetaConfig_validatePathWithinHome(t *testing.T) {
+	t.Parallel()
 	mc := &MetaConfig{
 		CloudHome: "/home/user/project",
 	}

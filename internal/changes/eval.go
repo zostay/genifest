@@ -337,9 +337,8 @@ func (ctx *EvalContext) evaluateSimpleKeySelector(node *yaml.Node, selector stri
 		}
 
 		// Check if this part has an array index like "ports[0]"
-		if strings.Contains(part, "[") {
+		if bracketStart := strings.Index(part, "["); bracketStart >= 0 {
 			// Split the part into the field name and array index
-			bracketStart := strings.Index(part, "[")
 			fieldName := part[:bracketStart]
 			indexPart := part[bracketStart:]
 

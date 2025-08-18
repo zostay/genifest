@@ -13,6 +13,7 @@ import (
 
 // TestMatchesGlob tests the glob pattern matching function.
 func TestMatchesGlob(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		pattern string
 		str     string
@@ -29,6 +30,7 @@ func TestMatchesGlob(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.pattern+"_"+tt.str, func(t *testing.T) {
+			t.Parallel()
 			got := matchesGlob(tt.pattern, tt.str)
 			if got != tt.want {
 				t.Errorf("matchesGlob(%q, %q) = %v, want %v", tt.pattern, tt.str, got, tt.want)
@@ -39,6 +41,7 @@ func TestMatchesGlob(t *testing.T) {
 
 // TestDetermineTags tests the tag determination logic.
 func TestDetermineTags(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		Changes: []config.ChangeOrder{
 			{Tag: "production"},
@@ -82,6 +85,7 @@ func TestDetermineTags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Set global variables for test
 			oldInclude := includeTags
 			oldExclude := excludeTags
@@ -121,6 +125,7 @@ func TestDetermineTags(t *testing.T) {
 
 // TestSetValueInDocument tests YAML document value setting.
 func TestSetValueInDocument(t *testing.T) {
+	t.Parallel()
 	// Create a test YAML document
 	yamlContent := `
 apiVersion: apps/v1
@@ -183,6 +188,7 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Make a copy of the document for each test
 			var testDoc yaml.Node
 			err := yaml.Unmarshal([]byte(yamlContent), &testDoc)
@@ -207,6 +213,7 @@ spec:
 
 // TestWriteYAMLFile tests YAML file writing.
 func TestWriteYAMLFile(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.yaml")
 
@@ -224,7 +231,7 @@ value: 123
 	documents := []yaml.Node{doc}
 
 	// Write the file
-	err = writeYAMLFile(testFile, documents)
+	err = writeYAMLFile(testFile, documents, 0600)
 	if err != nil {
 		t.Fatalf("writeYAMLFile() error = %v", err)
 	}
@@ -252,6 +259,7 @@ value: 123
 
 // TestCLIBasicFunctionality tests the basic CLI workflow.
 func TestCLIBasicFunctionality(t *testing.T) {
+	t.Parallel()
 	// This test requires the guestbook example to be present
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -314,6 +322,7 @@ func TestCLIBasicFunctionality(t *testing.T) {
 
 // getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
+	t.Parallel()
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")
 	if err != nil {

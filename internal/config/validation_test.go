@@ -184,10 +184,8 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}
@@ -282,10 +280,8 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}
@@ -385,10 +381,8 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}
@@ -480,10 +474,8 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}

@@ -9,6 +9,7 @@ import (
 
 // TestGuestbookIntegration tests the evaluation system with the guestbook example configuration.
 func TestGuestbookIntegration(t *testing.T) {
+	t.Parallel()
 	// Load the guestbook configuration
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -23,6 +24,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 	// Test function evaluation
 	t.Run("EvaluateFunctions", func(t *testing.T) {
+		t.Parallel()
 		// Test get-replicas function
 		replicasChange := config.ChangeOrder{
 			Tag: "production",
@@ -126,6 +128,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 	// Test applying changes with tags
 	t.Run("ApplyChangesWithTags", func(t *testing.T) {
+		t.Parallel()
 		// Apply production changes to postgres deployment (matches "manifests/*/deployment.yaml")
 		results, err := applier.ApplyChanges("manifests/postgres/deployment.yaml", []string{"production"})
 		if err != nil {
@@ -165,6 +168,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 	// Test applying untagged changes
 	t.Run("ApplyUntaggedChanges", func(t *testing.T) {
+		t.Parallel()
 		results, err := applier.ApplyChanges("manifests/guestbook/frontend-deployment.yaml", []string{})
 		if err != nil {
 			t.Fatalf("Failed to apply untagged changes: %v", err)
@@ -186,6 +190,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 // TestEvalContextWithRealConfig tests evaluation context with real configuration data.
 func TestEvalContextWithRealConfig(t *testing.T) {
+	t.Parallel()
 	// Load the guestbook configuration
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")

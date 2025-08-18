@@ -7,6 +7,7 @@ import (
 
 // TestLoadFromDirectory_GuestbookExample tests loading the guestbook example configuration.
 func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
+	t.Parallel()
 	// Get the absolute path to the examples/guestbook directory
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -118,6 +119,7 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 // TestLoadFromDirectory_GuestbookSyntheticConfigs tests that synthetic configs are created
 // for directories without genifest.yaml files.
 func TestLoadFromDirectory_GuestbookSyntheticConfigs(t *testing.T) {
+	t.Parallel()
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
 
@@ -152,6 +154,7 @@ func TestLoadFromDirectory_GuestbookSyntheticConfigs(t *testing.T) {
 
 // TestLoadFromDirectory_GuestbookValidation tests that the loaded configuration passes validation.
 func TestLoadFromDirectory_GuestbookValidation(t *testing.T) {
+	t.Parallel()
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
 
@@ -169,6 +172,7 @@ func TestLoadFromDirectory_GuestbookValidation(t *testing.T) {
 
 // TestLoadFromDirectory_GuestbookFunctionScoping tests that functions are properly scoped.
 func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
+	t.Parallel()
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
 
@@ -212,6 +216,7 @@ func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 
 // getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
+	t.Parallel()
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")
 	if err != nil {
