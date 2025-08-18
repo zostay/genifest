@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,6 +14,9 @@ import (
 	"github.com/zostay/genifest/internal/changes"
 	"github.com/zostay/genifest/internal/config"
 )
+
+//go:embed version.txt
+var Version string
 
 var (
 	rootCmd = &cobra.Command{
@@ -25,11 +30,13 @@ to generate Kubernetes resources with dynamic value substitution.`,
 	}
 
 	includeTags, excludeTags []string
+	version                  bool
 )
 
 func init() {
 	rootCmd.Flags().StringSliceVarP(&includeTags, "include-tags", "i", []string{}, "include only changes with these tags (supports glob patterns)")
 	rootCmd.Flags().StringSliceVarP(&excludeTags, "exclude-tags", "x", []string{}, "exclude changes with these tags (supports glob patterns)")
+	rootCmd.Flags().BoolVar(&version, "version", false, "print version information and exit")
 }
 
 // Execute runs the root command.
@@ -41,6 +48,13 @@ func Execute() {
 }
 
 func GenerateManifests(_ *cobra.Command, _ []string) error {
+	if version {
+		fmt.Println("Genifest", Version, strings.Join([]string{runtime.GOOS, runtime.GOARCH}, "/"))
+		fmt.Println("\nCopyright 2025 Qubling LLC.")
+		fmt.Println("This program is free software, licensed under an MIT License.")
+		return nil
+	}
+
 	// Find project root with genifest.yaml
 	workDir, err := os.Getwd()
 	if err != nil {
