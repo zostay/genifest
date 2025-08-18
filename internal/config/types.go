@@ -335,8 +335,8 @@ type DocumentRef struct {
 
 // Validation patterns.
 var (
-	identifierPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$`)
-	kebabPattern      = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$`)
+	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z_][a-zA-Z0-9_])*$`)
+	tagPattern        = regexp.MustCompile(`^[a-z0-9_]+(?:-[a-z0-9_]+)*$`)
 )
 
 // isValidIdentifier checks if a string is a valid kebab-case identifier for names.
@@ -349,13 +349,13 @@ func isValidIdentifier(s string) bool {
 	return identifierPattern.MatchString(s)
 }
 
-// isValidKebabTag checks if a string is a valid kebab-case tag (looser than identifier).
+// isValidTag checks if a string is a valid kebab-case tag (looser than identifier).
 // Tags follow the same rules as identifiers but are optional (empty string is valid).
-func isValidKebabTag(s string) bool {
+func isValidTag(s string) bool {
 	if s == "" {
 		return true // tags are optional
 	}
-	return kebabPattern.MatchString(s)
+	return tagPattern.MatchString(s)
 }
 
 // ValidationContext provides context for validation including available functions
@@ -515,7 +515,7 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 		return fmt.Errorf("document ref validation failed: %w", err)
 	}
 
-	if !isValidKebabTag(c.Tag) {
+	if !isValidTag(c.Tag) {
 		return fmt.Errorf("tag '%s' is not a valid kebab-case tag", c.Tag)
 	}
 
