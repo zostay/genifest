@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/zostay/genifest/cmd"
+	"github.com/zostay/genifest/internal/cmd"
 )
 
 func main() {

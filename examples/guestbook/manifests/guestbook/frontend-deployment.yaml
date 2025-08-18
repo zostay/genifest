@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guestbook-frontend
+  namespace: guestbook
+  labels:
+    app: guestbook-frontend
+    component: frontend
+    tier: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: guestbook-frontend
+  template:
+    metadata:
+      labels:
+        app: guestbook-frontend
+        component: frontend
+        tier: web
+    spec:
+      containers:
+        - name: frontend
+          image: guestbook-frontend:dev-latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: REACT_APP_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: guestbook-config
+                  key: api-url
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5

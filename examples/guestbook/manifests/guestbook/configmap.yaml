@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: guestbook-config
+  namespace: guestbook
+  labels:
+    app: guestbook
+    component: config
+data:
+  api-url: "http://guestbook-backend-service/api"
+  database-host: "postgres-service"
+  database-port: "5432"
+  database-name: "guestbook"
+  max-entries: "100"
+  pagination-size: "10"
+  cors-origin: "https://guestbook.example.com"

@@ -1,3 +1,24 @@
+## v1.0.0-rc1  2025-08-18
+
+_This is a complete rewrite of genifest, removing all the old cruft and making it more flexible._
+* The primary configuration file is now named `genifest.yaml` and must be in the same directory that the `genifest` binary is run.
+* The system supports three top-level types of configuration files: manifests, files, and scripts.
+   * Manifests are for YAML files organized into application sub-directories, a typical arrangement for a Kubernetes cluster configuration.
+   * Files are for general configuration files, also organized into application sub-directories. These may be embedded into other files using `valueFrom.file`.
+   * Scripts are for executable scripts used to derive content for inclusion in manifests. Only scripts found in these directories will be permitted to run using `valueFrom.script`.
+* Other `genifest.yaml` configurations found in these directories are loaded and merged into the top-level one before processing and applying changes.
+* Changes are applied in-place, expecting the user to use version control to track changes as part of a gitops process.
+* The system defines a simple tag-based scheme for choosing which changes to execute on each run.
+* The following `valueFrom` types are defined:
+  * `call` functions as a simple macro for calling other `valueFrom` expressions.
+  * `pipeline` defines a way of chaining operations together so that the output from a previous step can feed into a following step
+  * `file` embeds a file from a file directory into another YAML file
+  * `template` allows for the creation of simple templates using `${var}` style interpolation
+  * `script` executes custom scripts found in a scripts directory
+  * `argRef` is used to read variables and arguments inside a `valueFrom` or function definition
+  * `default` is used for literal values
+  * `documentRef` is used to lookup values elsewhere in the current YAML document and use the looked up value
+
 ## v0.2.0  2025-07-17
 
  * The ddbLookup function in templates now supports `BOOL` fields and also nested fields with `M` (e.g., `Counter.M.prod.N`).

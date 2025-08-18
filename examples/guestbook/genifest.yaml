@@ -1,0 +1,95 @@
+metadata:
+  cloudHome: "."
+  scripts: ["scripts"]
+  manifests: ["manifests"]
+  files: ["files"]
+
+files:
+  - "manifests/guestbook/frontend-deployment.yaml"
+  - "manifests/guestbook/backend-deployment.yaml"
+  - "manifests/guestbook/frontend-service.yaml"
+  - "manifests/guestbook/backend-service.yaml"
+  - "manifests/guestbook/ingress.yaml"
+  - "manifests/guestbook/configmap.yaml"
+  - "manifests/guestbook/secret.yaml"
+  - "manifests/postgres/deployment.yaml"
+  - "manifests/postgres/service.yaml"
+  - "manifests/postgres/configmap.yaml"
+  - "manifests/postgres/secret.yaml"
+  - "manifests/postgres/pvc.yaml"
+
+functions:
+  - name: "get-replicas"
+    params:
+      - name: "environment"
+        required: true
+    valueFrom:
+      default:
+        value: "2"
+
+  - name: "get-image-tag"
+    params:
+      - name: "service"
+        required: true
+      - name: "environment"
+        required: true
+    valueFrom:
+      template:
+        string: "${service}:${environment}-latest"
+        variables:
+          - name: "service"
+            valueFrom:
+              argRef:
+                name: "service"
+          - name: "environment"
+            valueFrom:
+              argRef:
+                name: "environment"
+
+  - name: "get-database-host"
+    params:
+      - name: "environment"
+        required: true
+    valueFrom:
+      default:
+        value: "postgres-service"
+
+changes:
+  - tag: "production"
+    fileSelector: "manifests/*/deployment.yaml"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      call:
+        function: "get-replicas"
+        args:
+          - name: "environment"
+            valueFrom:
+              default:
+                value: "production"
+
+  - tag: "staging"
+    fileSelector: "manifests/*/deployment.yaml"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      call:
+        function: "get-replicas"
+        args:
+          - name: "environment"
+            valueFrom:
+              default:
+                value: "staging"
+
+  - fileSelector: "manifests/guestbook/*-deployment.yaml"
+    keySelector: ".spec.template.spec.containers[0].image"
+    valueFrom:
+      call:
+        function: "get-image-tag"
+        args:
+          - name: "service"
+            valueFrom:
+              default:
+                value: "guestbook-frontend"
+          - name: "environment"
+            valueFrom:
+              default:
+                value: "dev"

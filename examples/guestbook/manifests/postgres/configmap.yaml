@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: guestbook
+  labels:
+    app: postgres
+    component: config
+data:
+  database-name: "guestbook"
+  postgresql.conf: |
+    # PostgreSQL configuration
+    shared_preload_libraries = 'pg_stat_statements'
+    log_statement = 'all'
+    log_duration = on
+    log_min_duration_statement = 1000
+    max_connections = 100
+    shared_buffers = 128MB
+    effective_cache_size = 512MB
+    work_mem = 4MB
+    maintenance_work_mem = 64MB
