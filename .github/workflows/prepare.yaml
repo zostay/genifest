@@ -17,8 +17,8 @@ jobs:
         run: echo RELEASE_VERSION=$(echo $GITHUB_REF_NAME | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+.*$') >> $GITHUB_ENV
       - name: Version Check
         run: |
-          if ! grep -q "$RELEASE_VERSION" cmd/version.txt; then
-            echo "cmd/version.txt does not match $RELEASE_VERSION!"
+          if ! grep -q "$RELEASE_VERSION" internal/cmd/version.txt; then
+            echo "internal/cmd/version.txt does not match $RELEASE_VERSION!"
             exit 1
           fi
       - name: Set Time Zone to US Central
