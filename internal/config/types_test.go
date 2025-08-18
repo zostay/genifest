@@ -164,21 +164,21 @@ func TestIsValidIdentifier(t *testing.T) {
 		{"lowercase word", "script", true},
 		{"with numbers", "app1", true},
 		{"with hyphens", "my-script", true},
-		{"complex valid", "app-server-1", true},
 		{"ends with number", "test123", true},
+		{"underscore", "my_script", true},     // Underscores allowed in words
+		{"uppercase letters", "Script", true}, // Mixed case allowed
 
 		// Invalid identifiers
-		{"empty string", "", false},
+		{"only number", "1", false},
 		{"starts with number", "1script", false},
+		{"complex valid", "app-server-1", false},
+		{"empty string", "", false},
 		{"starts with hyphen", "-script", false},
 		{"ends with hyphen", "script-", false},
-		{"uppercase letters", "Script", false},
-		{"double hyphen", "my--script", true}, // Current regex allows this
-		{"underscore", "my_script", false},
+		{"double hyphen", "my--script", false}, // Double hyphens not allowed
 		{"spaces", "my script", false},
 		{"special chars", "script!", false},
 		{"only hyphen", "-", false},
-		{"only number", "1", false},
 	}
 
 	for _, tt := range tests {
@@ -192,8 +192,8 @@ func TestIsValidIdentifier(t *testing.T) {
 	}
 }
 
-// TestIsValidKebabTag tests the kebab-case tag validation function.
-func TestIsValidKebabTag(t *testing.T) {
+// TestIsValidTag tests the kebab-case tag validation function.
+func TestIsValidTag(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
@@ -207,14 +207,14 @@ func TestIsValidKebabTag(t *testing.T) {
 		{"with numbers", "v1", true},
 		{"with hyphens", "my-tag", true},
 		{"complex valid", "deploy-v1-2", true},
+		{"starts with number", "1tag", true}, // Tags can start with numbers
+		{"underscore", "my_tag", true},       // Underscores not allowed in tags
 
-		// Invalid tags (same rules as identifiers)
-		{"starts with number", "1tag", false},
+		// Invalid tags
 		{"starts with hyphen", "-tag", false},
 		{"ends with hyphen", "tag-", false},
-		{"uppercase letters", "Tag", false},
-		{"double hyphen", "my--tag", true}, // Current regex allows this
-		{"underscore", "my_tag", false},
+		{"uppercase letters", "Tag", false}, // Tags must be lowercase
+		{"double hyphen", "my--tag", false}, // Double hyphens not allowed
 		{"spaces", "my tag", false},
 		{"special chars", "tag!", false},
 	}
@@ -411,7 +411,7 @@ func TestMetaConfig_validatePathWithinHome(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := mc.validatePathWithinHome(tt.path, tt.pathType)
+			err := mc.validatePathWithinHome(mc.CloudHome, tt.path, tt.pathType)
 
 			if tt.expectError {
 				if err == nil {

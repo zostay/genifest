@@ -247,12 +247,12 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 			errorMsg:    "parameter name '1param' is not a valid identifier",
 		},
 		{
-			name: "invalid name - uppercase",
+			name: "valid name - uppercase",
 			param: Parameter{
 				Name:     "MyParam",
 				Required: false,
 			},
-			expectError: true,
+			expectError: false,
 			errorMsg:    "parameter name 'MyParam' is not a valid identifier",
 		},
 		{

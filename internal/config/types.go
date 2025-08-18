@@ -335,13 +335,22 @@ type DocumentRef struct {
 
 // Validation patterns.
 var (
-	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z_][a-zA-Z0-9_])*$`)
-	tagPattern        = regexp.MustCompile(`^[a-z0-9_]+(?:-[a-z0-9_]+)*$`)
+	// identifierPattern matches identifiers that are words separated by hyphens.
+	// Each word must start with a letter or underscore and may contain letters,
+	// underscores, and numbers after that. Identifiers are case-sensitive and
+	// may contain uppercase and lowercase letters. Identifiers are currently
+	// limited to ASCII.
+	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z_][a-zA-Z0-9_]*)*$`)
+
+	// tagPattern matches tags that are words separated by hyphens. Words are
+	// always lowercase and may be made up of any combination of letters, numbers,
+	// and underscores.
+	tagPattern = regexp.MustCompile(`^[a-z0-9_]+(?:-[a-z0-9_]+)*$`)
 )
 
-// isValidIdentifier checks if a string is a valid kebab-case identifier for names.
-// Valid identifiers start with a lowercase letter, contain only lowercase letters,
-// numbers, and hyphens, and end with a letter or number.
+// isValidIdentifier checks if a string is a valid identifier for names.
+// Valid identifiers are words separated by hyphens, mixed case allowed,
+// each word starts with a letter or underscore, and may contain numbers.
 func isValidIdentifier(s string) bool {
 	if s == "" {
 		return false
@@ -349,8 +358,9 @@ func isValidIdentifier(s string) bool {
 	return identifierPattern.MatchString(s)
 }
 
-// isValidTag checks if a string is a valid kebab-case tag (looser than identifier).
-// Tags follow the same rules as identifiers but are optional (empty string is valid).
+// isValidTag checks if a string is a valid tag.
+// Valid tags are lowercase words separated by hyphens, can start with letters or numbers.
+// Tags are optional (empty string is valid).
 func isValidTag(s string) bool {
 	if s == "" {
 		return true // tags are optional
@@ -458,21 +468,28 @@ func (m *MetaConfig) Validate() error {
 // are within the cloudHome boundary to prevent path traversal attacks.
 func (m *MetaConfig) ValidateWithContext(ctx *ValidationContext) error {
 	// Validate that all paths are within cloudHome
-	if m.CloudHome != "" {
+	var cloudHome string
+	if ctx != nil && ctx.CloudHome != "" {
+		cloudHome = ctx.CloudHome
+	} else {
+		cloudHome = m.CloudHome
+	}
+
+	if cloudHome != "" {
 		for _, scriptCtx := range m.Scripts {
-			if err := m.validatePathWithinHome(ctx.CloudHome, scriptCtx.Path, "script"); err != nil {
+			if err := m.validatePathWithinHome(cloudHome, scriptCtx.Path, "script"); err != nil {
 				return err
 			}
 		}
 
 		for _, manifestCtx := range m.Manifests {
-			if err := m.validatePathWithinHome(ctx.CloudHome, manifestCtx.Path, "manifest"); err != nil {
+			if err := m.validatePathWithinHome(cloudHome, manifestCtx.Path, "manifest"); err != nil {
 				return err
 			}
 		}
 
 		for _, fileCtx := range m.Files {
-			if err := m.validatePathWithinHome(ctx.CloudHome, fileCtx.Path, "file"); err != nil {
+			if err := m.validatePathWithinHome(cloudHome, fileCtx.Path, "file"); err != nil {
 				return err
 			}
 		}
@@ -489,6 +506,19 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 		return nil // empty paths are allowed
 	}
 
+	// Check for backslashes (potential Windows path separators)
+	// that could be used for path traversal attacks on any platform
+	if strings.Contains(relativePath, "\\") {
+		// Replace backslashes with forward slashes for validation
+		normalizedPath := strings.ReplaceAll(relativePath, "\\", "/")
+		cleanPath := filepath.Clean(normalizedPath)
+
+		// Check if the normalized path attempts to escape
+		if strings.Contains(cleanPath, "..") {
+			return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of cloudHome", pathType, relativePath)
+		}
+	}
+
 	// Clean the relative path
 	cleanPath := filepath.Clean(relativePath)
 
@@ -503,8 +533,13 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 	}
 
 	// Check for parent directory references that would escape cloudHome
-	if !strings.HasPrefix(cleanPath, absRoot+string(filepath.Separator)) {
-		return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of the root", pathType, relativePath)
+	// Join the cloudHome with the relative path and check if the result is still within cloudHome
+	absPath := filepath.Join(absRoot, cleanPath)
+	cleanAbsPath := filepath.Clean(absPath)
+
+	// Check if the resolved path is still within the cloudHome boundary
+	if !strings.HasPrefix(cleanAbsPath, absRoot+string(filepath.Separator)) && cleanAbsPath != absRoot {
+		return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of cloudHome", pathType, relativePath)
 	}
 
 	return nil

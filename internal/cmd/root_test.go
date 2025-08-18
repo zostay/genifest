@@ -40,7 +40,7 @@ func TestMatchesGlob(t *testing.T) {
 }
 
 // TestDetermineTags tests the tag determination logic.
-func TestDetermineTags(t *testing.T) {
+func TestDetermineTags(t *testing.T) { //nolint:tparallel // Subtests cannot run in parallel due to global variable modification
 	t.Parallel()
 	cfg := &config.Config{
 		Changes: []config.ChangeOrder{
@@ -83,9 +83,9 @@ func TestDetermineTags(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint:paralleltest // Cannot use t.Parallel due to global variable modification
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			// Note: Cannot use t.Parallel() here because we modify global variables
 			// Set global variables for test
 			oldInclude := includeTags
 			oldExclude := excludeTags
@@ -322,7 +322,6 @@ func TestCLIBasicFunctionality(t *testing.T) {
 
 // getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
-	t.Parallel()
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")
 	if err != nil {

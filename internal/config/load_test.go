@@ -218,7 +218,6 @@ func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 
 // getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
-	t.Parallel()
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")
 	if err != nil {
