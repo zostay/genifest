@@ -85,7 +85,7 @@ func determineTags(cfg *config.Config) []string {
 	}
 
 	// Convert to slice
-	var availableTags []string
+	availableTags := make([]string, 0, len(allTags))
 	for tag := range allTags {
 		availableTags = append(availableTags, tag)
 	}
@@ -153,7 +153,7 @@ func determineTags(cfg *config.Config) []string {
 	return result
 }
 
-// matchesGlob checks if a pattern matches a string using basic glob matching
+// matchesGlob checks if a pattern matches a string using basic glob matching.
 func matchesGlob(pattern, str string) bool {
 	// Handle exact match
 	if pattern == str {
@@ -174,15 +174,13 @@ func matchesGlob(pattern, str string) bool {
 	return matched
 }
 
-// processAllFiles finds and processes all files that should have changes applied
+// processAllFiles finds and processes all files that should have changes applied.
 func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess []string) error {
 	// Collect all files from the configuration
-	var filesToProcess []string
+	filesToProcess := make([]string, 0, len(cfg.Files))
 
 	// Add files explicitly listed in the config
-	for _, file := range cfg.Files {
-		filesToProcess = append(filesToProcess, file)
-	}
+	filesToProcess = append(filesToProcess, cfg.Files...)
 
 	// Process each file
 	for _, filePath := range filesToProcess {
@@ -195,7 +193,7 @@ func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess
 	return nil
 }
 
-// processFile reads a YAML file, applies changes, and writes it back
+// processFile reads a YAML file, applies changes, and writes it back.
 func processFile(applier *changes.Applier, filePath string, tagsToProcess []string) error {
 	// Get absolute path from working directory
 	workDir, _ := os.Getwd()
@@ -292,7 +290,7 @@ func applyChangesToDocument(applier *changes.Applier, filePath string, doc *yaml
 // applyChangeToDocument applies a single change to a YAML document.
 func applyChangeToDocument(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, error) {
 	// For document references, we need to evaluate the value in the context of this document
-	if result.Change.DocumentRef.KeySelector != "" {
+	if result.Change.KeySelector != "" {
 		// Create evaluation context with this document
 		evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
 
@@ -303,7 +301,7 @@ func applyChangeToDocument(doc *yaml.Node, result changes.ChangeResult, applier 
 		}
 
 		// Apply the change using the key selector
-		return setValueInDocument(doc, result.Change.DocumentRef.KeySelector, value)
+		return setValueInDocument(doc, result.Change.KeySelector, value)
 	}
 
 	// For other types of changes, use the pre-evaluated value

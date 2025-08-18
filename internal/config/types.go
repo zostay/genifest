@@ -371,7 +371,7 @@ type ValidationContext struct {
 // When multiple functions with the same name exist, the one from the deepest (closest) path is chosen.
 func (ctx *ValidationContext) LookupFunction(name string) (*FunctionDefinition, bool) {
 	var bestMatch *FunctionDefinition
-	var bestDepth int = -1
+	var bestDepth = -1
 
 	for i := range ctx.Functions {
 		fn := &ctx.Functions[i]

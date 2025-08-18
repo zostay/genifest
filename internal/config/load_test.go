@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestLoadFromDirectory_GuestbookExample tests loading the guestbook example configuration
+// TestLoadFromDirectory_GuestbookExample tests loading the guestbook example configuration.
 func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	// Get the absolute path to the examples/guestbook directory
 	projectRoot := getProjectRoot(t)
@@ -116,7 +116,7 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 }
 
 // TestLoadFromDirectory_GuestbookSyntheticConfigs tests that synthetic configs are created
-// for directories without genifest.yaml files
+// for directories without genifest.yaml files.
 func TestLoadFromDirectory_GuestbookSyntheticConfigs(t *testing.T) {
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -150,7 +150,7 @@ func TestLoadFromDirectory_GuestbookSyntheticConfigs(t *testing.T) {
 	}
 }
 
-// TestLoadFromDirectory_GuestbookValidation tests that the loaded configuration passes validation
+// TestLoadFromDirectory_GuestbookValidation tests that the loaded configuration passes validation.
 func TestLoadFromDirectory_GuestbookValidation(t *testing.T) {
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -167,7 +167,7 @@ func TestLoadFromDirectory_GuestbookValidation(t *testing.T) {
 	}
 }
 
-// TestLoadFromDirectory_GuestbookFunctionScoping tests that functions are properly scoped
+// TestLoadFromDirectory_GuestbookFunctionScoping tests that functions are properly scoped.
 func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 	projectRoot := getProjectRoot(t)
 	guestbookDir := filepath.Join(projectRoot, "examples", "guestbook")
@@ -192,25 +192,25 @@ func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 		t.Errorf("Expected function name get-replicas, got %s", fn.Name)
 	}
 
-	fn, found = ctx.LookupFunction("get-image-tag")
+	_, found = ctx.LookupFunction("get-image-tag")
 	if !found {
 		t.Error("get-image-tag function should be accessible from manifests/guestbook")
 	}
 
-	fn, found = ctx.LookupFunction("get-database-host")
+	_, found = ctx.LookupFunction("get-database-host")
 	if !found {
 		t.Error("get-database-host function should be accessible from manifests/guestbook")
 	}
 
 	// Test from a deeper path
 	ctx.CurrentPath = "manifests/postgres"
-	fn, found = ctx.LookupFunction("get-replicas")
+	_, found = ctx.LookupFunction("get-replicas")
 	if !found {
 		t.Error("get-replicas function should be accessible from manifests/postgres")
 	}
 }
 
-// getProjectRoot finds the project root directory for testing
+// getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")

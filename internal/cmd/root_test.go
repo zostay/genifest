@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
-	
+
 	"github.com/zostay/genifest/internal/config"
 )
 
-// TestMatchesGlob tests the glob pattern matching function
+// TestMatchesGlob tests the glob pattern matching function.
 func TestMatchesGlob(t *testing.T) {
 	tests := []struct {
 		pattern string
@@ -37,7 +37,7 @@ func TestMatchesGlob(t *testing.T) {
 	}
 }
 
-// TestDetermineTags tests the tag determination logic
+// TestDetermineTags tests the tag determination logic.
 func TestDetermineTags(t *testing.T) {
 	cfg := &config.Config{
 		Changes: []config.ChangeOrder{
@@ -119,7 +119,7 @@ func TestDetermineTags(t *testing.T) {
 	}
 }
 
-// TestSetValueInDocument tests YAML document value setting
+// TestSetValueInDocument tests YAML document value setting.
 func TestSetValueInDocument(t *testing.T) {
 	// Create a test YAML document
 	yamlContent := `
@@ -205,7 +205,7 @@ spec:
 	}
 }
 
-// TestWriteYAMLFile tests YAML file writing
+// TestWriteYAMLFile tests YAML file writing.
 func TestWriteYAMLFile(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.yaml")
@@ -250,7 +250,7 @@ value: 123
 	}
 }
 
-// TestCLIBasicFunctionality tests the basic CLI workflow
+// TestCLIBasicFunctionality tests the basic CLI workflow.
 func TestCLIBasicFunctionality(t *testing.T) {
 	// This test requires the guestbook example to be present
 	projectRoot := getProjectRoot(t)
@@ -258,7 +258,9 @@ func TestCLIBasicFunctionality(t *testing.T) {
 
 	// Change to guestbook directory
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
+	defer func() {
+		_ = os.Chdir(oldDir)
+	}()
 
 	err := os.Chdir(guestbookDir)
 	if err != nil {
@@ -310,7 +312,7 @@ func TestCLIBasicFunctionality(t *testing.T) {
 	}
 }
 
-// getProjectRoot finds the project root directory for testing
+// getProjectRoot finds the project root directory for testing.
 func getProjectRoot(t *testing.T) string {
 	// Start from the current working directory and walk up to find the project root
 	cwd, err := filepath.Abs(".")

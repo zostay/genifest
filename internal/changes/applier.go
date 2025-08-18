@@ -61,8 +61,7 @@ func (a *Applier) EvaluateChangeValue(change config.ChangeOrder, filePath string
 // - Write back the results
 // .
 func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, error) {
-	var results []ChangeResult
-
+	results := make([]ChangeResult, 0, len(a.config.Changes))
 	for _, change := range a.config.Changes {
 		// Check if change applies based on tags
 		if change.Tag != "" {

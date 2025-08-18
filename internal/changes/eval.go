@@ -267,13 +267,11 @@ func (ctx *EvalContext) evaluateFileInclusion(fi config.FileInclusion) (string, 
 	appDir := ""
 	if fi.App != "" {
 		appDir = fi.App
-	} else {
+	} else if ctx.CurrentFile != "" {
 		// Extract app from current file path if possible
-		if ctx.CurrentFile != "" {
-			parts := strings.Split(ctx.CurrentFile, string(filepath.Separator))
-			if len(parts) >= 2 {
-				appDir = parts[len(parts)-2]
-			}
+		parts := strings.Split(ctx.CurrentFile, string(filepath.Separator))
+		if len(parts) >= 2 {
+			appDir = parts[len(parts)-2]
 		}
 	}
 

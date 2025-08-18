@@ -4,8 +4,9 @@ import (
 	"testing"
 )
 
-// TestValueFrom_ValidateWithContext tests ValueFrom union type validation
+// TestValueFrom_ValidateWithContext tests ValueFrom union type validation.
 func TestValueFrom_ValidateWithContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		valueFrom   ValueFrom
@@ -87,7 +88,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 			},
 			expectError: false,
 		},
-		
+
 		// Error cases
 		{
 			name:        "empty ValueFrom",
@@ -98,7 +99,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 		{
 			name: "multiple fields set",
 			valueFrom: ValueFrom{
-				DefaultValue: &DefaultValue{Value: "test"},
+				DefaultValue:  &DefaultValue{Value: "test"},
 				FileInclusion: &FileInclusion{Source: "test.yaml"},
 			},
 			expectError: true,
@@ -172,8 +173,9 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.valueFrom.ValidateWithContext(nil)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error, but got none")
@@ -191,8 +193,9 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 	}
 }
 
-// TestParameter_ValidateWithContext tests parameter validation
+// TestParameter_ValidateWithContext tests parameter validation.
 func TestParameter_ValidateWithContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		param       Parameter
@@ -225,7 +228,7 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 			},
 			expectError: false,
 		},
-		
+
 		// Error cases
 		{
 			name: "invalid name - empty",
@@ -268,8 +271,9 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.param.ValidateWithContext(nil)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error, but got none")
@@ -287,8 +291,9 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 	}
 }
 
-// TestChangeOrder_ValidateWithContext tests change order validation
+// TestChangeOrder_ValidateWithContext tests change order validation.
 func TestChangeOrder_ValidateWithContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		change      ChangeOrder
@@ -321,7 +326,7 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 			},
 			expectError: false,
 		},
-		
+
 		// Error cases
 		{
 			name: "invalid document ref",
@@ -357,7 +362,7 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 				DocumentRef: DocumentRef{
 					KeySelector: ".metadata.name",
 				},
-				Tag: "deploy",
+				Tag:       "deploy",
 				ValueFrom: ValueFrom{
 					// Empty - no field set
 				},
@@ -369,8 +374,9 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.change.ValidateWithContext(nil)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error, but got none")
@@ -388,8 +394,9 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 	}
 }
 
-// TestCallPipeline_ValidateWithContext tests call pipeline validation
+// TestCallPipeline_ValidateWithContext tests call pipeline validation.
 func TestCallPipeline_ValidateWithContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		pipeline    CallPipeline
@@ -424,7 +431,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 			},
 			expectError: false,
 		},
-		
+
 		// Error cases
 		{
 			name:        "empty pipeline",
@@ -462,8 +469,9 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.pipeline.ValidateWithContext(nil)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error, but got none")

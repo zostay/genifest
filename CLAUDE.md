@@ -63,7 +63,33 @@ go test ./...
 
 # Lint (using golangci-lint)
 golangci-lint run --timeout=5m
+
+# Run the CLI tool from project root
+./genifest                           # Apply all changes
+./genifest --include-tags production # Apply only production changes
+./genifest --exclude-tags staging    # Apply all except staging changes
 ```
+
+### CLI Usage
+
+The genifest CLI processes a project from the directory containing the root `genifest.yaml`:
+
+```bash
+# Must be run from directory containing genifest.yaml
+cd project-root
+genifest [flags]
+
+# Tag filtering options:
+-i, --include-tags strings   include only changes with these tags (supports glob patterns)
+-x, --exclude-tags strings   exclude changes with these tags (supports glob patterns)
+```
+
+**Tag filtering logic:**
+- No flags: All changes applied (tagged and untagged)
+- Include only: Only changes matching include patterns
+- Exclude only: All changes except those matching exclude patterns  
+- Both flags: Changes matching include but not exclude patterns
+- Glob patterns supported: `prod*`, `test-*`, etc.
 
 ## Configuration File Structure
 
@@ -108,3 +134,66 @@ functions:
 - **Automatic inclusion**: Directories without `genifest.yaml` get synthetic configs with all YAML files
 - **Scope respect**: Each config's metadata only affects its subdirectories
 - **Security**: All paths must stay within cloudHome boundaries
+
+## Implementation Architecture
+
+### ValueFrom Evaluation System (`internal/changes/`)
+
+The system implements a sophisticated value evaluation architecture:
+
+- **EvalContext**: Immutable context carrying current file, document, variables, and functions
+- **Evaluators**: Separate functions for each ValueFrom type (DefaultValue, ArgumentRef, BasicTemplate, FunctionCall, ScriptExec, FileInclusion, DocumentRef, CallPipeline)
+- **Document Processing**: Uses `gopkg.in/yaml.v3` for parsing and modifying YAML documents
+- **Path Resolution**: Custom key selector implementation handling `.spec.replicas`, array access `[0]`, and nested paths
+- **Context Isolation**: Each evaluation creates new contexts to prevent side effects
+
+### CLI Implementation (`internal/cmd/`)
+
+The command-line interface provides:
+
+- **Tag Filtering**: Complex logic supporting include/exclude patterns with glob matching
+- **File Processing**: Multi-document YAML handling with atomic write operations  
+- **Change Application**: Applies ValueFrom expressions to modify specific YAML paths
+- **Error Handling**: Graceful degradation with detailed error messages
+
+### Key Design Decisions
+
+1. **Simplified yq Integration**: Instead of full `github.com/mikefarah/yq/v4` integration, implemented basic key selector parsing for common patterns. This avoided API complexity while supporting essential use cases.
+
+2. **Immutable Contexts**: EvalContext operations return new instances rather than modifying existing ones, enabling safe concurrent use and preventing unexpected state changes.
+
+3. **Document Reference Strategy**: Chose to implement document references by re-evaluating ValueFrom expressions in document context rather than pre-computing values, allowing dynamic document-aware value generation.
+
+4. **Tag Processing**: Implemented tag filtering at the change application level rather than configuration loading level, providing more flexible runtime control.
+
+## Development Lessons Learned
+
+### Testing Strategy
+- **Integration Tests**: Essential for validating end-to-end workflows with real configuration files
+- **Isolation**: Use temp directories and controlled fixtures for reliable test execution
+- **Context Testing**: Verify immutability contracts and variable scoping behavior
+
+### Error Handling Patterns
+- **Contextual Errors**: Always wrap errors with context about what operation failed and on which file/path
+- **User-Friendly Messages**: Distinguish between user configuration errors and system failures
+- **Graceful Degradation**: Continue processing other files when individual files fail
+
+### YAML Processing Challenges
+- **Multi-Document Files**: Handle YAML files with multiple documents separated by `---`
+- **Path Navigation**: Complex selectors like `.spec.template.spec.containers[0].image` require careful parsing
+- **Type Preservation**: Maintain YAML node types when modifying values to preserve structure
+
+### CLI Design Principles
+- **Project Root Detection**: Always validate presence of `genifest.yaml` before processing
+- **Clear Output**: Provide user feedback about which files were modified and what changes were applied
+- **Tag Logic**: Implement intuitive include/exclude behavior that matches user expectations
+
+### Performance Considerations
+- **Lazy Loading**: Only parse YAML documents when changes need to be applied
+- **Memory Efficiency**: Process files individually rather than loading entire project into memory
+- **File I/O**: Batch file operations and only write when changes are actually made
+
+### Code Quality Standards
+- **Linting**: Address critical linting issues (errcheck, staticcheck) while allowing style preferences
+- **Documentation**: Ensure all public APIs and complex functions have proper documentation
+- **Test Coverage**: Focus on integration tests and critical path validation over 100% unit test coverage

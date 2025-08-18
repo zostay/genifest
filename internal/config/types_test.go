@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// TestPathContext_YAMLMarshalling tests the YAML marshalling and unmarshalling of PathContext
+// TestPathContext_YAMLMarshalling tests the YAML marshalling and unmarshalling of PathContext.
 func TestPathContext_YAMLMarshalling(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -60,7 +60,7 @@ func TestPathContext_YAMLMarshalling(t *testing.T) {
 	}
 }
 
-// TestPathContext_Methods tests the PathContext methods
+// TestPathContext_Methods tests the PathContext methods.
 func TestPathContext_Methods(t *testing.T) {
 	pc := PathContext{
 		contextPath: "/base/dir",
@@ -79,7 +79,7 @@ func TestPathContext_Methods(t *testing.T) {
 	}
 }
 
-// TestPathContexts_YAMLMarshalling tests the YAML marshalling of PathContexts slice
+// TestPathContexts_YAMLMarshalling tests the YAML marshalling of PathContexts slice.
 func TestPathContexts_YAMLMarshalling(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -145,7 +145,7 @@ func TestPathContexts_YAMLMarshalling(t *testing.T) {
 	}
 }
 
-// TestIsValidIdentifier tests the identifier validation function
+// TestIsValidIdentifier tests the identifier validation function.
 func TestIsValidIdentifier(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -159,7 +159,7 @@ func TestIsValidIdentifier(t *testing.T) {
 		{"with hyphens", "my-script", true},
 		{"complex valid", "app-server-1", true},
 		{"ends with number", "test123", true},
-		
+
 		// Invalid identifiers
 		{"empty string", "", false},
 		{"starts with number", "1script", false},
@@ -184,7 +184,7 @@ func TestIsValidIdentifier(t *testing.T) {
 	}
 }
 
-// TestIsValidKebabTag tests the kebab-case tag validation function
+// TestIsValidKebabTag tests the kebab-case tag validation function.
 func TestIsValidKebabTag(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -198,7 +198,7 @@ func TestIsValidKebabTag(t *testing.T) {
 		{"with numbers", "v1", true},
 		{"with hyphens", "my-tag", true},
 		{"complex valid", "deploy-v1-2", true},
-		
+
 		// Invalid tags (same rules as identifiers)
 		{"starts with number", "1tag", false},
 		{"starts with hyphen", "-tag", false},
@@ -220,7 +220,7 @@ func TestIsValidKebabTag(t *testing.T) {
 	}
 }
 
-// TestValidationContext_LookupFunction tests function lookup and scoping rules
+// TestValidationContext_LookupFunction tests function lookup and scoping rules.
 func TestValidationContext_LookupFunction(t *testing.T) {
 	functions := []FunctionDefinition{
 		{Name: "root-func", path: "."},
@@ -232,35 +232,35 @@ func TestValidationContext_LookupFunction(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		currentPath string
-		funcName    string
-		expectFound bool
+		name         string
+		currentPath  string
+		funcName     string
+		expectFound  bool
 		expectedPath string
 	}{
 		// Function available from same path
 		{"same path root", ".", "root-func", true, "."},
 		{"same path app", "apps/app1", "app-func", true, "apps/app1"},
-		
+
 		// Function available from parent path
 		{"child can access parent", "apps/app1", "root-func", true, "."},
 		{"grandchild can access grandparent", "apps/app1/env", "root-func", true, "."},
-		
+
 		// Function not available from child path (scoping rule)
 		{"parent cannot access child", ".", "app-func", false, ""},
 		{"sibling cannot access sibling", "apps/app2", "app-func", false, ""},
-		
+
 		// Function shadowing (closest path wins)
 		{"root sees root version", ".", "shared-func", true, "."},
 		{"apps sees root version", "apps", "shared-func", true, "."}, // "." and "apps" both have depth 0, but "." comes first
 		{"app1 sees app1 version", "apps/app1", "shared-func", true, "apps/app1"},
 		{"app1/env sees app1 version", "apps/app1/env", "shared-func", true, "apps/app1"},
-		
+
 		// Deep function access
 		{"deep function from same path", "apps/app1/env/prod", "deep-func", true, "apps/app1/env/prod"},
 		{"deep function from parent path", "apps/app1/env/prod/config", "deep-func", true, "apps/app1/env/prod"},
 		{"deep function not accessible from parent", "apps/app1/env", "deep-func", false, ""},
-		
+
 		// Non-existent function
 		{"non-existent function", "apps/app1", "missing-func", false, ""},
 	}
@@ -304,7 +304,7 @@ func TestValidationContext_LookupFunction(t *testing.T) {
 	}
 }
 
-// TestValidationContext_isFunctionAvailable tests the function availability logic
+// TestValidationContext_isFunctionAvailable tests the function availability logic.
 func TestValidationContext_isFunctionAvailable(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -315,20 +315,20 @@ func TestValidationContext_isFunctionAvailable(t *testing.T) {
 		// Same path
 		{"same path root", ".", ".", true},
 		{"same path nested", "apps/app1", "apps/app1", true},
-		
+
 		// Parent-child relationships
 		{"parent available from child", "apps/app1", ".", true},
 		{"parent available from grandchild", "apps/app1/env", ".", true},
 		{"parent available from deep child", "apps/app1/env/prod", "apps", true},
-		
+
 		// Child not available from parent
 		{"child not available from parent", ".", "apps/app1", false},
 		{"grandchild not available from grandparent", ".", "apps/app1/env", false},
-		
+
 		// Sibling relationships
 		{"sibling not available", "apps/app1", "apps/app2", false},
 		{"cousin not available", "apps/app1/env", "apps/app2/env", false},
-		
+
 		// Edge cases with path cleaning
 		{"with trailing slash", "apps/app1/", "apps", true},
 		{"with dot segments", "apps/app1/./env", "apps/app1", true},
@@ -342,14 +342,14 @@ func TestValidationContext_isFunctionAvailable(t *testing.T) {
 
 			result := ctx.isFunctionAvailable(tt.functionPath)
 			if result != tt.expected {
-				t.Errorf("isFunctionAvailable(%q, %q) = %v, expected %v", 
+				t.Errorf("isFunctionAvailable(%q, %q) = %v, expected %v",
 					tt.currentPath, tt.functionPath, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestMetaConfig_validatePathWithinHome tests path security validation
+// TestMetaConfig_validatePathWithinHome tests path security validation.
 func TestMetaConfig_validatePathWithinHome(t *testing.T) {
 	mc := &MetaConfig{
 		CloudHome: "/home/user/project",
@@ -368,11 +368,11 @@ func TestMetaConfig_validatePathWithinHome(t *testing.T) {
 		{"nested relative path", "apps/app1/scripts", "script", false, ""},
 		{"dot path", ".", "script", false, ""},
 		{"dot-dot within bounds", "apps/../scripts", "script", false, ""},
-		
+
 		// Invalid paths - absolute paths
 		{"absolute path unix", "/etc/passwd", "script", true, "script path '/etc/passwd' must be relative, not absolute"},
 		// Note: Windows absolute paths like "C:\Windows" are only detected as absolute on Windows
-		
+
 		// Invalid paths - escaping cloudHome
 		{"dot-dot escape", "..", "script", true, "script path '..' attempts to reference parent directories outside of cloudHome"},
 		{"dot-dot prefix", "../../../etc", "script", true, "script path '../../../etc' attempts to reference parent directories outside of cloudHome"},
@@ -383,8 +383,9 @@ func TestMetaConfig_validatePathWithinHome(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := mc.validatePathWithinHome(tt.path, tt.pathType)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error for path %q, but got none", tt.path)
@@ -393,17 +394,16 @@ func TestMetaConfig_validatePathWithinHome(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error for path %q: %v", tt.path, err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error for path %q: %v", tt.path, err)
 			}
 		})
 	}
 }
 
-// TestMetaConfig_ValidateWithContext tests metadata validation with path security
+// TestMetaConfig_ValidateWithContext tests metadata validation with path security.
 func TestMetaConfig_ValidateWithContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		meta        MetaConfig
@@ -474,8 +474,9 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.meta.ValidateWithContext(nil)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error, but got none")
@@ -484,10 +485,8 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 				if err.Error() != tt.errorMsg {
 					t.Errorf("Error message mismatch:\nexpected: %q\ngot:      %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}
