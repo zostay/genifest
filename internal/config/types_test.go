@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -278,7 +279,13 @@ func TestValidationContext_LookupFunction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			ctx := &ValidationContext{
+				CloudHome:   wd,
 				Functions:   functions,
 				CurrentPath: tt.currentPath,
 			}
@@ -349,7 +356,13 @@ func TestValidationContext_isFunctionAvailable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			ctx := &ValidationContext{
+				CloudHome:   wd,
 				CurrentPath: tt.currentPath,
 			}
 

@@ -183,6 +183,7 @@ func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 
 	// Create a validation context to test function lookup
 	ctx := &ValidationContext{
+		CloudHome:   config.Metadata.CloudHome,
 		Functions:   config.Functions,
 		CurrentPath: "manifests/guestbook",
 	}

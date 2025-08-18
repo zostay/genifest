@@ -361,6 +361,7 @@ func isValidTag(s string) bool {
 // ValidationContext provides context for validation including available functions
 // and the current path for function scope resolution.
 type ValidationContext struct {
+	CloudHome   string `yaml:"cloudHome"`
 	Functions   []FunctionDefinition
 	CurrentPath string
 }
@@ -423,6 +424,7 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
 	ctx := &ValidationContext{
+		CloudHome: c.Metadata.CloudHome,
 		Functions: c.Functions,
 	}
 
@@ -454,23 +456,23 @@ func (m *MetaConfig) Validate() error {
 
 // ValidateWithContext validates the metadata configuration, ensuring all paths
 // are within the cloudHome boundary to prevent path traversal attacks.
-func (m *MetaConfig) ValidateWithContext(_ *ValidationContext) error {
+func (m *MetaConfig) ValidateWithContext(ctx *ValidationContext) error {
 	// Validate that all paths are within cloudHome
 	if m.CloudHome != "" {
 		for _, scriptCtx := range m.Scripts {
-			if err := m.validatePathWithinHome(scriptCtx.Path, "script"); err != nil {
+			if err := m.validatePathWithinHome(ctx.CloudHome, scriptCtx.Path, "script"); err != nil {
 				return err
 			}
 		}
 
 		for _, manifestCtx := range m.Manifests {
-			if err := m.validatePathWithinHome(manifestCtx.Path, "manifest"); err != nil {
+			if err := m.validatePathWithinHome(ctx.CloudHome, manifestCtx.Path, "manifest"); err != nil {
 				return err
 			}
 		}
 
 		for _, fileCtx := range m.Files {
-			if err := m.validatePathWithinHome(fileCtx.Path, "file"); err != nil {
+			if err := m.validatePathWithinHome(ctx.CloudHome, fileCtx.Path, "file"); err != nil {
 				return err
 			}
 		}
@@ -482,7 +484,7 @@ func (m *MetaConfig) ValidateWithContext(_ *ValidationContext) error {
 // validatePathWithinHome checks if a relative path would resolve to a location within cloudHome.
 // This security validation prevents path traversal attacks by ensuring paths don't escape
 // the cloudHome boundary using ".." directory references.
-func (m *MetaConfig) validatePathWithinHome(relativePath, pathType string) error {
+func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType string) error {
 	if relativePath == "" {
 		return nil // empty paths are allowed
 	}
@@ -490,14 +492,19 @@ func (m *MetaConfig) validatePathWithinHome(relativePath, pathType string) error
 	// Clean the relative path
 	cleanPath := filepath.Clean(relativePath)
 
+	absRoot, err := filepath.Abs(rootPath)
+	if err != nil {
+		return fmt.Errorf("%s path '%s' failed to validate because of filesystem error: %w", pathType, rootPath, err)
+	}
+
 	// Check for absolute paths (not allowed)
 	if filepath.IsAbs(cleanPath) {
 		return fmt.Errorf("%s path '%s' must be relative, not absolute", pathType, relativePath)
 	}
 
 	// Check for parent directory references that would escape cloudHome
-	if strings.HasPrefix(cleanPath, "..") || strings.Contains(cleanPath, "/..") || strings.Contains(cleanPath, "\\..") {
-		return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of cloudHome", pathType, relativePath)
+	if !strings.HasPrefix(cleanPath, absRoot+string(filepath.Separator)) {
+		return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of the root", pathType, relativePath)
 	}
 
 	return nil
