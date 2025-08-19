@@ -2,13 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
-
-	"github.com/zostay/genifest/internal/config"
 )
 
 var tagsCmd = &cobra.Command{
@@ -36,43 +32,13 @@ func init() {
 }
 
 func listTags(projectDir string) error {
-	// Determine the working directory
-	var workDir string
-	var err error
-	if projectDir != "" {
-		// Use provided directory argument
-		workDir = projectDir
-		// Convert to absolute path if relative
-		if !filepath.IsAbs(workDir) {
-			currentDir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-			workDir = filepath.Join(currentDir, workDir)
-		}
-	} else {
-		// Use current working directory
-		workDir, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get working directory: %w", err)
-		}
-	}
-
-	// Verify the directory exists
-	if _, err := os.Stat(workDir); os.IsNotExist(err) {
-		return fmt.Errorf("directory does not exist: %s", workDir)
-	}
-
-	configPath := filepath.Join(workDir, "genifest.yaml")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
-	}
-
-	// Load configuration
-	cfg, err := config.LoadFromDirectory(workDir)
+	// Load project configuration
+	projectInfo, err := loadProjectConfiguration(projectDir)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return err
 	}
+
+	cfg := projectInfo.Config
 
 	// Collect all unique tags from changes
 	tagSet := make(map[string]bool)

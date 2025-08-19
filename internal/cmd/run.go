@@ -53,43 +53,18 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 		currentExcludeTags = excludeTags
 	}
 
-	// Determine the working directory
-	var workDir string
-	var err error
-	if len(args) > 0 && args[0] != "" {
-		// Use provided directory argument
-		workDir = args[0]
-		// Convert to absolute path if relative
-		if !filepath.IsAbs(workDir) {
-			currentDir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-			workDir = filepath.Join(currentDir, workDir)
-		}
-	} else {
-		// Use current working directory
-		workDir, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get working directory: %w", err)
-		}
+	// Load project configuration
+	var projectDir string
+	if len(args) > 0 {
+		projectDir = args[0]
 	}
-
-	// Verify the directory exists
-	if _, err := os.Stat(workDir); os.IsNotExist(err) {
-		return fmt.Errorf("directory does not exist: %s", workDir)
-	}
-
-	configPath := filepath.Join(workDir, "genifest.yaml")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
-	}
-
-	// Load configuration
-	cfg, err := config.LoadFromDirectory(workDir)
+	projectInfo, err := loadProjectConfiguration(projectDir)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return err
 	}
+
+	workDir := projectInfo.WorkDir
+	cfg := projectInfo.Config
 
 	// Determine tags to process
 	tagsToProcess := determineTagsWithFlags(cfg, currentIncludeTags, currentExcludeTags)

@@ -40,46 +40,16 @@ func init() {
 }
 
 func validateConfiguration(projectDir string) error {
-	// Determine the working directory
-	var workDir string
-	var err error
-	if projectDir != "" {
-		// Use provided directory argument
-		workDir = projectDir
-		// Convert to absolute path if relative
-		if !filepath.IsAbs(workDir) {
-			currentDir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-			workDir = filepath.Join(currentDir, workDir)
-		}
-	} else {
-		// Use current working directory
-		workDir, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get working directory: %w", err)
-		}
+	// Load project configuration
+	projectInfo, err := loadProjectConfiguration(projectDir)
+	if err != nil {
+		return err
 	}
 
-	// Verify the directory exists
-	if _, err := os.Stat(workDir); os.IsNotExist(err) {
-		return fmt.Errorf("directory does not exist: %s", workDir)
-	}
-
-	configPath := filepath.Join(workDir, "genifest.yaml")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
-	}
+	workDir := projectInfo.WorkDir
+	cfg := projectInfo.Config
 
 	fmt.Printf("Validating configuration in %s...\n", workDir)
-
-	// Load configuration - this will perform validation during loading
-	cfg, err := config.LoadFromDirectory(workDir)
-	if err != nil {
-		fmt.Printf("❌ Configuration validation failed:\n")
-		return fmt.Errorf("configuration validation failed: %w", err)
-	}
 
 	// Additional validation checks
 	validationErrors := []string{}
