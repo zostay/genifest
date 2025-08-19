@@ -8,6 +8,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'requirements.txt'
       - '.github/workflows/docs.yml'
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'requirements.txt'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -41,36 +43,33 @@ jobs:
           fetch-depth: 0
           
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           
       - name: Cache Python dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', 'mkdocs.yml') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'mkdocs.yml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
             
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material
-          pip install mkdocs-git-revision-date-localized-plugin
-          pip install mkdocs-git-committers-plugin-2
-          pip install mkdocs-minify-plugin
+          pip install -r requirements.txt
           
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v4
         
       - name: Build documentation
         run: |
           mkdocs build --strict
           
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./site
 
@@ -85,40 +84,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
-
-  # Custom domain setup (for genifest.qubling.com)
-  setup-domain:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    needs: deploy
-    steps:
-      - name: Setup custom domain
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const domain = 'genifest.qubling.com';
-            
-            try {
-              // Check if custom domain is already set
-              const { data: pages } = await github.rest.repos.getPages({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              
-              if (pages.custom_domain !== domain) {
-                console.log(`Setting custom domain to ${domain}`);
-                await github.rest.repos.updateInformationAboutPagesSite({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  custom_domain: domain,
-                  https_enforced: true,
-                });
-                console.log('Custom domain configured successfully');
-              } else {
-                console.log('Custom domain already configured');
-              }
-            } catch (error) {
-              console.log('Error configuring custom domain:', error.message);
-              // Don't fail the workflow if domain setup fails
-            }
+        uses: actions/deploy-pages@v4
