@@ -1,0 +1,5 @@
+The background used for the baner on the docs site comes from Unsplash:
+
+Author URL: https://unsplash.com/@tengyart?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash
+Photo by: Олег Мороз
+URL: https://unsplash.com/photos/brown-and-black-abstract-painting-K0N0-QiDF8g?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash

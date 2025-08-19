@@ -1,5 +1,139 @@
 /* Custom styles for Genifest documentation */
 
+/* Construction Orange Color Scheme Variables */
+:root {
+  --genifest-primary: #8e4825;
+  --genifest-primary-light: #bc6534;
+  --genifest-primary-lighter: #d4824a;
+  --genifest-primary-dark: #6b3419;
+  --genifest-primary-darker: #4a220f;
+  --genifest-accent: #ff9800;
+  --genifest-accent-light: #ffb74d;
+}
+
+/* Light mode custom colors */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--genifest-primary);
+  --md-primary-fg-color--light: var(--genifest-primary-light);
+  --md-primary-fg-color--dark: var(--genifest-primary-dark);
+  --md-accent-fg-color: var(--genifest-accent);
+  --md-accent-fg-color--transparent: rgba(255, 152, 0, 0.1);
+}
+
+/* Dark mode custom colors */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--genifest-primary-light);
+  --md-primary-fg-color--light: var(--genifest-primary-lighter);
+  --md-primary-fg-color--dark: var(--genifest-primary-darker);
+  --md-accent-fg-color: var(--genifest-accent-light);
+  --md-accent-fg-color--transparent: rgba(255, 183, 77, 0.1);
+}
+
+/* Header banner with background image */
+.md-header {
+  background: linear-gradient(
+    rgba(142, 72, 37, 0.9), 
+    rgba(142, 72, 37, 0.8)
+  ), url('../assets/background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  border-bottom: 2px solid var(--genifest-primary-dark);
+}
+
+/* Dark mode header adjustments */
+[data-md-color-scheme="slate"] .md-header {
+  background: linear-gradient(
+    rgba(74, 34, 15, 0.95), 
+    rgba(74, 34, 15, 0.9)
+  ), url('../assets/background.jpg');
+}
+
+/* Navigation tabs styling */
+.md-tabs {
+  background: var(--genifest-primary-dark);
+  border-bottom: 1px solid var(--genifest-primary-darker);
+}
+
+/* Active navigation elements */
+.md-nav__link--active,
+.md-nav__link:focus,
+.md-nav__link:hover {
+  color: var(--genifest-accent);
+}
+
+/* Button and link styling */
+.md-button {
+  border-color: var(--genifest-primary);
+  color: var(--genifest-primary);
+}
+
+.md-button--primary {
+  background-color: var(--genifest-primary);
+  border-color: var(--genifest-primary);
+}
+
+.md-button--primary:hover {
+  background-color: var(--genifest-primary-dark);
+  border-color: var(--genifest-primary-dark);
+}
+
+/* Code block and syntax highlighting adjustments */
+.md-typeset code {
+  background-color: rgba(142, 72, 37, 0.1);
+  color: var(--genifest-primary-dark);
+}
+
+/* Table header styling */
+.md-typeset table:not([class]) th {
+  background-color: rgba(142, 72, 37, 0.1);
+  color: var(--genifest-primary-dark);
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar-thumb {
+  background-color: var(--genifest-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--genifest-primary-dark);
+}
+
+/* Search highlighting */
+.md-search-result__teaser mark {
+  background-color: var(--genifest-accent);
+  color: white;
+}
+
+/* Admonition styling updates */
+.md-typeset .admonition.note {
+  border-left-color: var(--genifest-primary);
+}
+
+.md-typeset .admonition.tip {
+  border-left-color: var(--genifest-accent);
+}
+
+/* Footer links */
+.md-footer-nav__link:focus,
+.md-footer-nav__link:hover {
+  color: var(--genifest-accent);
+}
+
+/* Photographer credit styling */
+.md-footer-photo-credit {
+}
+
+.md-footer-photo-credit a {
+  color: var(--genifest-accent);
+  text-decoration: none;
+}
+
+.md-footer-photo-credit a:hover {
+  color: var(--genifest-accent-light);
+  text-decoration: underline;
+}
+
 /* Enhanced card styling */
 .md-grid {
   max-width: 1220px;
