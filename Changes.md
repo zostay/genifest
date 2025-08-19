@@ -1,4 +1,4 @@
-## TBD
+## v1.0.0-rc2  2025-08-19
 
 _Major CLI restructuring and enhanced user experience improvements._
 
