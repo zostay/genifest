@@ -51,6 +51,30 @@ The configuration system uses a **metadata-driven loading approach**:
 ## Commands
 
 ### Build and Development
+
+**Using Make (Recommended):**
+```bash
+# Show all available targets
+make help
+
+# Development workflow
+make build                               # Build the application
+make test                                # Run all tests
+make lint                                # Run linters
+make check                               # Run all checks (fmt, vet, lint, test)
+
+# Example testing
+make run-example                         # Run guestbook example
+make validate-example                    # Validate guestbook example
+make config-example                      # Show merged config
+make tags-example                        # Show available tags
+
+# Release
+make release                             # Build release binaries for all platforms
+make install                             # Install to GOPATH/bin
+```
+
+**Manual Commands:**
 ```bash
 # Build the application
 go build -o genifest
