@@ -120,6 +120,20 @@
   color: var(--genifest-accent);
 }
 
+/* Photographer credit styling */
+.md-footer-photo-credit {
+}
+
+.md-footer-photo-credit a {
+  color: var(--genifest-accent);
+  text-decoration: none;
+}
+
+.md-footer-photo-credit a:hover {
+  color: var(--genifest-accent-light);
+  text-decoration: underline;
+}
+
 /* Enhanced card styling */
 .md-grid {
   max-width: 1220px;
