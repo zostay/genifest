@@ -86,9 +86,9 @@ extra:
       link: https://github.com/zostay/genifest
     - icon: fontawesome/brands/docker
       link: https://hub.docker.com/r/qubling/genifest
-  analytics:
-    provider: google
-    property: G-XXXXXXXXXX
+#  analytics:
+#    provider: google
+#    property: G-XXXXXXXXXX
   consent:
     title: Cookie consent
     description: >- 
