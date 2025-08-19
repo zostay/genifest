@@ -121,7 +121,7 @@ func validateConfiguration(projectDir string) error {
 	return nil
 }
 
-// isValueFromEmpty checks if a ValueFrom struct has no fields set
+// isValueFromEmpty checks if a ValueFrom struct has no fields set.
 func isValueFromEmpty(vf config.ValueFrom) bool {
 	return vf.FunctionCall == nil &&
 		vf.CallPipeline == nil &&

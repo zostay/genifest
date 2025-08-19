@@ -8,7 +8,7 @@ import (
 	"github.com/zostay/genifest/internal/config"
 )
 
-// ProjectInfo contains resolved project directory and loaded configuration
+// ProjectInfo contains resolved project directory and loaded configuration.
 type ProjectInfo struct {
 	WorkDir string
 	Config  *config.Config

@@ -209,141 +209,6 @@ func matchesGlob(pattern, str string) bool {
 	return matched
 }
 
-// processAllFiles finds and processes all files that should have changes applied.
-func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) error {
-	// Collect all files from the configuration
-	filesToProcess := make([]string, 0, len(cfg.Files))
-
-	// Add files explicitly listed in the config
-	filesToProcess = append(filesToProcess, cfg.Files...)
-
-	// Process each file
-	for _, filePath := range filesToProcess {
-		err := processFile(applier, filePath, tagsToProcess, workDir)
-		if err != nil {
-			return fmt.Errorf("failed to process file %s: %w", filePath, err)
-		}
-	}
-
-	return nil
-}
-
-// processFile reads a YAML file, applies changes, and writes it back.
-func processFile(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) error {
-	// Get absolute path from working directory
-	fullPath := filepath.Join(workDir, filePath)
-
-	// Check if file exists
-	var fi os.FileInfo
-	var err error
-	if fi, err = os.Stat(fullPath); os.IsNotExist(err) {
-		fmt.Printf("Warning: file %s does not exist, skipping\n", filePath)
-		return nil
-	}
-
-	// Read file content
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	// Parse YAML documents
-	var documents []yaml.Node
-	decoder := yaml.NewDecoder(strings.NewReader(string(content)))
-
-	for {
-		var doc yaml.Node
-		err := decoder.Decode(&doc)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return fmt.Errorf("failed to parse YAML: %w", err)
-		}
-		documents = append(documents, doc)
-	}
-
-	if len(documents) == 0 {
-		fmt.Printf("Warning: no YAML documents found in %s, skipping\n", filePath)
-		return nil
-	}
-
-	// Track if any changes were made
-	modified := false
-
-	// Process each document
-	for docIndex := range documents {
-		doc := &documents[docIndex]
-
-		// Apply changes to this document
-		changed, err := applyChangesToDocument(applier, filePath, doc, tagsToProcess)
-		if err != nil {
-			return fmt.Errorf("failed to apply changes to document %d: %w", docIndex, err)
-		}
-
-		if changed {
-			modified = true
-		}
-	}
-
-	// Write back if modified
-	if modified {
-		err := writeYAMLFile(fullPath, documents, fi.Mode())
-		if err != nil {
-			return fmt.Errorf("failed to write modified file: %w", err)
-		}
-		fmt.Printf("Applied changes to %s\n", filePath)
-	}
-
-	return nil
-}
-
-// applyChangesToDocument applies changes to a single YAML document.
-func applyChangesToDocument(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string) (bool, error) {
-	modified := false
-
-	// Apply all changes that match the tags at once
-	results, err := applier.ApplyChanges(filePath, tagsToProcess)
-	if err != nil {
-		return false, fmt.Errorf("failed to apply changes: %w", err)
-	}
-
-	// Apply each change result to the document
-	for _, result := range results {
-		changed, err := applyChangeToDocument(doc, result, applier, filePath)
-		if err != nil {
-			return false, fmt.Errorf("failed to apply change %s: %w", result.KeyPath, err)
-		}
-		if changed {
-			modified = true
-			fmt.Printf("  Applied change: %s = %s\n", result.KeyPath, result.Value)
-		}
-	}
-
-	return modified, nil
-}
-
-// applyChangeToDocument applies a single change to a YAML document.
-func applyChangeToDocument(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, error) {
-	// For document references, we need to evaluate the value in the context of this document
-	if result.Change.KeySelector != "" {
-		// Create evaluation context with this document
-		evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
-
-		// Evaluate the ValueFrom in the context of this document
-		value, err := evalCtx.Evaluate(result.Change.ValueFrom)
-		if err != nil {
-			return false, fmt.Errorf("failed to evaluate change value: %w", err)
-		}
-
-		// Apply the change using the key selector
-		return setValueInDocument(doc, result.Change.KeySelector, value)
-	}
-
-	// For other types of changes, use the pre-evaluated value
-	return setValueInDocument(doc, result.KeyPath, result.Value)
-}
-
 // setValueInDocument sets a value in a YAML document using a key selector.
 func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error) {
 	// Remove leading dot if present
@@ -550,14 +415,14 @@ func writeYAMLFile(filePath string, documents []yaml.Node, mode os.FileMode) err
 	return os.WriteFile(filePath, []byte(output.String()), mode)
 }
 
-// ProcessingStats tracks statistics during the run
+// ProcessingStats tracks statistics during the run.
 type ProcessingStats struct {
 	Applied       int // Total number of changes applied
 	Modified      int // Number of changes that actually modified values
 	FilesModified int // Number of files that were modified
 }
 
-// countChangesToRun counts how many changes will be processed based on tags
+// countChangesToRun counts how many changes will be processed based on tags.
 func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 	if len(tagsToProcess) == 0 {
 		return 0
@@ -581,10 +446,10 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 	return count
 }
 
-// processAllFilesWithCounting processes files and tracks statistics
+// processAllFilesWithCounting processes files and tracks statistics.
 func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
-	
+
 	// Collect all files from the configuration
 	filesToProcess := make([]string, 0, len(cfg.Files))
 	filesToProcess = append(filesToProcess, cfg.Files...)
@@ -595,7 +460,7 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 		if err != nil {
 			return stats, fmt.Errorf("failed to process file %s: %w", filePath, err)
 		}
-		
+
 		stats.Applied += fileStats.Applied
 		stats.Modified += fileStats.Modified
 		if fileStats.Modified > 0 {
@@ -606,10 +471,10 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 	return stats, nil
 }
 
-// processFileWithCounting processes a file and tracks statistics
+// processFileWithCounting processes a file and tracks statistics.
 func processFileWithCounting(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
-	
+
 	// Get absolute path from working directory
 	fullPath := filepath.Join(workDir, filePath)
 
@@ -680,7 +545,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	return stats, nil
 }
 
-// applyChangesToDocumentWithCounting applies changes to a document and tracks statistics
+// applyChangesToDocumentWithCounting applies changes to a document and tracks statistics.
 func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
@@ -710,7 +575,7 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 	return stats, nil
 }
 
-// applyChangeToDocumentWithOldValue applies a single change to a YAML document and returns the old value
+// applyChangeToDocumentWithOldValue applies a single change to a YAML document and returns the old value.
 func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
 	// First, get the old value
 	oldValue, err := getValueInDocument(doc, result.Change.KeySelector)
@@ -739,7 +604,7 @@ func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResu
 	return changed, oldValue, err
 }
 
-// getValueInDocument gets a value from a YAML document using a key selector
+// getValueInDocument gets a value from a YAML document using a key selector.
 func getValueInDocument(doc *yaml.Node, keySelector string) (string, error) {
 	// Remove leading dot if present
 	keySelector = strings.TrimPrefix(keySelector, ".")

@@ -86,7 +86,7 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 			} else {
 				matchTarget = filePath
 			}
-			
+
 			matched := matchesGlobPattern(change.FileSelector, matchTarget)
 			if !matched {
 				continue

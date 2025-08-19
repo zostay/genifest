@@ -53,12 +53,12 @@ func displayConfiguration(projectDir string) error {
 	// Convert the configuration to YAML and output it
 	encoder := yaml.NewEncoder(os.Stdout)
 	encoder.SetIndent(2)
-	
+
 	err = encoder.Encode(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to encode configuration as YAML: %w", err)
 	}
-	
+
 	err = encoder.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close YAML encoder: %w", err)
