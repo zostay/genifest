@@ -185,8 +185,8 @@ functions:
       - name: "env"
         required: true
     valueFrom:
-      template:
-        string: '{{ if eq .env "prod" }}5{{ else }}2{{ end }}'
+      default:
+        value: "2"
 
 changes:
   - fileSelector: "*-deployment.yaml"
