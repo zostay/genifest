@@ -75,14 +75,14 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 
 	// Display initial summary
 	fmt.Printf("🔍 Configuration loaded:\n")
-	fmt.Printf("  • %d total change(s) defined\n", totalChanges)
+	fmt.Printf("  • %d total change definition(s) found\n", totalChanges)
 	if len(currentIncludeTags) > 0 || len(currentExcludeTags) > 0 {
-		fmt.Printf("  • %d change(s) will be processed (filtered by tags)\n", changesToRun)
+		fmt.Printf("  • %d change definition(s) match tag filter\n", changesToRun)
 		if len(tagsToProcess) > 0 {
 			fmt.Printf("  • Tags to process: %v\n", tagsToProcess)
 		}
 	} else {
-		fmt.Printf("  • %d change(s) will be processed (all changes)\n", changesToRun)
+		fmt.Printf("  • %d change definition(s) will be processed (all changes)\n", changesToRun)
 	}
 	fmt.Printf("  • %d file(s) to examine\n", len(cfg.Files))
 	fmt.Printf("\n")
@@ -103,8 +103,8 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 
 	// Final summary
 	fmt.Printf("\n✅ Successfully completed processing:\n")
-	fmt.Printf("  • %d change(s) applied\n", processedChanges.Applied)
-	fmt.Printf("  • %d change(s) resulted in actual modifications\n", processedChanges.Modified)
+	fmt.Printf("  • %d change application(s) processed\n", processedChanges.Applied)
+	fmt.Printf("  • %d change application(s) resulted in actual modifications\n", processedChanges.Modified)
 	fmt.Printf("  • %d file(s) were updated\n", processedChanges.FilesModified)
 	return nil
 }
@@ -598,7 +598,7 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 		
 		stats.Applied += fileStats.Applied
 		stats.Modified += fileStats.Modified
-		if fileStats.Applied > 0 {
+		if fileStats.Modified > 0 {
 			stats.FilesModified++
 		}
 	}
@@ -656,7 +656,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 		doc := &documents[docIndex]
 
 		// Apply changes to this document
-		docStats, err := applyChangesToDocumentWithCounting(applier, filePath, doc, tagsToProcess)
+		docStats, err := applyChangesToDocumentWithCounting(applier, filePath, doc, tagsToProcess, docIndex)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply changes to document %d: %w", docIndex, err)
 		}
@@ -681,7 +681,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 }
 
 // applyChangesToDocumentWithCounting applies changes to a document and tracks statistics
-func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string) (*ProcessingStats, error) {
+func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
 	// Apply all changes that match the tags at once
@@ -700,9 +700,9 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 			stats.Applied++
 			if oldValue != result.Value {
 				stats.Modified++
-				fmt.Printf("  ✏️  %s: %s → %s\n", result.KeyPath, oldValue, result.Value)
+				fmt.Printf("  ✏️  %s -> document[%d] -> %s: %s → %s\n", filePath, docIndex, result.KeyPath, oldValue, result.Value)
 			} else {
-				fmt.Printf("  ✓  %s: %s (no change)\n", result.KeyPath, result.Value)
+				fmt.Printf("  ✓  %s -> document[%d] -> %s: %s (no change)\n", filePath, docIndex, result.KeyPath, result.Value)
 			}
 		}
 	}

@@ -308,7 +308,18 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 
 	// Merge Files, Changes, and Functions across all configurations
 	for _, c := range configs {
-		result.Files = append(result.Files, c.config.Files...)
+		// Add files with proper relative paths
+		for _, file := range c.config.Files {
+			var fullFilePath string
+			if c.path == "." || c.path == "" {
+				// Files from root directory
+				fullFilePath = file
+			} else {
+				// Files from subdirectories - prefix with relative path
+				fullFilePath = filepath.Join(c.path, file)
+			}
+			result.Files = append(result.Files, fullFilePath)
+		}
 
 		// Set the path for change orders
 		for _, change := range c.config.Changes {

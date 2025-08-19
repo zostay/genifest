@@ -4,20 +4,6 @@ metadata:
   manifests: ["manifests"]
   files: ["files"]
 
-files:
-  - "manifests/guestbook/frontend-deployment.yaml"
-  - "manifests/guestbook/backend-deployment.yaml"
-  - "manifests/guestbook/frontend-service.yaml"
-  - "manifests/guestbook/backend-service.yaml"
-  - "manifests/guestbook/ingress.yaml"
-  - "manifests/guestbook/configmap.yaml"
-  - "manifests/guestbook/secret.yaml"
-  - "manifests/postgres/deployment.yaml"
-  - "manifests/postgres/service.yaml"
-  - "manifests/postgres/configmap.yaml"
-  - "manifests/postgres/secret.yaml"
-  - "manifests/postgres/pvc.yaml"
-
 functions:
   - name: "get-replicas"
     params:
