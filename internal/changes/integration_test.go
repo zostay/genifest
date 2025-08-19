@@ -129,8 +129,8 @@ func TestGuestbookIntegration(t *testing.T) {
 	// Test applying changes with tags
 	t.Run("ApplyChangesWithTags", func(t *testing.T) {
 		t.Parallel()
-		// Apply production changes to postgres deployment (matches "manifests/*/deployment.yaml")
-		results, err := applier.ApplyChanges("manifests/postgres/deployment.yaml", []string{"production"})
+		// Apply production changes to guestbook deployment (matches "*-deployment.yaml" in guestbook dir)
+		results, err := applier.ApplyChanges("manifests/guestbook/backend-deployment.yaml", []string{"production"})
 		if err != nil {
 			t.Fatalf("Failed to apply production changes: %v", err)
 		}
@@ -148,7 +148,7 @@ func TestGuestbookIntegration(t *testing.T) {
 		}
 
 		// Apply staging changes
-		results, err = applier.ApplyChanges("manifests/postgres/deployment.yaml", []string{"staging"})
+		results, err = applier.ApplyChanges("manifests/guestbook/backend-deployment.yaml", []string{"staging"})
 		if err != nil {
 			t.Fatalf("Failed to apply staging changes: %v", err)
 		}

@@ -177,21 +177,43 @@ go install github.com/zostay/genifest/cmd/genifest@latest
 
 ## Usage
 
-Run genifest from a directory containing a `genifest.yaml` file:
+Genifest provides several subcommands for different operations. All commands can optionally specify a directory argument to operate from a location other than the current working directory.
+
+### Core Commands
 
 ```bash
-# Apply all changes
-genifest
+# Apply all changes (run from directory containing genifest.yaml)
+genifest run
 
 # Apply only production changes  
-genifest --include-tags production
+genifest run --include-tags production
 
 # Apply all except staging changes
-genifest --exclude-tags staging
+genifest run --exclude-tags staging
 
-# Show version
-genifest --version
+# Apply changes from a different directory
+genifest run path/to/project
+
+# Show version information
+genifest version
+
+# List all available tags in configuration
+genifest tags
+
+# Validate configuration without applying changes
+genifest validate
+
+# Display merged configuration 
+genifest config
 ```
+
+### Enhanced Output
+
+The run command provides detailed progress reporting:
+- Shows total change definitions found and how many will be processed
+- Reports each change with full context: `file -> document[index] -> key: old → new`
+- Distinguishes between changes applied vs actual modifications made
+- Summarizes final results with file modification counts
 
 ### Tag Filtering
 

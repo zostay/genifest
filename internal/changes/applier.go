@@ -79,7 +79,15 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 
 		// Check if file matches (simplified glob matching)
 		if change.FileSelector != "" {
-			matched := matchesGlobPattern(change.FileSelector, filePath)
+			// If the fileSelector doesn't contain path separators, match against just the filename
+			var matchTarget string
+			if !strings.Contains(change.FileSelector, "/") {
+				matchTarget = filepath.Base(filePath)
+			} else {
+				matchTarget = filePath
+			}
+
+			matched := matchesGlobPattern(change.FileSelector, matchTarget)
 			if !matched {
 				continue
 			}
