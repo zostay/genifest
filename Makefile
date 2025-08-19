@@ -75,6 +75,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DIST_DIR)
+	rm -rf site/
 	$(GO) clean -cache -testcache -modcache
 
 # ===== Testing =====
@@ -235,6 +236,12 @@ docs-build: ## Build documentation
 	@echo "$(BLUE)Building documentation...$(RESET)"
 	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
 	mkdocs build
+
+.PHONY: docs-build-strict
+docs-build-strict: ## Build documentation with strict mode (for CI)
+	@echo "$(BLUE)Building documentation (strict mode)...$(RESET)"
+	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
+	CI=true mkdocs build --strict
 
 .PHONY: docs-deploy
 docs-deploy: ## Deploy documentation to GitHub Pages

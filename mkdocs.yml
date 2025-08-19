@@ -11,6 +11,14 @@ edit_uri: edit/master/docs/
 # Copyright
 copyright: Copyright &copy; 2025 Qubling LLC
 
+# Documentation directory
+docs_dir: docs
+
+# Exclude files
+exclude_docs: |
+  includes/
+  README.md
+
 # Configuration
 theme:
   name: material
@@ -73,9 +81,12 @@ plugins:
       minify_html: true
   - git-revision-date-localized:
       enable_creation_date: true
+      fallback_to_build_date: true
+      enabled: false
   - git-committers:
       repository: zostay/genifest
       branch: master
+      enabled: false
 
 # Customization
 extra:

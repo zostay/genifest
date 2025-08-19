@@ -1,4 +1,7 @@
 .sw?
 
+/.cache
+/site
+
 /attic
 /genifest
