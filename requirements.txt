@@ -1,0 +1,9 @@
+# Documentation dependencies for MkDocs
+mkdocs-material>=9.4.0
+mkdocs-git-revision-date-localized-plugin>=1.2.0
+mkdocs-git-committers-plugin-2>=1.2.0
+mkdocs-minify-plugin>=0.7.0
+
+# Optional dependencies for enhanced features
+pymdown-extensions>=10.3.0
+pygments>=2.16.0

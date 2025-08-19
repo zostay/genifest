@@ -75,6 +75,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DIST_DIR)
+	rm -rf site/
 	$(GO) clean -cache -testcache -modcache
 
 # ===== Testing =====
@@ -216,6 +217,42 @@ config-example: build ## Show merged config for guestbook example
 tags-example: build ## Show tags for guestbook example
 	@echo "$(BLUE)Showing guestbook example tags...$(RESET)"
 	./$(BINARY_NAME) tags $(EXAMPLES_DIR)/guestbook
+
+# ===== Documentation =====
+.PHONY: docs-install
+docs-install: ## Install documentation dependencies
+	@echo "$(BLUE)Installing documentation dependencies...$(RESET)"
+	@which pip > /dev/null || (echo "$(RED)Python pip not found. Please install Python and pip.$(RESET)" && exit 1)
+	pip install mkdocs-material mkdocs-git-revision-date-localized-plugin mkdocs-git-committers-plugin-2 mkdocs-minify-plugin
+
+.PHONY: docs-serve
+docs-serve: ## Serve documentation locally
+	@echo "$(BLUE)Starting documentation server...$(RESET)"
+	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
+	mkdocs serve
+
+.PHONY: docs-build
+docs-build: ## Build documentation
+	@echo "$(BLUE)Building documentation...$(RESET)"
+	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
+	mkdocs build
+
+.PHONY: docs-build-strict
+docs-build-strict: ## Build documentation with strict mode (for CI)
+	@echo "$(BLUE)Building documentation (strict mode)...$(RESET)"
+	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
+	CI=true mkdocs build --strict
+
+.PHONY: docs-deploy
+docs-deploy: ## Deploy documentation to GitHub Pages
+	@echo "$(BLUE)Deploying documentation...$(RESET)"
+	@which mkdocs > /dev/null || (echo "$(RED)MkDocs not found. Run 'make docs-install' first.$(RESET)" && exit 1)
+	mkdocs gh-deploy --force
+
+.PHONY: docs-clean
+docs-clean: ## Clean documentation build artifacts
+	@echo "$(BLUE)Cleaning documentation build artifacts...$(RESET)"
+	rm -rf site/
 
 # ===== Docker (Optional) =====
 .PHONY: docker-build
