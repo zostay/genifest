@@ -11,7 +11,7 @@ import (
 )
 
 var validateCmd = &cobra.Command{
-	Use:   "validate",
+	Use:   "validate [directory]",
 	Short: "Validate the genifest configuration",
 	Long: `Validate the genifest configuration files for syntax errors, 
 missing dependencies, and other configuration issues.
@@ -21,10 +21,17 @@ This command will:
 - Validate function references and dependencies
 - Check path security and cloudHome boundaries
 - Verify file selectors and key selectors
-- Report any configuration errors found`,
-	Args: cobra.NoArgs,
-	RunE: func(_ *cobra.Command, _ []string) error {
-		return validateConfiguration()
+- Report any configuration errors found
+
+If a directory is specified, the command will operate from that directory instead 
+of the current working directory.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var projectDir string
+		if len(args) > 0 {
+			projectDir = args[0]
+		}
+		return validateConfiguration(projectDir)
 	},
 }
 
@@ -32,16 +39,37 @@ func init() {
 	rootCmd.AddCommand(validateCmd)
 }
 
-func validateConfiguration() error {
-	// Find project root with genifest.yaml
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+func validateConfiguration(projectDir string) error {
+	// Determine the working directory
+	var workDir string
+	var err error
+	if projectDir != "" {
+		// Use provided directory argument
+		workDir = projectDir
+		// Convert to absolute path if relative
+		if !filepath.IsAbs(workDir) {
+			currentDir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+			workDir = filepath.Join(currentDir, workDir)
+		}
+	} else {
+		// Use current working directory
+		workDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+	}
+
+	// Verify the directory exists
+	if _, err := os.Stat(workDir); os.IsNotExist(err) {
+		return fmt.Errorf("directory does not exist: %s", workDir)
 	}
 
 	configPath := filepath.Join(workDir, "genifest.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in current directory. Please run from project root")
+		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
 	}
 
 	fmt.Printf("Validating configuration in %s...\n", workDir)

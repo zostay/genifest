@@ -18,14 +18,21 @@ var (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run",
+	Use:   "run [directory]",
 	Short: "Generate Kubernetes manifests from templates",
 	Long: `Generate Kubernetes manifests from templates by applying changes from configuration files.
 This command processes the genifest.yaml configuration and applies dynamic value 
-substitution to your Kubernetes resources.`,
-	Args: cobra.NoArgs,
-	RunE: func(_ *cobra.Command, _ []string) error {
-		return GenerateManifests(nil, nil)
+substitution to your Kubernetes resources.
+
+If a directory is specified, the command will operate from that directory instead 
+of the current working directory.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var projectDir string
+		if len(args) > 0 {
+			projectDir = args[0]
+		}
+		return GenerateManifests(nil, []string{projectDir})
 	},
 }
 
@@ -35,7 +42,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 }
 
-func GenerateManifests(_ *cobra.Command, _ []string) error {
+func GenerateManifests(_ *cobra.Command, args []string) error {
 	// Use the run command's tag flags if they exist, otherwise use root flags
 	var currentIncludeTags, currentExcludeTags []string
 	if len(runIncludeTags) > 0 || len(runExcludeTags) > 0 {
@@ -46,15 +53,36 @@ func GenerateManifests(_ *cobra.Command, _ []string) error {
 		currentExcludeTags = excludeTags
 	}
 
-	// Find project root with genifest.yaml
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+	// Determine the working directory
+	var workDir string
+	var err error
+	if len(args) > 0 && args[0] != "" {
+		// Use provided directory argument
+		workDir = args[0]
+		// Convert to absolute path if relative
+		if !filepath.IsAbs(workDir) {
+			currentDir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+			workDir = filepath.Join(currentDir, workDir)
+		}
+	} else {
+		// Use current working directory
+		workDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+	}
+
+	// Verify the directory exists
+	if _, err := os.Stat(workDir); os.IsNotExist(err) {
+		return fmt.Errorf("directory does not exist: %s", workDir)
 	}
 
 	configPath := filepath.Join(workDir, "genifest.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in current directory. Please run from project root")
+		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
 	}
 
 	// Load configuration
@@ -93,7 +121,7 @@ func GenerateManifests(_ *cobra.Command, _ []string) error {
 	applier := changes.NewApplier(cfg)
 
 	// Find and process all managed files
-	processedChanges, err := processAllFilesWithCounting(applier, cfg, tagsToProcess)
+	processedChanges, err := processAllFilesWithCounting(applier, cfg, tagsToProcess, workDir)
 	if err != nil {
 		return fmt.Errorf("failed to process files: %w", err)
 	}
@@ -207,7 +235,7 @@ func matchesGlob(pattern, str string) bool {
 }
 
 // processAllFiles finds and processes all files that should have changes applied.
-func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess []string) error {
+func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) error {
 	// Collect all files from the configuration
 	filesToProcess := make([]string, 0, len(cfg.Files))
 
@@ -216,7 +244,7 @@ func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess
 
 	// Process each file
 	for _, filePath := range filesToProcess {
-		err := processFile(applier, filePath, tagsToProcess)
+		err := processFile(applier, filePath, tagsToProcess, workDir)
 		if err != nil {
 			return fmt.Errorf("failed to process file %s: %w", filePath, err)
 		}
@@ -226,9 +254,8 @@ func processAllFiles(applier *changes.Applier, cfg *config.Config, tagsToProcess
 }
 
 // processFile reads a YAML file, applies changes, and writes it back.
-func processFile(applier *changes.Applier, filePath string, tagsToProcess []string) error {
+func processFile(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) error {
 	// Get absolute path from working directory
-	workDir, _ := os.Getwd()
 	fullPath := filepath.Join(workDir, filePath)
 
 	// Check if file exists
@@ -580,7 +607,7 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 }
 
 // processAllFilesWithCounting processes files and tracks statistics
-func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string) (*ProcessingStats, error) {
+func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 	
 	// Collect all files from the configuration
@@ -589,7 +616,7 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 
 	// Process each file
 	for _, filePath := range filesToProcess {
-		fileStats, err := processFileWithCounting(applier, filePath, tagsToProcess)
+		fileStats, err := processFileWithCounting(applier, filePath, tagsToProcess, workDir)
 		if err != nil {
 			return stats, fmt.Errorf("failed to process file %s: %w", filePath, err)
 		}
@@ -605,11 +632,10 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 }
 
 // processFileWithCounting processes a file and tracks statistics
-func processFileWithCounting(applier *changes.Applier, filePath string, tagsToProcess []string) (*ProcessingStats, error) {
+func processFileWithCounting(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 	
 	// Get absolute path from working directory
-	workDir, _ := os.Getwd()
 	fullPath := filepath.Join(workDir, filePath)
 
 	// Check if file exists

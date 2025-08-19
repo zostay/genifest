@@ -12,15 +12,22 @@ import (
 )
 
 var tagsCmd = &cobra.Command{
-	Use:   "tags",
+	Use:   "tags [directory]",
 	Short: "List all tags in the configuration",
 	Long: `List all tags found in the loaded configuration files.
 This command will scan all changes in the configuration and display 
 the unique tags that can be used with the --include-tags and --exclude-tags 
-options in the run command.`,
-	Args: cobra.NoArgs,
-	RunE: func(_ *cobra.Command, _ []string) error {
-		return listTags()
+options in the run command.
+
+If a directory is specified, the command will operate from that directory instead 
+of the current working directory.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var projectDir string
+		if len(args) > 0 {
+			projectDir = args[0]
+		}
+		return listTags(projectDir)
 	},
 }
 
@@ -28,16 +35,37 @@ func init() {
 	rootCmd.AddCommand(tagsCmd)
 }
 
-func listTags() error {
-	// Find project root with genifest.yaml
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+func listTags(projectDir string) error {
+	// Determine the working directory
+	var workDir string
+	var err error
+	if projectDir != "" {
+		// Use provided directory argument
+		workDir = projectDir
+		// Convert to absolute path if relative
+		if !filepath.IsAbs(workDir) {
+			currentDir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+			workDir = filepath.Join(currentDir, workDir)
+		}
+	} else {
+		// Use current working directory
+		workDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+	}
+
+	// Verify the directory exists
+	if _, err := os.Stat(workDir); os.IsNotExist(err) {
+		return fmt.Errorf("directory does not exist: %s", workDir)
 	}
 
 	configPath := filepath.Join(workDir, "genifest.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("genifest.yaml not found in current directory. Please run from project root")
+		return fmt.Errorf("genifest.yaml not found in directory: %s", workDir)
 	}
 
 	// Load configuration
