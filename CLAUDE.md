@@ -65,23 +65,35 @@ go test ./...
 golangci-lint run --timeout=5m
 
 # Run the CLI tool from project root
-./genifest                           # Apply all changes
-./genifest --include-tags production # Apply only production changes
-./genifest --exclude-tags staging    # Apply all except staging changes
+./genifest run                           # Apply all changes
+./genifest run --include-tags production # Apply only production changes
+./genifest run --exclude-tags staging    # Apply all except staging changes
+./genifest tags                          # List available tags
+./genifest validate                      # Validate configuration
+./genifest config                        # Display merged configuration
+./genifest version                       # Show version information
 ```
 
 ### CLI Usage
 
-The genifest CLI processes a project from the directory containing the root `genifest.yaml`:
+The genifest CLI uses a subcommand-based architecture with optional directory arguments:
 
 ```bash
-# Must be run from directory containing genifest.yaml
-cd project-root
-genifest [flags]
+# Core commands (can be run from any directory)
+genifest run [directory]                    # Apply changes
+genifest tags [directory]                   # List available tags
+genifest validate [directory]               # Validate configuration
+genifest config [directory]                 # Display merged configuration
+genifest version                            # Show version information
 
-# Tag filtering options:
+# Tag filtering options for 'run' command:
 -i, --include-tags strings   include only changes with these tags (supports glob patterns)
 -x, --exclude-tags strings   exclude changes with these tags (supports glob patterns)
+
+# Examples:
+genifest run                                # Apply all changes in current directory
+genifest run path/to/project               # Apply changes in specified directory
+genifest run --include-tags production     # Apply only production-tagged changes
 ```
 
 **Tag filtering logic:**
@@ -90,6 +102,12 @@ genifest [flags]
 - Exclude only: All changes except those matching exclude patterns  
 - Both flags: Changes matching include but not exclude patterns
 - Glob patterns supported: `prod*`, `test-*`, etc.
+
+**Enhanced Output:**
+- Detailed progress reporting with emoji indicators
+- Change tracking: `file -> document[index] -> key: old → new`
+- Distinguishes between changes applied vs actual modifications
+- Clear summary of files modified and change counts
 
 ## Configuration File Structure
 
@@ -149,12 +167,29 @@ The system implements a sophisticated value evaluation architecture:
 
 ### CLI Implementation (`internal/cmd/`)
 
-The command-line interface provides:
+The command-line interface implements a subcommand-based architecture:
 
+#### Subcommand Structure
+- **root.go**: Main command dispatcher, removed Run function to force subcommand usage
+- **run.go**: Core functionality for applying changes with enhanced progress reporting
+- **tags.go**: Lists all tags found in configuration files
+- **validate.go**: Validates configuration without applying changes
+- **config.go**: Displays merged configuration in YAML format
+- **version.go**: Shows version information
+- **common.go**: Shared utilities for directory resolution and configuration loading
+
+#### Enhanced Features
+- **Directory Arguments**: All commands accept optional directory arguments for operation
+- **Progress Reporting**: Detailed output with emoji indicators and change tracking
+- **Change Tracking**: Shows `file -> document[index] -> key: old → new` for all modifications
+- **Statistics**: Distinguishes between changes applied vs actual modifications made
+- **Error Context**: Rich error messages with file and path context
+
+#### Core Capabilities
 - **Tag Filtering**: Complex logic supporting include/exclude patterns with glob matching
 - **File Processing**: Multi-document YAML handling with atomic write operations  
 - **Change Application**: Applies ValueFrom expressions to modify specific YAML paths
-- **Error Handling**: Graceful degradation with detailed error messages
+- **Configuration Validation**: Comprehensive validation with user-friendly error messages
 
 ### Key Design Decisions
 

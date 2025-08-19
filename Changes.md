@@ -1,3 +1,29 @@
+## TBD
+
+_Major CLI restructuring and enhanced user experience improvements._
+
+* **CLI Architecture Overhaul**: Converted from flag-based to subcommand-based architecture
+  * `genifest run [directory]` - Apply changes with enhanced progress reporting  
+  * `genifest tags [directory]` - List all available tags in configuration
+  * `genifest validate [directory]` - Validate configuration without applying changes
+  * `genifest config [directory]` - Display merged configuration in YAML format
+  * `genifest version` - Show version information
+  * All commands support optional directory arguments for operation from any location
+* **Enhanced Output and Reporting**: 
+  * Detailed progress reporting with emoji indicators
+  * Change tracking shows `file -> document[index] -> key: old → new` for all modifications
+  * Clear distinction between changes applied vs actual modifications made
+  * Comprehensive statistics and file modification summaries
+* **Code Quality Improvements**:
+  * Extracted ~100 lines of duplicate code into shared utilities (`internal/cmd/common.go`)
+  * Improved error handling with rich context and user-friendly messages
+  * Fixed file path handling bug in configuration loading for nested directories
+  * Enhanced file selector pattern matching logic
+* **User Experience Enhancements**:
+  * Running `genifest` without subcommand now shows help instead of applying changes
+  * Better validation with actionable error messages
+  * Configuration display for debugging and understanding project structure
+
 ## v1.0.0-rc1  2025-08-18
 
 _This is a complete rewrite of genifest, removing all the old cruft and making it more flexible._
