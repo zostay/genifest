@@ -112,7 +112,6 @@
 
 /* Admonition styling updates */
 .md-typeset .admonition.note {
-  border-left-color: var(--genifest-primary);
 }
 
 .md-typeset .admonition.tip {
