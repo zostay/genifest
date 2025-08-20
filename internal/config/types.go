@@ -22,20 +22,20 @@ import (
 // file.
 type Config struct {
 	// Metadata is metadata about genifest configuration.
-	Metadata MetaConfig `yaml:"metadata"`
+	Metadata MetaConfig `yaml:"metadata,omitempty"`
 
 	// Files is the list of files genifest manages and has access to. Paths are
 	// local to the current directory.
-	Files []string `yaml:"files"`
+	Files []string `yaml:"files,omitempty"`
 
 	// Changes are a list of change orders that can be applied to modify the
 	// managed files.
-	Changes []ChangeOrder `yaml:"changes"`
+	Changes []ChangeOrder `yaml:"changes,omitempty"`
 
 	// Functions defines the functions that are usable by changes. A function
 	// is only usable by changes defined in the same path or changes defined
 	// at an inner path.
-	Functions []FunctionDefinition `yaml:"functions"`
+	Functions []FunctionDefinition `yaml:"functions,omitempty"`
 }
 
 // PathContext represents a path with context about where it was defined.
@@ -109,24 +109,24 @@ type MetaConfig struct {
 	// CloudHome is the path to the root of the configuration. No genifest.yaml
 	// configuration or work will be done outside of this folder. This is always
 	// set by the loader based on the working directory of the genifest command.
-	CloudHome string `yaml:"cloudHome"`
+	CloudHome string `yaml:"cloudHome,omitempty"`
 
 	// Scripts is a list of folders that may contain scripts. These are relative
 	// to the folder holding the configuration file.
-	Scripts PathContexts `yaml:"scripts"`
+	Scripts PathContexts `yaml:"scripts,omitempty"`
 
 	// Manifests is a list of folders that may contain manifests. These folders
 	// are structured with sub-folders identifying applications. This is usual
 	// only defined in the top-level genifest.yaml, but in any case, the path is
 	// relative to the directory containing the configuration file.
-	Manifests PathContexts `yaml:"manifests"`
+	Manifests PathContexts `yaml:"manifests,omitempty"`
 
 	// Files is a list of folders holding other related files, which are used with
 	// the FileInclusion ValueFrom values. These are usually defined in the top-level
 	// genifest.yaml file, but are defined relative to the configuration file
 	// holding it. Similar to Manifests, these folders are arranged using sub-folders
 	// to identify the app that the files belong to.
-	Files PathContexts `yaml:"files"`
+	Files PathContexts `yaml:"files,omitempty"`
 }
 
 // ChangeOrder represents a modification to be applied to managed files.
@@ -140,7 +140,7 @@ type ChangeOrder struct {
 	DocumentRef `yaml:",inline"`
 
 	// Tag is used to select which change orders to run.
-	Tag string `yaml:"tag"`
+	Tag string `yaml:"tag,omitempty"`
 
 	// ValueFrom is the value to apply to the DocumentRef
 	ValueFrom ValueFrom `yaml:"valueFrom"`
@@ -156,7 +156,7 @@ type FunctionDefinition struct {
 	Name string `yaml:"name"`
 
 	// Params defines the function parameters.
-	Params []Parameter `yaml:"params"`
+	Params []Parameter `yaml:"params,omitempty"`
 
 	// ValueFrom defines the value returned by the function.
 	ValueFrom ValueFrom `yaml:"valueFrom"`
@@ -169,11 +169,11 @@ type Parameter struct {
 	Name string `yaml:"name"`
 
 	// Requires is true when the parameter is required.
-	Required bool `yaml:"required"`
+	Required bool `yaml:"required,omitempty"`
 
 	// Default is the value to provide when no value is provided for this
 	// parameter. Default may not be given when Required.
-	Default string `yaml:"default"`
+	Default string `yaml:"default,omitempty"`
 }
 
 // DocumentSelector is a map from YAML keys to values the document must have.
@@ -187,32 +187,32 @@ type DocumentSelector map[string]string
 type ValueFrom struct {
 	// FunctionCall calls the named function with the named arguments. The value
 	// is the result of the function call.
-	FunctionCall *FunctionCall `yaml:"call"`
+	FunctionCall *FunctionCall `yaml:"call,omitempty"`
 
 	// CallPipeline runs a function call. The output from each pipe in the
 	// pipeline is fed as an input to the next pipeline.
-	CallPipeline *CallPipeline `yaml:"pipeline"`
+	CallPipeline *CallPipeline `yaml:"pipeline,omitempty"`
 
 	// FileInclusion loads the contents of a  file from the files directory.
-	FileInclusion *FileInclusion `yaml:"file"`
+	FileInclusion *FileInclusion `yaml:"file,omitempty"`
 
 	// BasicTemplate outputs a string after replacing $style variables with
 	// specified values.
-	BasicTemplate *BasicTemplate `yaml:"template"`
+	BasicTemplate *BasicTemplate `yaml:"template,omitempty"`
 
 	// ScriptExec executes the given script from the scripts directory and uses
 	// the standard output as the value.
-	ScriptExec *ScriptExec `yaml:"script"`
+	ScriptExec *ScriptExec `yaml:"script,omitempty"`
 
 	// ArgumentRef looks up the argument from the current context. This is only
 	// available within a function definition or pipeline.
-	ArgumentRef *ArgumentRef `yaml:"argRef"`
+	ArgumentRef *ArgumentRef `yaml:"argRef,omitempty"`
 
 	// DefaultValue uses the given literal value.
-	DefaultValue *DefaultValue `yaml:"default"`
+	DefaultValue *DefaultValue `yaml:"default,omitempty"`
 
 	// DocumentRef looks up a key in the YAML document that is being changed.
-	DocumentRef *DocumentRef `yaml:"documentRef"`
+	DocumentRef *DocumentRef `yaml:"documentRef,omitempty"`
 }
 
 // FunctionCall looks up a function in the functions list and executes the
@@ -222,7 +222,7 @@ type FunctionCall struct {
 	Name string `yaml:"function"`
 
 	// Arguments to pass to the function.
-	Arguments Arguments `yaml:"args"`
+	Arguments Arguments `yaml:"args,omitempty"`
 }
 
 // Argument defines an argument to pass to a ValueFrom expression.
@@ -261,7 +261,7 @@ type CallPipe struct {
 type FileInclusion struct {
 	// App is the application sub-directory to use. If not specified, it will
 	// ue the same app folder as the change.
-	App string `yaml:"app"`
+	App string `yaml:"app,omitempty"`
 
 	// Source is the name of the file to read.
 	Source string `yaml:"source"`
@@ -276,7 +276,7 @@ type BasicTemplate struct {
 	String string `yaml:"string"`
 
 	// Variables is the list of variables available in the template.
-	Variables Arguments `yaml:"variables"`
+	Variables Arguments `yaml:"variables,omitempty"`
 }
 
 // ScriptExec executes a program, usually a script, from the scripts folder.
@@ -288,13 +288,13 @@ type ScriptExec struct {
 
 	// Stdin is the value ot use to pass as stdin to script. If this is not set,
 	// nothing will be sent to stdin.
-	Stdin *ValueFrom `yaml:"stdin"`
+	Stdin *ValueFrom `yaml:"stdin,omitempty"`
 
 	// Args is the list of arguments to pass to the script.
-	Args Arguments `yaml:"args"`
+	Args Arguments `yaml:"args,omitempty"`
 
 	// Env is the list of environment variables to set for the script.
-	Env Arguments `yaml:"env"`
+	Env Arguments `yaml:"env,omitempty"`
 }
 
 // ArgumentRef is permitted inside of a CallPipeline to refer to the output
@@ -319,14 +319,14 @@ type DocumentRef struct {
 	// the current folder, so the change may be applied multiple times. In the
 	// case of a ValueFrom field, this indicates that the current file will be
 	// used.
-	FileSelector string `yaml:"fileSelector"`
+	FileSelector string `yaml:"fileSelector,omitempty"`
 
 	// DocumentSelector may be omitted. In a ChangeOrder, omitting this value
 	// means that the KeySelector will be applied to as many documents in the
 	// files identified by the FileSelector as it matches, so it may apply to
 	// multiple files. In a ValueFrom field, this indicates that the current
 	// document will be used.
-	DocumentSelector DocumentSelector `yaml:"documentSelector"`
+	DocumentSelector DocumentSelector `yaml:"documentSelector,omitempty"`
 
 	// KeySelector identifies the specific field to select. This is in the form
 	// of a yq expression that will identify a specific field.
