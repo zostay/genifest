@@ -9,7 +9,7 @@ Welcome to the Genifest project! We appreciate your interest in contributing.
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.24 or later
 - Git
 - Make (optional but recommended)
 
@@ -68,11 +68,11 @@ Welcome to the Genifest project! We appreciate your interest in contributing.
 ### Commit Message Format
 
 We follow conventional commit format:
+
 - `feat:` - New features
 - `fix:` - Bug fixes
 - `docs:` - Documentation updates
 - `test:` - Test additions/updates
-- `refactor:` - Code refactoring
 - `chore:` - Maintenance tasks
 
 ### Pull Request Process
@@ -145,7 +145,8 @@ make docs-build
 ## Release Process
 
 Releases are handled by maintainers. Contributors should:
-- Update CHANGELOG.md for significant changes
+
+- Update CHANGELOG.md for significant changes (use the heading `## WIP  TBD` to start a new section at the top of the file)
 - Ensure version compatibility
 - Update documentation as needed
 
@@ -158,6 +159,7 @@ Releases are handled by maintainers. Contributors should:
 ## Code of Conduct
 
 We expect all contributors to follow our code of conduct:
+
 - Be respectful and inclusive
 - Focus on constructive feedback
 - Help create a welcoming environment

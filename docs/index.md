@@ -74,6 +74,7 @@ graph TD
     metadata:
       cloudHome: "."
       manifests: ["k8s"]
+      scripts: ["scripts"]
     
     functions:
       - name: "get-replicas"
@@ -81,8 +82,13 @@ graph TD
           - name: "environment"
             required: true
         valueFrom:
-          default:
-            value: "3"
+          script:
+            exec: "get-replicas.sh"
+            args:
+              - name: "environment"
+                valueFrom:
+                  argRef:
+                    name: environment
     
     changes:
       - tag: "production"

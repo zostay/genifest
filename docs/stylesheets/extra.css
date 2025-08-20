@@ -5,7 +5,7 @@
   --genifest-primary: #8e4825;
   --genifest-primary-light: #bc6534;
   --genifest-primary-lighter: #d4824a;
-  --genifest-primary-dark: #6b3419;
+  --genifest-primary-dark: #c1775c;
   --genifest-primary-darker: #4a220f;
   --genifest-accent: #ff9800;
   --genifest-accent-light: #ffb74d;
@@ -47,6 +47,11 @@
     rgba(74, 34, 15, 0.95), 
     rgba(74, 34, 15, 0.9)
   ), url('../assets/background.jpg');
+  border-bottom-color: var(--genifest-primary-darker);
+}
+
+[data-md-color-scheme="slate"] nav.md-tabs {
+  background: var(--genifest-primary-darker);
 }
 
 /* Navigation tabs styling */

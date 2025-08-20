@@ -69,8 +69,46 @@ functions:
 ```
 
 This defines:
+
 - **Metadata**: Where to find scripts, manifests, and files
 - **Functions**: Reusable value generators
+
+Now consider the configuration in `manifests/guestbook/genifest.yaml`:
+
+```bash
+cat manifests/guestbook/genifest.yaml
+```
+
+```yaml
+files:
+   - backend-deployment.yaml
+   - backend-service.yaml
+   - configmap.yaml
+   - frontend-deployment.yaml
+   - frontend-service.yaml
+   - ingress.yaml
+   - secret.yaml
+
+changes:
+   - tag: "production"
+     fileSelector: "*-deployment.yaml"
+     keySelector: ".spec.replicas"
+     valueFrom:
+        call:
+           function: "get-replicas"
+           args:
+              - name: "environment"
+                valueFrom:
+                   default:
+                      value: "production"
+
+# ... plus more changes
+```
+
+This defines:
+
+- **Files**: The files that Genifest is allowed to work with in this directory.
+- **Changes**: A set of change orders to apply to the YAML files.
 
 ### Step 3: Validate the Configuration
 
@@ -94,8 +132,8 @@ Expected output:
 # Show all available tags
 genifest tags
 
-# Display the merged configuration
-genifest config
+# Display the merged configuration (see below)
+genfiest config
 
 # Show help for any command
 genifest run --help
@@ -145,6 +183,8 @@ Genifest discovered configurations in this order:
 1. **Root config** (`genifest.yaml`) - Defined metadata and functions
 2. **Subdirectory configs** - Found `manifests/guestbook/genifest.yaml` with specific changes
 3. **Synthetic configs** - Created automatic configs for directories without `genifest.yaml`
+
+Run `genifest config` to see the merged result.
 
 ### Value Generation
 
@@ -296,6 +336,10 @@ genifest run --include-tags prod
    ```bash
    # Make sure you're in the directory with genifest.yaml
    ls genifest.yaml
+   ```
+   Or run the command with the directory you want to use as root:
+   ```bash
+   genifest run myproject/deployments
    ```
 
 2. **"No changes applied"**

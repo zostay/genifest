@@ -12,11 +12,13 @@ Genifest follows semantic versioning and uses automated release processes.
 ### Version Numbering
 
 We follow [Semantic Versioning](https://semver.org/):
+
 - **MAJOR** - Incompatible API changes
 - **MINOR** - New functionality (backward compatible)
 - **PATCH** - Bug fixes (backward compatible)
 
 Examples:
+
 - `v1.0.0` - Major release
 - `v1.1.0` - Minor release with new features
 - `v1.0.1` - Patch release with bug fixes
@@ -25,11 +27,13 @@ Examples:
 ### Release Types
 
 **Release Candidates** (`-rc1`, `-rc2`):
+
 - Pre-release versions for testing
 - Feature-complete but may have bugs
 - Published for community testing
 
 **Stable Releases** (`v1.0.0`):
+
 - Production-ready versions
 - Thoroughly tested
 - Recommended for production use
@@ -39,9 +43,10 @@ Examples:
 ### 1. Preparation
 
 1. **Update documentation**:
-   - Ensure all new features are documented
-   - Update CLI help text if needed
-   - Review and update README.md
+ 
+     - Ensure all new features are documented
+     - Update CLI help text if needed
+     - Review and update README.md
 
 2. **Update version**:
    ```bash
@@ -67,9 +72,10 @@ Examples:
    ```
 
 3. **Manual testing**:
-   - Test guestbook example
-   - Verify CLI commands work
-   - Test on different platforms
+ 
+     - Test guestbook example
+     - Verify CLI commands work
+     - Test on different platforms
 
 ### 3. Release Creation
 
@@ -82,9 +88,10 @@ Examples:
    ```
 
 2. **Create pull request**:
-   - Review all changes
-   - Ensure CI passes
-   - Get approval from maintainers
+ 
+     - Review all changes
+     - Ensure CI passes
+     - Get approval from maintainers
 
 3. **Merge and tag**:
    ```bash
@@ -97,6 +104,7 @@ Examples:
 ### 4. Automated Release
 
 GitHub Actions automatically:
+
 - Builds binaries for all platforms
 - Generates checksums
 - Creates GitHub release
@@ -105,12 +113,14 @@ GitHub Actions automatically:
 ### 5. Post-Release
 
 1. **Update documentation site**:
-   - Documentation deploys automatically
-   - Verify genifest.qubling.com is updated
+
+      - Documentation deploys automatically
+      - Verify genifest.qubling.com is updated
 
 2. **Announce release**:
-   - GitHub release notes
-   - Update package managers (if applicable)
+ 
+      - GitHub release notes
+      - Update package managers (if applicable)
 
 ## Release Checklist
 
@@ -141,16 +151,19 @@ GitHub Actions automatically:
 ## Branch Strategy
 
 **Master Branch**:
+
 - Always deployable
 - All releases tagged from master
 - Protected with required reviews
 
 **Feature Branches**:
+
 - Short-lived for specific features
 - Merged via pull requests
 - Deleted after merge
 
 **Release Branches**:
+
 - Created for release preparation
 - Allows final fixes without blocking development
 - Merged to master and deleted
@@ -210,6 +223,7 @@ jobs:
 ### Build Matrix
 
 Release builds target multiple platforms:
+
 - Linux (amd64, arm64)
 - macOS (amd64, arm64)
 - Windows (amd64)
