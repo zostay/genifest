@@ -24,6 +24,7 @@ genifest run [directory] [flags]
 ```
 
 **Flags:**
+
 - `-i, --include-tags` - Include only changes with these tags
 - `-x, --exclude-tags` - Exclude changes with these tags
 

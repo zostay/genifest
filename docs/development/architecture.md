@@ -26,6 +26,7 @@ graph TD
 ### CLI Layer (`internal/cmd/`)
 
 **Subcommand Architecture**:
+
 - `root.go` - Main command dispatcher
 - `run.go` - Core functionality for applying changes
 - `tags.go` - Tag listing and management
@@ -35,6 +36,7 @@ graph TD
 - `common.go` - Shared utilities
 
 **Key Features**:
+
 - Directory argument support
 - Enhanced progress reporting
 - Tag filtering logic
@@ -43,12 +45,14 @@ graph TD
 ### Configuration System (`internal/config/`)
 
 **Metadata-Driven Loading**:
+
 - Starts with root `genifest.yaml`
 - Discovers additional configs through metadata
 - Creates synthetic configs for directories without explicit configs
 - Validates function references and path security
 
 **Core Types**:
+
 - `Config` - Main configuration structure
 - `MetaConfig` - Metadata for discovery
 - `PathContext` - Path with context information
@@ -59,12 +63,14 @@ graph TD
 ### Value Evaluation (`internal/changes/`)
 
 **EvalContext System**:
+
 - Immutable context carrying current state
 - File and document context awareness
 - Variable scoping and isolation
 - Function resolution and execution
 
 **Evaluators**:
+
 - `DefaultValue` - Literal values
 - `ArgumentRef` - Variable references
 - `BasicTemplate` - String templates
@@ -77,15 +83,16 @@ graph TD
 ### Change Application
 
 **Document Processing**:
+
 - Multi-document YAML handling
 - Key selector path navigation
 - Atomic file operations
 - Change tracking and reporting
 
 **File Selector Matching**:
+
 - Glob pattern support
 - Path-aware matching
-- Security boundary enforcement
 
 ## Design Decisions
 
@@ -112,6 +119,7 @@ func (ctx *EvalContext) WithVariable(name, value string) *EvalContext {
 **Rationale**: Flexible project organization without rigid structure requirements
 
 **Benefits**:
+
 - Projects can organize files naturally
 - Configurations stay close to managed files
 - Automatic discovery reduces configuration burden
@@ -121,18 +129,23 @@ func (ctx *EvalContext) WithVariable(name, value string) *EvalContext {
 **Rationale**: Prevents naming conflicts and ensures proper encapsulation
 
 **Rules**:
+
 - Functions are available in their definition directory and children
 - Root functions are globally available
 - Child functions can override parent functions
 
-### Security Model
+### Limited Execution
+
+This is not aimed at security as much as it is aimed at ensuring edits are constrained nothing unexpected happens.
 
 **CloudHome Boundary**:
+
 - All file operations must stay within cloudHome
 - Path traversal prevention
 - Script execution isolation
 
-**Script Security**:
+**Script Boundary**:
+
 - Scripts must be in designated directories
 - Working directory is always cloudHome
 - Environment variable isolation
@@ -149,6 +162,7 @@ if err != nil {
 ```
 
 **User-Friendly Messages**:
+
 - Distinguish configuration errors from system errors
 - Provide actionable guidance
 - Include relevant context
@@ -156,11 +170,13 @@ if err != nil {
 ### YAML Processing
 
 **Multi-Document Support**:
+
 - Handle files with multiple YAML documents
 - Preserve document structure and formatting
 - Atomic write operations
 
 **Key Selector Navigation**:
+
 - Support for nested field access
 - Array indexing with `[n]` syntax
 - Complex path resolution
@@ -168,11 +184,13 @@ if err != nil {
 ### Testing Strategy
 
 **Integration Tests**:
+
 - End-to-end testing with real configurations
 - Guestbook example as test fixture
 - Context immutability verification
 
 **Unit Tests**:
+
 - Individual ValueFrom evaluator testing
 - Error condition coverage
 - Edge case validation
@@ -198,6 +216,7 @@ The architecture supports future extensions:
 ### Custom ValueFrom Types
 
 New value generation methods can be added by:
+
 1. Extending the `ValueFrom` union type
 2. Adding evaluator function
 3. Updating validation logic
@@ -205,6 +224,7 @@ New value generation methods can be added by:
 ### Plugin System
 
 Future plugin support could provide:
+
 - Custom functions
 - External value sources
 - Integration with external systems

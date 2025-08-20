@@ -8,6 +8,7 @@ Testing guidelines and strategies for Genifest development.
 ## Testing Philosophy
 
 Genifest uses a multi-layered testing approach:
+
 - **Unit tests** for individual components
 - **Integration tests** for end-to-end workflows
 - **Example-based testing** using the guestbook project
@@ -63,11 +64,13 @@ internal/
 ### Test Categories
 
 **Unit Tests** (`*_test.go`):
+
 - Test individual functions and methods
 - Focus on business logic and edge cases
 - Use table-driven tests where appropriate
 
 **Integration Tests** (`integration_test.go`):
+
 - Test complete workflows
 - Use real configuration files
 - Validate end-to-end behavior
@@ -233,17 +236,20 @@ func TestWithTempDir(t *testing.T) {
 ### What to Test
 
 **Always test**:
+
 - Public API functions
 - Error conditions
 - Edge cases and boundary values
 - Complex business logic
 
 **Consider testing**:
+
 - Internal functions with complex logic
 - Configuration parsing
 - File operations
 
 **Don't test**:
+
 - Trivial getters/setters
 - Third-party library behavior
 - Generated code
@@ -293,11 +299,13 @@ func TestErrorConditions(t *testing.T) {
 ## Continuous Integration
 
 Tests run automatically on:
+
 - Pull requests
 - Pushes to main branch
 - Release creation
 
 CI includes:
+
 - All test suites
 - Race condition detection
 - Code coverage reporting

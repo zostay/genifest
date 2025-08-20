@@ -2,6 +2,8 @@
 
 Genifest is built around several key concepts that work together to provide a flexible and powerful manifest generation system.
 
+Note that while this system is specifically oriented toward Kubernetes manifest generation, it is not actually limited to that use-case. The system itself is just a tool for modifying configuration files. It does not actually care if those files are Kubernetes manifests or not.
+
 ## Configuration Discovery
 
 Genifest uses a **metadata-driven approach** to discover and load configuration files throughout your project.
@@ -31,7 +33,9 @@ graph TD
 - **Manifests directories**: Two levels deep
 - **Files directories**: Two levels deep
 
-This prevents infinite recursion while allowing reasonable project organization.
+The intention is that manifests and files will tend to be organized as `<root>/<app>` structures, while scripts should be limited to the folder itself. 
+
+It is permissible for script folders to contain configuration, but not expected to be common. Such a configuration could be used to modify non-Kubernetes configuration of the scripts, for example.
 
 ## Value Generation System
 
@@ -131,7 +135,7 @@ The heart of Genifest is its flexible value generation system using **ValueFrom*
 
 ## Functions
 
-Functions provide reusable value generation logic that can be called from changes.
+Functions provide reusable value generation logic that can be called from changes. It may be helpful to think of them as macros.
 
 ### Function Definition
 
@@ -173,10 +177,10 @@ Changes define what modifications to apply to which files.
 
 ```yaml
 changes:
-  - tag: "production"                    # Optional tag for filtering
-    fileSelector: "*-deployment.yaml"   # Which files to modify
-    keySelector: ".spec.replicas"       # Which field to modify  
-    valueFrom:                          # How to generate the value
+  - tag: "production"                 # Optional tag for filtering
+    fileSelector: "*-deployment.yaml" # Which files to modify
+    keySelector: ".spec.replicas"     # Which field to modify  
+    valueFrom:                        # How to generate the value
       call:
         function: "get-replicas"
         args:
@@ -245,9 +249,9 @@ genifest run --include-tags "prod*" --exclude-tags "test-*"
 - **Exclude only**: All changes except those matching exclude patterns
 - **Both flags**: Changes matching include but not exclude patterns
 
-## Security Model
+## Limited Execution
 
-Genifest implements several security measures:
+Genifest works to limit what it can do to just what you permit to prevent unintended changes.
 
 ### Path Validation
 
@@ -260,6 +264,7 @@ Genifest implements several security measures:
 - Scripts run with the `cloudHome` as the working directory
 - Environment variables are isolated for script execution
 - File inclusion is restricted to configured file directories
+- **Note**: Scripts themselves are free to execute programs from anywhere
 
 ### Configuration Scoping
 
@@ -269,7 +274,7 @@ Genifest implements several security measures:
 
 ## CloudHome Concept
 
-The `cloudHome` defines the security boundary for a Genifest project:
+The `cloudHome` defines the boundary for a Genifest project:
 
 ```yaml
 metadata:
@@ -289,6 +294,9 @@ The evaluation system uses immutable contexts to ensure safe concurrent operatio
 - Variable scoping is preserved through context inheritance  
 - No side effects between parallel evaluations
 - Safe for use in concurrent environments
+
+It is intended that changes are idempotent. This depends on the scripts that are
+run outputting consistently and not subject to race conditions or randomness.
 
 ## Next Steps
 

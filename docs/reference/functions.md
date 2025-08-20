@@ -26,6 +26,7 @@ functions:
 ## Function Scoping
 
 Functions are scoped to their definition location:
+
 - Root functions are available everywhere
 - Directory functions are available to that directory and children
 - This prevents naming conflicts

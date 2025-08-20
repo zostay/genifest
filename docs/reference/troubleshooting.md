@@ -102,6 +102,7 @@ genifest run /path/to/project
 **Problem**: `File not found` when using file inclusion
 
 **Solutions**:
+
 1. **Check file path**: Files must be in configured file directories
 2. **Verify file exists**: Use relative paths from the files directory
 3. **Check permissions**: Ensure files are readable
@@ -113,6 +114,7 @@ genifest run /path/to/project
 **Problem**: YAML parsing errors
 
 **Solutions**:
+
 1. **Check YAML syntax**:
    ```bash
    # Use a YAML validator
@@ -135,6 +137,7 @@ genifest run /path/to/project
 **Problem**: Genifest runs slowly
 
 **Solutions**:
+
 1. **Reduce file count**: Use more specific file selectors
 2. **Optimize functions**: Avoid complex template operations
 3. **Check script performance**: Scripts should execute quickly
