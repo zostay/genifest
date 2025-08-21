@@ -62,6 +62,70 @@ Genifest is designed for managing YAML files that are directly deployed via GitO
 
 While this is the primary use case, genifest can be adapted for other YAML processing workflows where dynamic value substitution is needed.
 
+## Key Selector Syntax
+
+Genifest uses **yq-style path expressions** for the `keySelector` field to specify which parts of YAML documents to modify. This syntax is a subset of the expression syntax used by tools like `yq` and `jq`.
+
+### Supported Syntax
+
+**Field Access:**
+```yaml
+keySelector: ".metadata.name"          # Access nested fields
+keySelector: ".spec.replicas"          # Navigate object hierarchy
+```
+
+**Array Indexing:**
+```yaml
+keySelector: ".spec.containers[0]"     # First array element
+keySelector: ".items[-1]"              # Last array element (negative indexing)
+```
+
+**Map Key Access:**
+```yaml
+keySelector: ".data.config"            # Simple key access
+keySelector: ".data.[\"app.yaml\"]"    # Quoted keys (for keys with special characters)
+keySelector: ".labels.[\"app.kubernetes.io/name\"]"  # Complex key names
+```
+
+**Array Slicing:**
+```yaml
+keySelector: ".items[1:3]"             # Elements 1 and 2
+keySelector: ".items[2:]"              # From element 2 to end
+keySelector: ".items[:3]"              # First 3 elements
+keySelector: ".items[:]"               # All elements (copy)
+```
+
+**Complex Expressions:**
+```yaml
+keySelector: ".spec.template.spec.containers[0].image"           # Deep navigation
+keySelector: ".metadata.labels.[\"app.kubernetes.io/version\"]"  # Complex key in metadata
+keySelector: ".spec.volumes[0].configMap.items[1].key"          # Mixed array/object access
+```
+
+### Key Features
+
+- **Grammar-based parsing**: Uses a formal grammar parser for robust expression handling
+- **Negative indexing**: Array access with negative indices (e.g., `[-1]` for last element)
+- **Quoted keys**: Supports both single and double quotes for keys containing special characters
+- **Path scoping**: Changes only apply to files within their configuration directory
+
+### Differences from yq/jq
+
+This implementation supports a **subset** of yq/jq syntax, focusing on the most common path operations:
+
+✅ **Supported:**
+- Field access (`.field`, `.nested.field`)
+- Array indexing (`[0]`, `[-1]`)
+- Array slicing (`[1:3]`, `[2:]`, `[:3]`)
+- Quoted key access (`["key.with.dots"]`, `['key-with-dashes']`)
+
+❌ **Not Supported:**
+- Complex filters (`select()`, `map()`, etc.)
+- Arithmetic operations
+- String manipulation functions
+- Conditional expressions
+- Recursive descent (`..`)
+
 ## Value Generation System
 
 Genifest provides multiple ways to generate dynamic values:

@@ -4,6 +4,50 @@ All notable changes to Genifest will be documented in this page.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+*Enhanced keySelector syntax and improved configuration scoping.*
+
+### Added
+- **Advanced KeySelector Syntax**: Complete rewrite of path expression parsing
+  - Grammar-based parser using `participle/v2` for robust expression handling  
+  - Support for yq-style path expressions: `.field`, `[index]`, `["key"]`, slicing
+  - Negative array indexing: `.items[-1]` for last element
+  - Array slicing: `.items[1:3]`, `.items[2:]`, `.items[:3]`
+  - Quoted key access: `.data.["app.yaml"]`, `.labels.["app.kubernetes.io/name"]`
+  - Complex nested expressions: `.spec.template.spec.containers[0].image`
+  - Parse-time validation with clear error messages
+
+- **Path-Based Change Scoping**: Enhanced security and isolation
+  - Changes defined in a directory only apply to files within that directory tree
+  - Prevents accidental cross-contamination between application configurations  
+  - Maintains proper boundaries for multi-application repositories
+  - Exported `ChangeOrder.Path` field for cross-package access
+
+### Improved  
+- **Enhanced Error Messages**: Better context and debugging information
+  - KeySelector parsing errors show exact problem location
+  - Runtime errors include file and path context
+  - Clear distinction between syntax and runtime errors
+
+- **Documentation Enhancements**:
+  - Comprehensive [KeySelector Reference](reference/keyselectors.md) with grammar details
+  - Updated README with clear yq/jq syntax comparison
+  - Enhanced CLI reference with latest features and examples
+  - Improved concepts documentation with path scoping examples
+
+### Fixed
+- **Field+Bracket Parsing**: Fixed parsing of expressions like `.data.["app.yaml"]`  
+- **Path Scoping**: Resolved issue where changes applied globally instead of being directory-scoped
+- **Grammar Edge Cases**: Improved handling of complex nested expressions
+- **Import Organization**: Cleaned up unused imports and dependencies
+
+### Technical
+- **New Package**: `internal/keysel` with complete parser implementation
+- **AST Design**: Proper Abstract Syntax Tree for keySelector expressions
+- **Test Coverage**: Comprehensive tests for all keySelector features
+- **Type Safety**: Compile-time validation of keySelector expressions
+
 ## [v1.0.0-rc2] - 2025-08-19
 
 *Major CLI restructuring and enhanced user experience improvements.*

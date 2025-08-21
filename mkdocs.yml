@@ -177,6 +177,7 @@ nav:
     - GitOps Workflows: examples/gitops.md
   - Reference:
     - Configuration Schema: reference/schema.md
+    - KeySelector Syntax: reference/keyselectors.md
     - ValueFrom Types: reference/valuefrom.md
     - Functions: reference/functions.md
     - Troubleshooting: reference/troubleshooting.md
