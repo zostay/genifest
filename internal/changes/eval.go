@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/zostay/genifest/internal/config"
+	"github.com/zostay/genifest/internal/keysel"
 )
 
 // EvalContext provides the context for evaluating ValueFrom expressions.
@@ -304,139 +305,14 @@ func (ctx *EvalContext) evaluateDocumentRef(dr config.DocumentRef) (string, erro
 		return "", fmt.Errorf("file selector in document reference not yet supported")
 	}
 
-	// Use a simple implementation first
-	// This will evaluate basic selectors like ".spec.replicas", ".metadata.name", etc.
-	value, err := ctx.evaluateSimpleKeySelector(ctx.CurrentDocument, dr.KeySelector)
+	// Use the new keysel package to evaluate the key selector
+	evaluator := keysel.NewEvaluator()
+	value, err := evaluator.EvaluateSelector(ctx.CurrentDocument, dr.KeySelector)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate key selector %q: %w", dr.KeySelector, err)
 	}
 
 	return value, nil
-}
-
-// evaluateSimpleKeySelector provides a simple implementation for basic key selectors
-// This handles common patterns like ".spec.replicas", ".metadata.name", etc.
-// For more complex expressions, we would need to fully integrate yq.
-func (ctx *EvalContext) evaluateSimpleKeySelector(node *yaml.Node, selector string) (string, error) {
-	// Remove leading dot if present
-	selector = strings.TrimPrefix(selector, ".")
-
-	// Split the selector into parts
-	parts := strings.Split(selector, ".")
-
-	current := node
-
-	// If we start with a document node, navigate to its content
-	if current.Kind == yaml.DocumentNode && len(current.Content) > 0 {
-		current = current.Content[0]
-	}
-
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-
-		// Check if this part has an array index like "ports[0]"
-		if bracketStart := strings.Index(part, "["); bracketStart >= 0 {
-			// Split the part into the field name and array index
-			fieldName := part[:bracketStart]
-			indexPart := part[bracketStart:]
-
-			// First navigate to the field
-			if current.Kind == yaml.MappingNode {
-				found := false
-				for i := 0; i < len(current.Content); i += 2 {
-					if i+1 < len(current.Content) && current.Content[i].Value == fieldName {
-						current = current.Content[i+1]
-						found = true
-						break
-					}
-				}
-				if !found {
-					return "", fmt.Errorf("key %q not found", fieldName)
-				}
-			} else {
-				return "", fmt.Errorf("cannot navigate to %q from non-mapping node", fieldName)
-			}
-
-			// Then handle the array index
-			if strings.HasPrefix(indexPart, "[") && strings.HasSuffix(indexPart, "]") {
-				indexStr := strings.Trim(indexPart, "[]")
-				// Parse numeric index
-				var index int
-				if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-					return "", fmt.Errorf("invalid array index %q", indexStr)
-				}
-
-				if current.Kind == yaml.SequenceNode {
-					if index < 0 || index >= len(current.Content) {
-						return "", fmt.Errorf("array index %d out of bounds (length %d)", index, len(current.Content))
-					}
-					current = current.Content[index]
-					continue
-				} else {
-					return "", fmt.Errorf("cannot index non-array node with %q", indexPart)
-				}
-			}
-			continue
-		}
-
-		// Handle plain array index like "[0]"
-		if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
-			indexStr := strings.Trim(part, "[]")
-			// Parse numeric index
-			var index int
-			if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-				return "", fmt.Errorf("invalid array index %q", indexStr)
-			}
-
-			if current.Kind == yaml.SequenceNode {
-				if index < 0 || index >= len(current.Content) {
-					return "", fmt.Errorf("array index %d out of bounds (length %d)", index, len(current.Content))
-				}
-				current = current.Content[index]
-				continue
-			} else {
-				return "", fmt.Errorf("cannot index non-array node with %q", part)
-			}
-		}
-
-		// Navigate through mapping nodes
-		if current.Kind == yaml.MappingNode {
-			found := false
-			for i := 0; i < len(current.Content); i += 2 {
-				if i+1 < len(current.Content) && current.Content[i].Value == part {
-					current = current.Content[i+1]
-					found = true
-					break
-				}
-			}
-			if !found {
-				return "", fmt.Errorf("key %q not found", part)
-			}
-		} else {
-			return "", fmt.Errorf("cannot navigate to %q from non-mapping node", part)
-		}
-	}
-
-	// Return the final value
-	if current.Kind == yaml.ScalarNode {
-		return current.Value, nil
-	} else {
-		// For non-scalar values, return a YAML representation
-		var result strings.Builder
-		encoder := yaml.NewEncoder(&result)
-		encoder.SetIndent(2)
-		err := encoder.Encode(current)
-		if err != nil {
-			return "", fmt.Errorf("failed to encode result: %w", err)
-		}
-		err = encoder.Close()
-		if err != nil {
-			return "", fmt.Errorf("failed to close encoder: %w", err)
-		}
-		return strings.TrimSpace(result.String()), nil
-	}
 }
 
 // evaluateCallPipeline executes a pipeline of function calls.

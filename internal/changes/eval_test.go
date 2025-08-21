@@ -625,8 +625,8 @@ metadata:
 		t.Fatal("Expected error for missing key, got none")
 	}
 
-	if !strings.Contains(err.Error(), "key \"missing\" not found") {
-		t.Errorf("Expected error about missing key, got: %v", err)
+	if !strings.Contains(err.Error(), "field \"missing\" not found") {
+		t.Errorf("Expected error about missing field, got: %v", err)
 	}
 }
 

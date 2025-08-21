@@ -46,7 +46,8 @@ of the current working directory.`,
 		err := validateConfiguration(projectDir)
 		if err != nil {
 			// Check if it's our special validation summary error (handled by validateConfiguration)
-			if _, ok := err.(*ValidationSummaryError); ok {
+			var summaryErr *ValidationSummaryError
+			if errors.As(err, &summaryErr) {
 				// Error has been handled, just exit with error code
 				os.Exit(1)
 			} else if isValidationError(err) {
@@ -76,13 +77,10 @@ func validateConfiguration(projectDir string) error {
 			// Show at least the basic info before the error
 			workDir, _ := resolveProjectDirectory(projectDir)
 			fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
-			
+
 			// Extract the clean message without the emoji prefix
-			msg := ve.Error()
-			if strings.HasPrefix(msg, "❌ ") {
-				msg = strings.TrimPrefix(msg, "❌ ")
-			}
-			
+			msg := strings.TrimPrefix(ve.Error(), "❌ ")
+
 			fmt.Printf("❌ \033[1;31mConfiguration validation failed with 1 error:\033[0m\n\n")
 			fmt.Printf("  \033[31m•\033[0m %s\n", msg)
 			fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
@@ -105,10 +103,7 @@ func validateConfiguration(projectDir string) error {
 		var ve *config.ValidationError
 		if errors.As(err, &ve) {
 			// Extract the clean message without the emoji prefix
-			msg := ve.Error()
-			if strings.HasPrefix(msg, "❌ ") {
-				msg = strings.TrimPrefix(msg, "❌ ")
-			}
+			msg := strings.TrimPrefix(ve.Error(), "❌ ")
 			validationErrors = append(validationErrors, msg)
 		} else {
 			validationErrors = append(validationErrors, err.Error())

@@ -45,3 +45,9 @@ changes:
             valueFrom:
               default:
                 value: "dev"
+  - tag: config
+    fileSelector: configmap.yaml
+    keySelector: .data.["app.yaml"]
+    valueFrom:
+      file:
+        source: app.yaml

@@ -11,6 +11,7 @@ import (
 
 	"github.com/zostay/genifest/internal/changes"
 	"github.com/zostay/genifest/internal/config"
+	"github.com/zostay/genifest/internal/keysel"
 )
 
 var (
@@ -214,11 +215,16 @@ func matchesGlob(pattern, str string) bool {
 
 // setValueInDocument sets a value in a YAML document using a key selector.
 func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error) {
-	// Remove leading dot if present
-	keySelector = strings.TrimPrefix(keySelector, ".")
+	// Parse the selector using keysel
+	parser, err := keysel.NewParser()
+	if err != nil {
+		return false, fmt.Errorf("failed to create keysel parser: %w", err)
+	}
 
-	// Split the selector into parts
-	parts := strings.Split(keySelector, ".")
+	selector, err := parser.ParseSelector(keySelector)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse selector %q: %w", keySelector, err)
+	}
 
 	current := doc
 
@@ -227,171 +233,161 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 		current = current.Content[0]
 	}
 
-	// Navigate to the parent of the target field
-	for i, part := range parts[:len(parts)-1] {
-		if part == "" {
-			continue
-		}
+	// If empty selector (root), we can't set a value
+	if len(selector.Components) == 0 {
+		return false, fmt.Errorf("cannot set value at root")
+	}
 
-		// Handle array indexing like "ports[0]"
-		if bracketStart := strings.Index(part, "["); bracketStart >= 0 {
-			fieldName := part[:bracketStart]
-			indexPart := part[bracketStart:]
-
-			// First navigate to the field
-			if current.Kind == yaml.MappingNode {
-				found := false
-				for j := 0; j < len(current.Content); j += 2 {
-					if j+1 < len(current.Content) && current.Content[j].Value == fieldName {
-						current = current.Content[j+1]
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false, fmt.Errorf("key %q not found at path part %d", fieldName, i)
-				}
-			} else {
-				return false, fmt.Errorf("cannot navigate to %q from non-mapping node", fieldName)
-			}
-
-			// Then handle the array index
-			if strings.HasPrefix(indexPart, "[") && strings.HasSuffix(indexPart, "]") {
-				indexStr := strings.Trim(indexPart, "[]")
-				var index int
-				if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-					return false, fmt.Errorf("invalid array index %q", indexStr)
-				}
-
-				if current.Kind == yaml.SequenceNode {
-					if index < 0 || index >= len(current.Content) {
-						return false, fmt.Errorf("array index %d out of bounds", index)
-					}
-					current = current.Content[index]
-				} else {
-					return false, fmt.Errorf("cannot index non-array node")
-				}
-			}
-			continue
-		}
-
-		// Handle plain array index like "[0]"
-		if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
-			indexStr := strings.Trim(part, "[]")
-			var index int
-			if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-				return false, fmt.Errorf("invalid array index %q", indexStr)
-			}
-
-			if current.Kind == yaml.SequenceNode {
-				if index < 0 || index >= len(current.Content) {
-					return false, fmt.Errorf("array index %d out of bounds", index)
-				}
-				current = current.Content[index]
-			} else {
-				return false, fmt.Errorf("cannot index non-array node")
-			}
-			continue
-		}
-
-		// Navigate through mapping nodes
-		if current.Kind == yaml.MappingNode {
-			found := false
-			for j := 0; j < len(current.Content); j += 2 {
-				if j+1 < len(current.Content) && current.Content[j].Value == part {
-					current = current.Content[j+1]
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false, fmt.Errorf("key %q not found at path part %d", part, i)
-			}
-		} else {
-			return false, fmt.Errorf("cannot navigate to %q from non-mapping node", part)
+	// Navigate to the parent of the target location
+	for i, component := range selector.Components[:len(selector.Components)-1] {
+		var navigateErr error
+		current, navigateErr = navigateToComponent(current, component)
+		if navigateErr != nil {
+			return false, fmt.Errorf("navigation failed at component %d: %w", i, navigateErr)
 		}
 	}
 
-	// Set the final value
-	finalKey := parts[len(parts)-1]
+	// Handle the final component for setting the value
+	finalComponent := selector.Components[len(selector.Components)-1]
+	return setValueAtComponent(current, finalComponent, value)
+}
 
-	// Handle array indexing in final key
-	if bracketStart := strings.Index(finalKey, "["); bracketStart >= 0 {
-		fieldName := finalKey[:bracketStart]
-		indexPart := finalKey[bracketStart:]
+// navigateToComponent navigates to a component using keysel logic
+func navigateToComponent(node *yaml.Node, component *keysel.Component) (*yaml.Node, error) {
+	switch {
+	case component.Field != nil:
+		return navigateToField(node, component.Field.Name)
+	case component.Bracket != nil:
+		return navigateToBracket(node, component.Bracket.Content)
+	default:
+		return nil, fmt.Errorf("unknown component type")
+	}
+}
 
-		// Navigate to the field
-		if current.Kind == yaml.MappingNode {
-			found := false
-			for j := 0; j < len(current.Content); j += 2 {
-				if j+1 < len(current.Content) && current.Content[j].Value == fieldName {
-					current = current.Content[j+1]
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false, fmt.Errorf("key %q not found", fieldName)
-			}
-		} else {
-			return false, fmt.Errorf("cannot navigate to %q from non-mapping node", fieldName)
-		}
+// navigateToField navigates to a field in a mapping node
+func navigateToField(node *yaml.Node, fieldName string) (*yaml.Node, error) {
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("cannot access field %q from non-mapping node", fieldName)
+	}
 
-		// Handle the array index
-		if strings.HasPrefix(indexPart, "[") && strings.HasSuffix(indexPart, "]") {
-			indexStr := strings.Trim(indexPart, "[]")
-			var index int
-			if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-				return false, fmt.Errorf("invalid array index %q", indexStr)
-			}
-
-			if current.Kind == yaml.SequenceNode {
-				if index < 0 || index >= len(current.Content) {
-					return false, fmt.Errorf("array index %d out of bounds", index)
-				}
-				// Update the array element
-				current.Content[index].Value = value
-				current.Content[index].Kind = yaml.ScalarNode
-				return true, nil
-			} else {
-				return false, fmt.Errorf("cannot index non-array node")
-			}
+	for i := 0; i < len(node.Content); i += 2 {
+		if i+1 < len(node.Content) && node.Content[i].Value == fieldName {
+			return node.Content[i+1], nil
 		}
 	}
 
-	// Handle plain array index
-	if strings.HasPrefix(finalKey, "[") && strings.HasSuffix(finalKey, "]") {
-		indexStr := strings.Trim(finalKey, "[]")
+	return nil, fmt.Errorf("field %q not found", fieldName)
+}
+
+// navigateToBracket navigates using bracket notation (index or key)
+func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
+	// Check if it's a slice operation (contains colon)
+	if strings.Contains(content, ":") {
+		return nil, fmt.Errorf("slice operations not supported for value setting")
+	}
+
+	// Try numeric index first
+	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
 		var index int
-		if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
-			return false, fmt.Errorf("invalid array index %q", indexStr)
-		}
-
-		if current.Kind == yaml.SequenceNode {
-			if index < 0 || index >= len(current.Content) {
-				return false, fmt.Errorf("array index %d out of bounds", index)
+		fmt.Sscanf(content, "%d", &index)
+		
+		if node.Kind == yaml.SequenceNode {
+			if index < 0 {
+				index = len(node.Content) + index
 			}
-			current.Content[index].Value = value
-			current.Content[index].Kind = yaml.ScalarNode
+			if index < 0 || index >= len(node.Content) {
+				return nil, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+			}
+			return node.Content[index], nil
+		}
+		return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
+	}
+
+	// Handle string key indexing
+	key := content
+	// Remove quotes if present (they would have been removed by participle unquoting)
+	
+	if node.Kind == yaml.MappingNode {
+		for i := 0; i < len(node.Content); i += 2 {
+			if i+1 < len(node.Content) && node.Content[i].Value == key {
+				return node.Content[i+1], nil
+			}
+		}
+		return nil, fmt.Errorf("key %q not found", key)
+	}
+	return nil, fmt.Errorf("cannot index non-mapping node with string key %q", key)
+}
+
+// setValueAtComponent sets a value at the final component location
+func setValueAtComponent(node *yaml.Node, component *keysel.Component, value string) (bool, error) {
+	switch {
+	case component.Field != nil:
+		return setValueAtField(node, component.Field.Name, value)
+	case component.Bracket != nil:
+		return setValueAtBracket(node, component.Bracket.Content, value)
+	default:
+		return false, fmt.Errorf("unknown component type for value setting")
+	}
+}
+
+// setValueAtField sets a value at a field in a mapping node
+func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, error) {
+	if node.Kind != yaml.MappingNode {
+		return false, fmt.Errorf("cannot set field %q in non-mapping node", fieldName)
+	}
+
+	for i := 0; i < len(node.Content); i += 2 {
+		if i+1 < len(node.Content) && node.Content[i].Value == fieldName {
+			node.Content[i+1].Value = value
+			node.Content[i+1].Kind = yaml.ScalarNode
 			return true, nil
-		} else {
-			return false, fmt.Errorf("cannot index non-array node")
 		}
 	}
 
-	// Set field in mapping node
-	if current.Kind == yaml.MappingNode {
-		for j := 0; j < len(current.Content); j += 2 {
-			if j+1 < len(current.Content) && current.Content[j].Value == finalKey {
-				current.Content[j+1].Value = value
-				current.Content[j+1].Kind = yaml.ScalarNode
+	return false, fmt.Errorf("field %q not found", fieldName)
+}
+
+// setValueAtBracket sets a value using bracket notation
+func setValueAtBracket(node *yaml.Node, content string, value string) (bool, error) {
+	// Check if it's a slice operation (contains colon)
+	if strings.Contains(content, ":") {
+		return false, fmt.Errorf("slice operations not supported for value setting")
+	}
+
+	// Try numeric index first
+	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
+		var index int
+		fmt.Sscanf(content, "%d", &index)
+		
+		if node.Kind == yaml.SequenceNode {
+			if index < 0 {
+				index = len(node.Content) + index
+			}
+			if index < 0 || index >= len(node.Content) {
+				return false, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+			}
+			node.Content[index].Value = value
+			node.Content[index].Kind = yaml.ScalarNode
+			return true, nil
+		}
+		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
+	}
+
+	// Handle string key indexing  
+	key := content
+	// The key would have been unquoted by participle already
+	
+	if node.Kind == yaml.MappingNode {
+		for i := 0; i < len(node.Content); i += 2 {
+			if i+1 < len(node.Content) && node.Content[i].Value == key {
+				node.Content[i+1].Value = value
+				node.Content[i+1].Kind = yaml.ScalarNode
 				return true, nil
 			}
 		}
-		return false, fmt.Errorf("key %q not found", finalKey)
+		return false, fmt.Errorf("key %q not found", key)
 	}
-
-	return false, fmt.Errorf("cannot set value in non-mapping node")
+	return false, fmt.Errorf("cannot index non-mapping node with string key %q", key)
 }
 
 // writeYAMLFile writes YAML documents to a file.

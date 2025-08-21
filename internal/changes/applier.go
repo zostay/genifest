@@ -77,6 +77,18 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 			}
 		}
 
+		// Check if file is within the scope of this change's path
+		if change.Path != "" && change.Path != "." {
+			// Normalize paths for comparison
+			changePath := filepath.Clean(change.Path)
+			filePathClean := filepath.Clean(filePath)
+			
+			// Check if file is within the change's directory or subdirectories
+			if !strings.HasPrefix(filePathClean, changePath+"/") && filePathClean != changePath {
+				continue
+			}
+		}
+
 		// Check if file matches (simplified glob matching)
 		if change.FileSelector != "" {
 			// If the fileSelector doesn't contain path separators, match against just the filename

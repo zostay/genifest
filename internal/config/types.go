@@ -132,9 +132,9 @@ type MetaConfig struct {
 // ChangeOrder represents a modification to be applied to managed files.
 // It specifies which file and key to change, along with the new value.
 type ChangeOrder struct {
-	// path is the path where this change order was discovered before config
+	// Path is the path where this change order was discovered before config
 	// merger was performed.
-	path string
+	Path string
 
 	// DocumentRef defines the file, document, and key to change.
 	DocumentRef `yaml:",inline"`
@@ -436,7 +436,7 @@ func (c *Config) Validate() error {
 	}
 
 	for i, change := range c.Changes {
-		ctx.CurrentPath = change.path
+		ctx.CurrentPath = change.Path
 		if err := change.ValidateWithContext(ctx.WithField("changes").WithIndex(i)); err != nil {
 			return err
 		}
