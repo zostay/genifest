@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -107,6 +108,13 @@ func printError(err error) {
 
 // isValidationError checks if an error is a validation-related error.
 func isValidationError(err error) bool {
+	// Check if it's our custom ValidationError type
+	var ve *config.ValidationError
+	if errors.As(err, &ve) {
+		return true
+	}
+
+	// Fall back to string-based detection for other validation errors
 	errStr := err.Error()
 	return strings.Contains(errStr, "validation failed") ||
 		strings.Contains(errStr, "configuration validation") ||
@@ -118,6 +126,16 @@ func isValidationError(err error) bool {
 
 // printValidationError prints a well-formatted validation error.
 func printValidationError(err error) {
+	// Check if it's our custom ValidationError type
+	var ve *config.ValidationError
+	if errors.As(err, &ve) {
+		// Use the custom error's nicely formatted output
+		fmt.Fprintf(os.Stderr, "%s\n", ve.Error())
+		fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+		return
+	}
+
+	// Handle legacy validation errors
 	fmt.Fprintf(os.Stderr, "❌ Configuration Validation Error\n\n")
 
 	errStr := err.Error()

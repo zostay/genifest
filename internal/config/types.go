@@ -368,14 +368,6 @@ func isValidTag(s string) bool {
 	return tagPattern.MatchString(s)
 }
 
-// ValidationContext provides context for validation including available functions
-// and the current path for function scope resolution.
-type ValidationContext struct {
-	CloudHome   string `yaml:"cloudHome"`
-	Functions   []FunctionDefinition
-	CurrentPath string
-}
-
 // LookupFunction finds the best available function for the given name from the current path.
 // It returns the function definition and true if found, or nil and false if not found.
 // Functions are available if they are defined in the same path or in a parent path.
@@ -434,25 +426,26 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
 	ctx := &ValidationContext{
-		CloudHome: c.Metadata.CloudHome,
-		Functions: c.Functions,
+		CloudHome:   c.Metadata.CloudHome,
+		Functions:   c.Functions,
+		PathBuilder: NewPathBuilder(""),
 	}
 
-	if err := c.Metadata.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("metadata validation failed: %w", err)
+	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
+		return err
 	}
 
 	for i, change := range c.Changes {
 		ctx.CurrentPath = change.path
-		if err := change.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("change %d validation failed: %w", i, err)
+		if err := change.ValidateWithContext(ctx.WithField("changes").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
 	for i, fn := range c.Functions {
 		ctx.CurrentPath = fn.path
-		if err := fn.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("function %d validation failed: %w", i, err)
+		if err := fn.ValidateWithContext(ctx.WithField("functions").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
@@ -554,15 +547,15 @@ func (c *ChangeOrder) Validate() error {
 // tag format, and valueFrom expression using the provided validation context.
 func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	if err := c.DocumentRef.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("document ref validation failed: %w", err)
+		return err
 	}
 
 	if !isValidTag(c.Tag) {
-		return fmt.Errorf("tag '%s' is not a valid kebab-case tag", c.Tag)
+		return ctx.WithField("tag").PathBuilder.ErrorWithValue("is not a valid kebab-case tag", c.Tag)
 	}
 
-	if err := c.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	return nil
@@ -577,17 +570,17 @@ func (f *FunctionDefinition) Validate() error {
 // parameters, and valueFrom expression using the provided validation context.
 func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
+		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", f.Name)
 	}
 
 	for i, param := range f.Params {
-		if err := param.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("parameter %d validation failed: %w", i, err)
+		if err := param.ValidateWithContext(ctx.WithField("params").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
-	if err := f.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := f.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	return nil
@@ -600,12 +593,12 @@ func (p *Parameter) Validate() error {
 
 // ValidateWithContext validates a parameter ensuring the name is a valid identifier
 // and that required parameters don't have default values.
-func (p *Parameter) ValidateWithContext(_ *ValidationContext) error {
+func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
-		return fmt.Errorf("parameter name '%s' is not a valid identifier", p.Name)
+		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", p.Name)
 	}
 	if p.Required && p.Default != "" {
-		return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
+		return ctx.WithField("default").PathBuilder.Error("cannot be set when parameter is required")
 	}
 	return nil
 }
@@ -622,55 +615,55 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 
 	if v.FunctionCall != nil {
 		count++
-		if err := v.FunctionCall.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("function call validation failed: %w", err)
+		if err := v.FunctionCall.ValidateWithContext(ctx.WithField("call")); err != nil {
+			return err
 		}
 	}
 	if v.CallPipeline != nil {
 		count++
-		if err := v.CallPipeline.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("call pipeline validation failed: %w", err)
+		if err := v.CallPipeline.ValidateWithContext(ctx.WithField("pipeline")); err != nil {
+			return err
 		}
 	}
 	if v.FileInclusion != nil {
 		count++
-		if err := v.FileInclusion.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("file inclusion validation failed: %w", err)
+		if err := v.FileInclusion.ValidateWithContext(ctx.WithField("file")); err != nil {
+			return err
 		}
 	}
 	if v.BasicTemplate != nil {
 		count++
-		if err := v.BasicTemplate.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("basic template validation failed: %w", err)
+		if err := v.BasicTemplate.ValidateWithContext(ctx.WithField("template")); err != nil {
+			return err
 		}
 	}
 	if v.ScriptExec != nil {
 		count++
-		if err := v.ScriptExec.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("script exec validation failed: %w", err)
+		if err := v.ScriptExec.ValidateWithContext(ctx.WithField("script")); err != nil {
+			return err
 		}
 	}
 	if v.ArgumentRef != nil {
 		count++
-		if err := v.ArgumentRef.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("argument ref validation failed: %w", err)
+		if err := v.ArgumentRef.ValidateWithContext(ctx.WithField("argRef")); err != nil {
+			return err
 		}
 	}
 	if v.DefaultValue != nil {
 		count++
-		if err := v.DefaultValue.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("default value validation failed: %w", err)
+		if err := v.DefaultValue.ValidateWithContext(ctx.WithField("default")); err != nil {
+			return err
 		}
 	}
 	if v.DocumentRef != nil {
 		count++
-		if err := v.DocumentRef.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("document ref validation failed: %w", err)
+		if err := v.DocumentRef.ValidateWithContext(ctx.WithField("documentRef")); err != nil {
+			return err
 		}
 	}
 
 	if count != 1 {
-		return fmt.Errorf("exactly one field must be set in ValueFrom, but %d fields are set", count)
+		return ctx.PathBuilder.ErrorWithValue("must have exactly one field set, but has", count)
 	}
 
 	return nil
@@ -685,18 +678,18 @@ func (f *FunctionCall) Validate() error {
 // referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
+		return ctx.WithField("function").PathBuilder.ErrorWithValue("is not a valid identifier", f.Name)
 	}
 
 	// Check if the function exists and is available
 	if ctx != nil {
 		if _, found := ctx.LookupFunction(f.Name); !found {
-			return fmt.Errorf("function '%s' is not defined or not accessible from current path", f.Name)
+			return ctx.WithField("function").PathBuilder.ErrorWithValue("is not defined or not accessible from current path", f.Name)
 		}
 	}
 
-	if err := f.Arguments.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("arguments validation failed: %w", err)
+	if err := f.Arguments.ValidateWithContext(ctx.WithField("args")); err != nil {
+		return err
 	}
 
 	return nil
@@ -711,11 +704,11 @@ func (a *Argument) Validate() error {
 // and the valueFrom expression is valid.
 func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return fmt.Errorf("argument name '%s' is not a valid identifier", a.Name)
+		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", a.Name)
 	}
 
-	if err := a.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := a.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	return nil
@@ -729,8 +722,8 @@ func (a Arguments) Validate() error {
 // ValidateWithContext validates all arguments in the list using the provided context.
 func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 	for i, arg := range a {
-		if err := arg.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("argument %d validation failed: %w", i, err)
+		if err := arg.ValidateWithContext(ctx.WithIndex(i)); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -745,18 +738,19 @@ func (c CallPipeline) Validate() error {
 // subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
-		return fmt.Errorf("call pipeline cannot be empty")
+		return ctx.PathBuilder.Error("cannot be empty")
 	}
 
 	for i, pipe := range c {
-		if err := pipe.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("pipe %d validation failed: %w", i, err)
+		pipeCtx := ctx.WithIndex(i)
+		if err := pipe.ValidateWithContext(pipeCtx); err != nil {
+			return err
 		}
 
 		// Subsequent pipes must be FunctionCall or ScriptExec
 		if i > 0 {
-			if err := pipe.validateSubsequentPipe(); err != nil {
-				return fmt.Errorf("pipe %d validation failed: %w", i, err)
+			if err := pipe.validateSubsequentPipe(pipeCtx); err != nil {
+				return err
 			}
 		}
 	}
@@ -769,10 +763,10 @@ func (f *FileInclusion) Validate() error {
 }
 
 // ValidateWithContext validates a file inclusion ensuring the source field is provided.
-func (f *FileInclusion) ValidateWithContext(_ *ValidationContext) error {
+func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 	// App is optional - if not specified, uses same app folder as the change
 	if f.Source == "" {
-		return fmt.Errorf("source field is required")
+		return ctx.WithField("source").PathBuilder.Error("is required")
 	}
 	return nil
 }
@@ -786,11 +780,11 @@ func (b *BasicTemplate) Validate() error {
 // and all variables are valid.
 func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 	if b.String == "" {
-		return fmt.Errorf("string field is required")
+		return ctx.WithField("string").PathBuilder.Error("is required")
 	}
 
-	if err := b.Variables.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("variables validation failed: %w", err)
+	if err := b.Variables.ValidateWithContext(ctx.WithField("variables")); err != nil {
+		return err
 	}
 
 	return nil
@@ -805,21 +799,21 @@ func (s *ScriptExec) Validate() error {
 // and all arguments, environment variables, and stdin are valid.
 func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 	if s.ExecCommand == "" {
-		return fmt.Errorf("exec field is required")
+		return ctx.WithField("exec").PathBuilder.Error("is required")
 	}
 
 	if s.Stdin != nil {
-		if err := s.Stdin.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("stdin validation failed: %w", err)
+		if err := s.Stdin.ValidateWithContext(ctx.WithField("stdin")); err != nil {
+			return err
 		}
 	}
 
-	if err := s.Args.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("args validation failed: %w", err)
+	if err := s.Args.ValidateWithContext(ctx.WithField("args")); err != nil {
+		return err
 	}
 
-	if err := s.Env.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("env validation failed: %w", err)
+	if err := s.Env.ValidateWithContext(ctx.WithField("env")); err != nil {
+		return err
 	}
 
 	return nil
@@ -831,9 +825,9 @@ func (a *ArgumentRef) Validate() error {
 }
 
 // ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
-func (a *ArgumentRef) ValidateWithContext(_ *ValidationContext) error {
+func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return fmt.Errorf("argument ref name '%s' is not a valid identifier", a.Name)
+		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", a.Name)
 	}
 	return nil
 }
@@ -844,9 +838,9 @@ func (d *DefaultValue) Validate() error {
 }
 
 // ValidateWithContext validates a default value ensuring the value field is provided.
-func (d *DefaultValue) ValidateWithContext(_ *ValidationContext) error {
+func (d *DefaultValue) ValidateWithContext(ctx *ValidationContext) error {
 	if d.Value == "" {
-		return fmt.Errorf("value field is required")
+		return ctx.WithField("value").PathBuilder.Error("is required")
 	}
 	return nil
 }
@@ -858,9 +852,9 @@ func (d *DocumentRef) Validate() error {
 
 // ValidateWithContext validates a document reference ensuring the keySelector is provided.
 // FileSelector and DocumentSelector are optional per the documentation.
-func (d *DocumentRef) ValidateWithContext(_ *ValidationContext) error {
+func (d *DocumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if d.KeySelector == "" {
-		return fmt.Errorf("keySelector is required")
+		return ctx.WithField("keySelector").PathBuilder.Error("is required")
 	}
 	// FileSelector and DocumentSelector are optional per documentation
 	return nil
@@ -874,12 +868,12 @@ func (c *CallPipe) Validate() error {
 // ValidateWithContext validates a call pipe ensuring the valueFrom expression
 // and output name are valid.
 func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
-	if err := c.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	if !isValidIdentifier(c.Output) {
-		return fmt.Errorf("output name '%s' is not a valid identifier", c.Output)
+		return ctx.WithField("output").PathBuilder.ErrorWithValue("is not a valid identifier", c.Output)
 	}
 
 	return nil
@@ -887,9 +881,9 @@ func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
 
 // validateSubsequentPipe checks that subsequent pipes in a pipeline are FunctionCall or ScriptExec.
 // This enforces the constraint that only the first pipe can use any ValueFrom type.
-func (c *CallPipe) validateSubsequentPipe() error {
+func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
-		return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
+		return ctx.WithField("valueFrom").PathBuilder.Error("must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
 	return nil
 }
