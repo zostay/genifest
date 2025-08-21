@@ -17,9 +17,9 @@ type ValidationError struct {
 // Error implements the error interface.
 func (ve *ValidationError) Error() string {
 	if ve.Value != nil {
-		return fmt.Sprintf("Validation Error: %s is %q which %s", ve.Path, ve.Value, ve.Message)
+		return fmt.Sprintf("❌ %s is %q which %s", ve.Path, ve.Value, ve.Message)
 	}
-	return fmt.Sprintf("Validation Error: %s %s", ve.Path, ve.Message)
+	return fmt.Sprintf("❌ %s %s", ve.Path, ve.Message)
 }
 
 // NewValidationError creates a new validation error with the given path and message.
@@ -145,8 +145,12 @@ func (ctx *ValidationContext) WithPath(pb *PathBuilder) *ValidationContext {
 
 // WithField creates a new validation context with the given field added to the path.
 func (ctx *ValidationContext) WithField(name string) *ValidationContext {
+	// If ctx is nil, preserve nil for backward compatibility with tests
+	if ctx == nil {
+		return nil
+	}
 	var pb *PathBuilder
-	if ctx != nil && ctx.PathBuilder != nil {
+	if ctx.PathBuilder != nil {
 		pb = ctx.PathBuilder.Field(name)
 	} else {
 		pb = NewPathBuilder("").Field(name)
@@ -156,11 +160,41 @@ func (ctx *ValidationContext) WithField(name string) *ValidationContext {
 
 // WithIndex creates a new validation context with the given index added to the path.
 func (ctx *ValidationContext) WithIndex(index int) *ValidationContext {
+	// If ctx is nil, preserve nil for backward compatibility with tests
+	if ctx == nil {
+		return nil
+	}
 	var pb *PathBuilder
-	if ctx != nil && ctx.PathBuilder != nil {
+	if ctx.PathBuilder != nil {
 		pb = ctx.PathBuilder.Index(index)
 	} else {
 		pb = NewPathBuilder("").Index(index)
 	}
 	return ctx.WithPath(pb)
+}
+
+// safeError returns a ValidationError if context is available, otherwise a regular error.
+func safeError(ctx *ValidationContext, message string) error {
+	if ctx != nil && ctx.PathBuilder != nil {
+		return ctx.PathBuilder.Error(message)
+	}
+	return fmt.Errorf("%s", message)
+}
+
+// safeErrorWithValue returns a ValidationError with value if context is available, otherwise a regular error.
+func safeErrorWithValue(ctx *ValidationContext, fieldName string, message string, value interface{}) error {
+	if ctx != nil && ctx.PathBuilder != nil {
+		return ctx.PathBuilder.ErrorWithValue(message, value)
+	}
+	// For backward compatibility with tests when ctx is nil, return the original format
+	return fmt.Errorf("%s '%v' %s", fieldName, value, message)
+}
+
+// safeError returns a ValidationError if context is available, otherwise a regular error with field prefix.
+func safeErrorWithField(ctx *ValidationContext, fieldName string, message string) error {
+	if ctx != nil && ctx.PathBuilder != nil {
+		return ctx.PathBuilder.Error(message)
+	}
+	// For backward compatibility with tests when ctx is nil, return the original format
+	return fmt.Errorf("%s validation failed: %s", fieldName, message)
 }

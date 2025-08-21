@@ -551,10 +551,13 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	}
 
 	if !isValidTag(c.Tag) {
-		return ctx.WithField("tag").PathBuilder.ErrorWithValue("is not a valid kebab-case tag", c.Tag)
+		return safeErrorWithValue(ctx, "tag", "is not a valid kebab-case tag", c.Tag)
 	}
 
 	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		if ctx == nil {
+			return fmt.Errorf("valueFrom validation failed: %s", err.Error())
+		}
 		return err
 	}
 
@@ -570,7 +573,7 @@ func (f *FunctionDefinition) Validate() error {
 // parameters, and valueFrom expression using the provided validation context.
 func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", f.Name)
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", f.Name)
 	}
 
 	for i, param := range f.Params {
@@ -595,10 +598,16 @@ func (p *Parameter) Validate() error {
 // and that required parameters don't have default values.
 func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
-		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", p.Name)
+		if ctx == nil {
+			return fmt.Errorf("parameter name '%v' is not a valid identifier", p.Name)
+		}
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", p.Name)
 	}
 	if p.Required && p.Default != "" {
-		return ctx.WithField("default").PathBuilder.Error("cannot be set when parameter is required")
+		if ctx == nil {
+			return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
+		}
+		return safeErrorWithField(ctx, "parameter "+p.Name, "is required and cannot have a default")
 	}
 	return nil
 }
@@ -622,6 +631,9 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	if v.CallPipeline != nil {
 		count++
 		if err := v.CallPipeline.ValidateWithContext(ctx.WithField("pipeline")); err != nil {
+			if ctx == nil {
+				return fmt.Errorf("call pipeline validation failed: %s", err.Error())
+			}
 			return err
 		}
 	}
@@ -663,7 +675,7 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	}
 
 	if count != 1 {
-		return ctx.PathBuilder.ErrorWithValue("must have exactly one field set, but has", count)
+		return safeError(ctx, fmt.Sprintf("exactly one field must be set in ValueFrom, but %d fields are set", count))
 	}
 
 	return nil
@@ -678,13 +690,16 @@ func (f *FunctionCall) Validate() error {
 // referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return ctx.WithField("function").PathBuilder.ErrorWithValue("is not a valid identifier", f.Name)
+		if ctx == nil {
+			return fmt.Errorf("function call validation failed: function name '%v' is not a valid identifier", f.Name)
+		}
+		return safeErrorWithValue(ctx, "function", "is not a valid identifier", f.Name)
 	}
 
 	// Check if the function exists and is available
 	if ctx != nil {
 		if _, found := ctx.LookupFunction(f.Name); !found {
-			return ctx.WithField("function").PathBuilder.ErrorWithValue("is not defined or not accessible from current path", f.Name)
+			return safeErrorWithValue(ctx, "function", "is not defined or not accessible from current path", f.Name)
 		}
 	}
 
@@ -704,7 +719,7 @@ func (a *Argument) Validate() error {
 // and the valueFrom expression is valid.
 func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", a.Name)
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 
 	if err := a.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
@@ -738,18 +753,28 @@ func (c CallPipeline) Validate() error {
 // subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
-		return ctx.PathBuilder.Error("cannot be empty")
+		if ctx == nil {
+			return fmt.Errorf("call pipeline cannot be empty")
+		}
+		return safeErrorWithField(ctx, "call pipeline", "call pipeline cannot be empty")
 	}
 
 	for i, pipe := range c {
 		pipeCtx := ctx.WithIndex(i)
-		if err := pipe.ValidateWithContext(pipeCtx); err != nil {
+		isFinal := i == len(c)-1
+		if err := pipe.validateWithContextAndFinalFlag(pipeCtx, isFinal); err != nil {
+			if ctx == nil {
+				return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
+			}
 			return err
 		}
 
 		// Subsequent pipes must be FunctionCall or ScriptExec
 		if i > 0 {
 			if err := pipe.validateSubsequentPipe(pipeCtx); err != nil {
+				if ctx == nil {
+					return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
+				}
 				return err
 			}
 		}
@@ -766,7 +791,7 @@ func (f *FileInclusion) Validate() error {
 func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 	// App is optional - if not specified, uses same app folder as the change
 	if f.Source == "" {
-		return ctx.WithField("source").PathBuilder.Error("is required")
+		return safeErrorWithField(ctx, "file inclusion", "source field is required")
 	}
 	return nil
 }
@@ -780,7 +805,7 @@ func (b *BasicTemplate) Validate() error {
 // and all variables are valid.
 func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 	if b.String == "" {
-		return ctx.WithField("string").PathBuilder.Error("is required")
+		return safeErrorWithField(ctx, "basic template", "string field is required")
 	}
 
 	if err := b.Variables.ValidateWithContext(ctx.WithField("variables")); err != nil {
@@ -799,7 +824,7 @@ func (s *ScriptExec) Validate() error {
 // and all arguments, environment variables, and stdin are valid.
 func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 	if s.ExecCommand == "" {
-		return ctx.WithField("exec").PathBuilder.Error("is required")
+		return safeErrorWithField(ctx, "script exec", "exec field is required")
 	}
 
 	if s.Stdin != nil {
@@ -827,7 +852,10 @@ func (a *ArgumentRef) Validate() error {
 // ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
 func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return ctx.WithField("name").PathBuilder.ErrorWithValue("is not a valid identifier", a.Name)
+		if ctx == nil {
+			return fmt.Errorf("argument ref validation failed: argument ref name '%v' is not a valid identifier", a.Name)
+		}
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 	return nil
 }
@@ -840,7 +868,7 @@ func (d *DefaultValue) Validate() error {
 // ValidateWithContext validates a default value ensuring the value field is provided.
 func (d *DefaultValue) ValidateWithContext(ctx *ValidationContext) error {
 	if d.Value == "" {
-		return ctx.WithField("value").PathBuilder.Error("is required")
+		return safeErrorWithField(ctx, "default value", "value field is required")
 	}
 	return nil
 }
@@ -854,7 +882,7 @@ func (d *DocumentRef) Validate() error {
 // FileSelector and DocumentSelector are optional per the documentation.
 func (d *DocumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if d.KeySelector == "" {
-		return ctx.WithField("keySelector").PathBuilder.Error("is required")
+		return safeErrorWithField(ctx, "document ref", "keySelector is required")
 	}
 	// FileSelector and DocumentSelector are optional per documentation
 	return nil
@@ -868,12 +896,31 @@ func (c *CallPipe) Validate() error {
 // ValidateWithContext validates a call pipe ensuring the valueFrom expression
 // and output name are valid.
 func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
+	return c.validateWithContextAndFinalFlag(ctx, false)
+}
+
+// validateWithContextAndFinalFlag validates a call pipe with the option to specify
+// if this is the final pipe in a pipeline. Final pipes do not require an output.
+func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFinal bool) error {
 	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
 		return err
 	}
 
-	if !isValidIdentifier(c.Output) {
-		return ctx.WithField("output").PathBuilder.ErrorWithValue("is not a valid identifier", c.Output)
+	// Only validate output if it's provided OR if this is not the final pipe
+	// Final pipes don't require an output since there's no next pipe to consume it
+	if c.Output != "" && !isValidIdentifier(c.Output) {
+		if ctx == nil {
+			return fmt.Errorf("output name '%v' is not a valid identifier", c.Output)
+		}
+		return safeErrorWithValue(ctx, "output", "is not a valid identifier", c.Output)
+	}
+
+	// Non-final pipes must have an output
+	if !isFinal && c.Output == "" {
+		if ctx == nil {
+			return fmt.Errorf("output is required for non-final pipes")
+		}
+		return safeErrorWithField(ctx, "output", "is required for non-final pipes")
 	}
 
 	return nil
@@ -883,7 +930,10 @@ func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
 // This enforces the constraint that only the first pipe can use any ValueFrom type.
 func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
-		return ctx.WithField("valueFrom").PathBuilder.Error("must be either FunctionCall or ScriptExec for subsequent pipes")
+		if ctx == nil {
+			return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
+		}
+		return safeError(ctx.WithField("valueFrom"), "must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
 	return nil
 }

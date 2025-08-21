@@ -459,6 +459,35 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 			expectError: true,
 			errorMsg:    "pipe 1 validation failed: subsequent pipes must be either FunctionCall or ScriptExec",
 		},
+		{
+			name: "valid pipeline with no output on final pipe",
+			pipeline: CallPipeline{
+				{
+					ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "input"}},
+					Output:    "step1",
+				},
+				{
+					ValueFrom: ValueFrom{FunctionCall: &FunctionCall{Name: "process"}},
+					Output:    "", // Final pipe without output - should be allowed
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid pipeline with no output on non-final pipe",
+			pipeline: CallPipeline{
+				{
+					ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "input"}},
+					Output:    "", // Non-final pipe without output - should fail
+				},
+				{
+					ValueFrom: ValueFrom{FunctionCall: &FunctionCall{Name: "process"}},
+					Output:    "final",
+				},
+			},
+			expectError: true,
+			errorMsg:    "pipe 0 validation failed: output is required for non-final pipes",
+		},
 	}
 
 	for _, tt := range tests {
