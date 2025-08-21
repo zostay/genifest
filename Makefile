@@ -76,6 +76,7 @@ clean: ## Clean build artifacts
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DIST_DIR)
 	rm -rf site/
+	rm -f coverage.out coverage.html
 	$(GO) clean -cache -testcache -modcache
 
 # ===== Testing =====
