@@ -123,32 +123,15 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 
-	// Validate changes have proper selectors
-	for i, change := range cfg.Changes {
-		if change.FileSelector == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: fileSelector is required", i))
-		}
-		if change.KeySelector == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: keySelector is required", i))
-		}
-		if isValueFromEmpty(change.ValueFrom) {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: valueFrom is required", i))
-		}
-	}
-
-	// Validate function definitions
+	// Additional validation checks beyond what Config.Validate() already does
+	// Check for duplicate function names (Config.Validate() doesn't check for this)
 	functionNames := make(map[string]bool)
 	for i, fn := range cfg.Functions {
-		if fn.Name == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("function %d: name is required", i))
-		} else {
-			if functionNames[fn.Name] {
-				validationErrors = append(validationErrors, fmt.Sprintf("function %d: duplicate function name '%s'", i, fn.Name))
-			}
-			functionNames[fn.Name] = true
+		if fn.Name != "" && functionNames[fn.Name] {
+			validationErrors = append(validationErrors, fmt.Sprintf("function %d: duplicate function name '%s'", i, fn.Name))
 		}
-		if isValueFromEmpty(fn.ValueFrom) {
-			validationErrors = append(validationErrors, fmt.Sprintf("function %d (%s): valueFrom is required", i, fn.Name))
+		if fn.Name != "" {
+			functionNames[fn.Name] = true
 		}
 	}
 
