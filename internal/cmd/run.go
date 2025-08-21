@@ -27,12 +27,15 @@ substitution to your Kubernetes resources.
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
+	Run: func(_ *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		return GenerateManifests(nil, []string{projectDir})
+		err := GenerateManifests(nil, []string{projectDir})
+		if err != nil {
+			printError(err)
+		}
 	},
 }
 

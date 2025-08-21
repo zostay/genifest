@@ -22,12 +22,15 @@ interprets your project structure.
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
+	Run: func(_ *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		return displayConfiguration(projectDir)
+		err := displayConfiguration(projectDir)
+		if err != nil {
+			printError(err)
+		}
 	},
 }
 

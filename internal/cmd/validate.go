@@ -26,12 +26,15 @@ This command will:
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
+	Run: func(_ *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		return validateConfiguration(projectDir)
+		err := validateConfiguration(projectDir)
+		if err != nil {
+			printError(err)
+		}
 	},
 }
 
@@ -49,7 +52,12 @@ func validateConfiguration(projectDir string) error {
 	workDir := projectInfo.WorkDir
 	cfg := projectInfo.Config
 
-	fmt.Printf("Validating configuration in %s...\n", workDir)
+	fmt.Printf("Validating configuration in %s...\n\n", workDir)
+
+	// Run comprehensive validation from config package
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
 
 	// Additional validation checks
 	validationErrors := []string{}
@@ -93,10 +101,11 @@ func validateConfiguration(projectDir string) error {
 
 	// Report results
 	if len(validationErrors) > 0 {
-		fmt.Printf("❌ Configuration validation failed with %d error(s):\n", len(validationErrors))
+		fmt.Printf("❌ Configuration validation failed with %d error(s):\n\n", len(validationErrors))
 		for _, err := range validationErrors {
 			fmt.Printf("  • %s\n", err)
 		}
+		fmt.Printf("\n💡 Tip: Fix these issues and run 'genifest validate' again\n")
 		return fmt.Errorf("configuration validation failed")
 	}
 

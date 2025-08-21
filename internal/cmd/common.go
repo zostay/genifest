@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zostay/genifest/internal/config"
 )
@@ -83,4 +84,64 @@ func loadProjectConfiguration(projectDir string) (*ProjectInfo, error) {
 		WorkDir: workDir,
 		Config:  cfg,
 	}, nil
+}
+
+// printError prints a user-friendly error message and exits with status code 1.
+// This prevents Cobra from showing usage information for application errors.
+func printError(err error) {
+	if err == nil {
+		return
+	}
+
+	// Pretty print validation errors
+	if isValidationError(err) {
+		printValidationError(err)
+		os.Exit(1)
+		return
+	}
+
+	// Print other errors with a simple format
+	fmt.Fprintf(os.Stderr, "❌ Error: %s\n", err.Error())
+	os.Exit(1)
+}
+
+// isValidationError checks if an error is a validation-related error.
+func isValidationError(err error) bool {
+	errStr := err.Error()
+	return strings.Contains(errStr, "validation failed") ||
+		strings.Contains(errStr, "configuration validation") ||
+		strings.Contains(errStr, "function") ||
+		strings.Contains(errStr, "parameter") ||
+		strings.Contains(errStr, "argument") ||
+		strings.Contains(errStr, "valueFrom")
+}
+
+// printValidationError prints a well-formatted validation error.
+func printValidationError(err error) {
+	fmt.Fprintf(os.Stderr, "❌ Configuration Validation Error\n\n")
+
+	errStr := err.Error()
+
+	// Remove common prefixes to make errors cleaner
+	errStr = strings.TrimPrefix(errStr, "failed to load configuration: ")
+	errStr = strings.TrimPrefix(errStr, "configuration validation failed: ")
+	errStr = strings.TrimPrefix(errStr, "validation failed: ")
+
+	// Split into main error and context
+	if strings.Contains(errStr, ": ") {
+		parts := strings.SplitN(errStr, ": ", 2)
+		if len(parts) == 2 {
+			context := parts[0]
+			message := parts[1]
+
+			fmt.Fprintf(os.Stderr, "Context: %s\n", context)
+			fmt.Fprintf(os.Stderr, "Issue:   %s\n", message)
+		} else {
+			fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
 }
