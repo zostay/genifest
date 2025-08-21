@@ -33,7 +33,7 @@ of the current working directory.`,
 		}
 		err := validateConfiguration(projectDir)
 		if err != nil {
-			printError(err)
+			printErrorWithContext(err, "validate")
 		}
 	},
 }
@@ -52,7 +52,7 @@ func validateConfiguration(projectDir string) error {
 	workDir := projectInfo.WorkDir
 	cfg := projectInfo.Config
 
-	fmt.Printf("Validating configuration in %s...\n\n", workDir)
+	fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
 
 	// Run comprehensive validation from config package
 	if err := cfg.Validate(); err != nil {
@@ -101,20 +101,20 @@ func validateConfiguration(projectDir string) error {
 
 	// Report results
 	if len(validationErrors) > 0 {
-		fmt.Printf("❌ Configuration validation failed with %d error(s):\n\n", len(validationErrors))
+		fmt.Printf("❌ \033[1;31mConfiguration validation failed with %d error(s):\033[0m\n\n", len(validationErrors))
 		for _, err := range validationErrors {
-			fmt.Printf("  • %s\n", err)
+			fmt.Printf("  \033[31m•\033[0m %s\n", err)
 		}
-		fmt.Printf("\n💡 Tip: Fix these issues and run 'genifest validate' again\n")
+		fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
 		return fmt.Errorf("configuration validation failed")
 	}
 
 	// Success summary
-	fmt.Printf("✅ Configuration validation successful!\n\n")
-	fmt.Printf("Summary:\n")
-	fmt.Printf("  • %d file(s) managed\n", len(cfg.Files))
-	fmt.Printf("  • %d change(s) defined\n", len(cfg.Changes))
-	fmt.Printf("  • %d function(s) defined\n", len(cfg.Functions))
+	fmt.Printf("✅ \033[1;32mConfiguration validation successful!\033[0m\n\n")
+	fmt.Printf("\033[1mSummary:\033[0m\n")
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(cfg.Files))
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change(s) defined\n", len(cfg.Changes))
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m function(s) defined\n", len(cfg.Functions))
 
 	// Show tags if any
 	tagSet := make(map[string]bool)
@@ -124,7 +124,7 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 	if len(tagSet) > 0 {
-		fmt.Printf("  • %d unique tag(s) used\n", len(tagSet))
+		fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m unique tag(s) used\n", len(tagSet))
 	}
 
 	return nil

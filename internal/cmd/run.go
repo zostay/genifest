@@ -77,21 +77,21 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	changesToRun := countChangesToRun(cfg, tagsToProcess)
 
 	// Display initial summary
-	fmt.Printf("🔍 Configuration loaded:\n")
-	fmt.Printf("  • %d total change definition(s) found\n", totalChanges)
+	fmt.Printf("🔍 \033[1;34mConfiguration loaded:\033[0m\n")
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m total change definition(s) found\n", totalChanges)
 	if len(currentIncludeTags) > 0 || len(currentExcludeTags) > 0 {
-		fmt.Printf("  • %d change definition(s) match tag filter\n", changesToRun)
+		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) match tag filter\n", changesToRun)
 		if len(tagsToProcess) > 0 {
-			fmt.Printf("  • Tags to process: %v\n", tagsToProcess)
+			fmt.Printf("  \033[36m•\033[0m Tags to process: \033[35m%v\033[0m\n", tagsToProcess)
 		}
 	} else {
-		fmt.Printf("  • %d change definition(s) will be processed (all changes)\n", changesToRun)
+		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) will be processed (all changes)\n", changesToRun)
 	}
-	fmt.Printf("  • %d file(s) to examine\n", len(cfg.Files))
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(cfg.Files))
 	fmt.Printf("\n")
 
 	if changesToRun == 0 {
-		fmt.Printf("✅ No changes to apply based on current tag filters\n")
+		fmt.Printf("✅ \033[33mNo changes to apply based on current tag filters\033[0m\n")
 		return nil
 	}
 
@@ -105,10 +105,10 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	}
 
 	// Final summary
-	fmt.Printf("\n✅ Successfully completed processing:\n")
-	fmt.Printf("  • %d change application(s) processed\n", processedChanges.Applied)
-	fmt.Printf("  • %d change application(s) resulted in actual modifications\n", processedChanges.Modified)
-	fmt.Printf("  • %d file(s) were updated\n", processedChanges.FilesModified)
+	fmt.Printf("\n✅ \033[1;32mSuccessfully completed processing:\033[0m\n")
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change application(s) processed\n", processedChanges.Applied)
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change application(s) resulted in actual modifications\n", processedChanges.Modified)
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) were updated\n", processedChanges.FilesModified)
 	return nil
 }
 
@@ -485,7 +485,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	var fi os.FileInfo
 	var err error
 	if fi, err = os.Stat(fullPath); os.IsNotExist(err) {
-		fmt.Printf("⚠️  Warning: file %s does not exist, skipping\n", filePath)
+		fmt.Printf("⚠️  \033[33mWarning:\033[0m file %s does not exist, skipping\n", filePath)
 		return stats, nil
 	}
 
@@ -512,7 +512,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	}
 
 	if len(documents) == 0 {
-		fmt.Printf("⚠️  Warning: no YAML documents found in %s, skipping\n", filePath)
+		fmt.Printf("⚠️  \033[33mWarning:\033[0m no YAML documents found in %s, skipping\n", filePath)
 		return stats, nil
 	}
 
@@ -542,7 +542,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 		if err != nil {
 			return stats, fmt.Errorf("failed to write modified file: %w", err)
 		}
-		fmt.Printf("📝 Updated file: %s (%d changes)\n", filePath, stats.Modified)
+		fmt.Printf("📝 \033[1;32mUpdated file:\033[0m %s (\033[36m%d\033[0m changes)\n", filePath, stats.Modified)
 	}
 
 	return stats, nil
@@ -568,9 +568,9 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 			stats.Applied++
 			if oldValue != result.Value {
 				stats.Modified++
-				fmt.Printf("  ✏️  %s -> document[%d] -> %s: %s → %s\n", filePath, docIndex, result.KeyPath, oldValue, result.Value)
+				fmt.Printf("  ✏️  %s -> document[\033[35m%d\033[0m] -> \033[36m%s\033[0m: \033[31m%s\033[0m → \033[32m%s\033[0m\n", filePath, docIndex, result.KeyPath, oldValue, result.Value)
 			} else {
-				fmt.Printf("  ✓  %s -> document[%d] -> %s: %s (no change)\n", filePath, docIndex, result.KeyPath, result.Value)
+				fmt.Printf("  ✓  %s -> document[\033[35m%d\033[0m] -> \033[36m%s\033[0m: \033[37m%s\033[0m (no change)\n", filePath, docIndex, result.KeyPath, result.Value)
 			}
 		}
 	}

@@ -90,13 +90,18 @@ func loadProjectConfiguration(projectDir string) (*ProjectInfo, error) {
 // printError prints a user-friendly error message and exits with status code 1.
 // This prevents Cobra from showing usage information for application errors.
 func printError(err error) {
+	printErrorWithContext(err, "")
+}
+
+// printErrorWithContext prints a user-friendly error message with context about the current command.
+func printErrorWithContext(err error, currentCommand string) {
 	if err == nil {
 		return
 	}
 
 	// Pretty print validation errors
 	if isValidationError(err) {
-		printValidationError(err)
+		printValidationError(err, currentCommand)
 		os.Exit(1)
 		return
 	}
@@ -125,13 +130,16 @@ func isValidationError(err error) bool {
 }
 
 // printValidationError prints a well-formatted validation error.
-func printValidationError(err error) {
+func printValidationError(err error, currentCommand string) {
 	// Check if it's our custom ValidationError type
 	var ve *config.ValidationError
 	if errors.As(err, &ve) {
 		// Use the custom error's nicely formatted output
 		fmt.Fprintf(os.Stderr, "%s\n", ve.Error())
-		fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+		// Only show the tip if we're not already running validate
+		if currentCommand != "validate" {
+			fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+		}
 		return
 	}
 
@@ -161,5 +169,8 @@ func printValidationError(err error) {
 		fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
 	}
 
-	fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+	// Only show the tip if we're not already running validate
+	if currentCommand != "validate" {
+		fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+	}
 }
