@@ -3,47 +3,58 @@
 _Major CLI restructuring and enhanced user experience improvements._
 
 * **CLI Architecture Overhaul**: Converted from flag-based to subcommand-based architecture
-  * `genifest run [directory]` - Apply changes with enhanced progress reporting  
-  * `genifest tags [directory]` - List all available tags in configuration
-  * `genifest validate [directory]` - Validate configuration without applying changes
-  * `genifest config [directory]` - Display merged configuration in YAML format
-  * `genifest version` - Show version information
-  * All commands support optional directory arguments for operation from any location
-* **Enhanced Output and Reporting**: 
-  * Detailed progress reporting with emoji indicators
-  * Change tracking shows `file -> document[index] -> key: old → new` for all modifications
-  * Clear distinction between changes applied vs actual modifications made
-  * Comprehensive statistics and file modification summaries
+ 
+    * `genifest run [directory]` - Apply changes with enhanced progress reporting  
+    * `genifest tags [directory]` - List all available tags in configuration
+    * `genifest validate [directory]` - Validate configuration without applying changes
+    * `genifest config [directory]` - Display merged configuration in YAML format
+    * `genifest version` - Show version information
+    * All commands support optional directory arguments for operation from any location
+
+* **Enhanced Output and Reporting**:
+
+    * Detailed progress reporting with emoji indicators
+    * Change tracking shows `file -> document[index] -> key: old → new` for all modifications
+    * Clear distinction between changes applied vs actual modifications made
+    * Comprehensive statistics and file modification summaries
+
 * **Code Quality Improvements**:
-  * Extracted ~100 lines of duplicate code into shared utilities (`internal/cmd/common.go`)
-  * Improved error handling with rich context and user-friendly messages
-  * Fixed file path handling bug in configuration loading for nested directories
-  * Enhanced file selector pattern matching logic
+
+    * Extracted ~100 lines of duplicate code into shared utilities (`internal/cmd/common.go`)
+    * Improved error handling with rich context and user-friendly messages
+    * Fixed file path handling bug in configuration loading for nested directories
+    * Enhanced file selector pattern matching logic
+
 * **User Experience Enhancements**:
-  * Running `genifest` without subcommand now shows help instead of applying changes
-  * Better validation with actionable error messages
-  * Configuration display for debugging and understanding project structure
+
+    * Running `genifest` without subcommand now shows help instead of applying changes
+    * Better validation with actionable error messages
+    * Configuration display for debugging and understanding project structure
 
 ## v1.0.0-rc1  2025-08-18
 
 _This is a complete rewrite of genifest, removing all the old cruft and making it more flexible._
+
 * The primary configuration file is now named `genifest.yaml` and must be in the same directory that the `genifest` binary is run.
 * The system supports three top-level types of configuration files: manifests, files, and scripts.
-   * Manifests are for YAML files organized into application sub-directories, a typical arrangement for a Kubernetes cluster configuration.
-   * Files are for general configuration files, also organized into application sub-directories. These may be embedded into other files using `valueFrom.file`.
-   * Scripts are for executable scripts used to derive content for inclusion in manifests. Only scripts found in these directories will be permitted to run using `valueFrom.script`.
+
+     * Manifests are for YAML files organized into application sub-directories, a typical arrangement for a Kubernetes cluster configuration.
+     * Files are for general configuration files, also organized into application sub-directories. These may be embedded into other files using `valueFrom.file`.
+     * Scripts are for executable scripts used to derive content for inclusion in manifests. Only scripts found in these directories will be permitted to run using `valueFrom.script`.
+  
 * Other `genifest.yaml` configurations found in these directories are loaded and merged into the top-level one before processing and applying changes.
 * Changes are applied in-place, expecting the user to use version control to track changes as part of a gitops process.
 * The system defines a simple tag-based scheme for choosing which changes to execute on each run.
 * The following `valueFrom` types are defined:
-  * `call` functions as a simple macro for calling other `valueFrom` expressions.
-  * `pipeline` defines a way of chaining operations together so that the output from a previous step can feed into a following step
-  * `file` embeds a file from a file directory into another YAML file
-  * `template` allows for the creation of simple templates using `${var}` style interpolation
-  * `script` executes custom scripts found in a scripts directory
-  * `argRef` is used to read variables and arguments inside a `valueFrom` or function definition
-  * `default` is used for literal values
-  * `documentRef` is used to lookup values elsewhere in the current YAML document and use the looked up value
+
+    * `call` functions as a simple macro for calling other `valueFrom` expressions.
+    * `pipeline` defines a way of chaining operations together so that the output from a previous step can feed into a following step
+    * `file` embeds a file from a file directory into another YAML file
+    * `template` allows for the creation of simple templates using `${var}` style interpolation
+    * `script` executes custom scripts found in a scripts directory
+    * `argRef` is used to read variables and arguments inside a `valueFrom` or function definition
+    * `default` is used for literal values
+    * `documentRef` is used to lookup values elsewhere in the current YAML document and use the looked up value
 
 ## v0.2.0  2025-07-17
 
