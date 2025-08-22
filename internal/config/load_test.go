@@ -105,7 +105,7 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 			foundTaggedChange = true
 		}
 		if change.KeySelector == ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image" ||
-		   change.KeySelector == ".spec.template.spec.containers[] | select(.name == \"backend\") | .image" {
+			change.KeySelector == ".spec.template.spec.containers[] | select(.name == \"backend\") | .image" {
 			foundImageChange = true
 		}
 	}
