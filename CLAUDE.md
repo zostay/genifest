@@ -256,3 +256,4 @@ The command-line interface implements a subcommand-based architecture:
 - **Linting**: Address critical linting issues (errcheck, staticcheck) while allowing style preferences
 - **Documentation**: Ensure all public APIs and complex functions have proper documentation
 - **Test Coverage**: Focus on integration tests and critical path validation over 100% unit test coverage
+- Always run genifeest by passing the diretory to the command: genifest run examples/guestbook, genifest valiadate examples/guestbook, genifest tag examples/genifest, etc. Do not change directories to run genifest.

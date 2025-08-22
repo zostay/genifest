@@ -24,12 +24,12 @@ func (e *Evaluator) EvaluateSelector(node *yaml.Node, selectorStr string) (strin
 		return "", fmt.Errorf("failed to create parser: %w", err)
 	}
 
-	selector, err := parser.ParseSelector(selectorStr)
+	expression, err := parser.ParseSelector(selectorStr)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse selector %q: %w", selectorStr, err)
 	}
 
-	result, err := selector.Evaluate(node, e)
+	result, err := expression.Evaluate(node, e)
 	if err != nil {
 		return "", err
 	}

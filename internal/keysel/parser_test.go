@@ -52,8 +52,29 @@ func TestParse(t *testing.T) {
 			selector: ".data.[\"app.yaml\"]",
 		},
 		{
+			name:     "array iteration",
+			selector: ".spec.containers[]",
+		},
+		{
+			name:     "select function",
+			selector: ".spec.containers[] | select(.name == \"frontend\")",
+		},
+		{
+			name:     "pipeline with field access",
+			selector: ".spec.containers[] | select(.name == \"frontend\") | .image",
+		},
+		{
+			name:     "complex guestbook example",
+			selector: ".spec.template.spec.containers[] | select(.name == \"backend\") | .image",
+		},
+		{
 			name:      "invalid selector",
 			selector:  ".spec[",
+			shouldErr: true,
+		},
+		{
+			name:      "invalid function call",
+			selector:  ".spec.containers[] | select(",
 			shouldErr: true,
 		},
 	}
@@ -80,18 +101,20 @@ func TestParse(t *testing.T) {
 			}
 
 			if selector == nil {
-				t.Errorf("Parsed selector is nil for %q", tt.selector)
+				t.Errorf("Parsed expression is nil for %q", tt.selector)
 				return
 			}
 
-			// Basic validation - root selector should have no components
-			if tt.selector == "." && len(selector.Components) != 0 {
-				t.Errorf("Root selector should have no components for %q", tt.selector)
+			// Basic validation - expression should have pipeline steps
+			if len(selector.Pipeline) == 0 {
+				t.Errorf("Parsed expression has no pipeline steps for %q", tt.selector)
 			}
 
-			// Other selectors should have components (except empty selectors)
-			if tt.selector != "" && tt.selector != "." && len(selector.Components) == 0 {
-				t.Errorf("Parsed selector has no components for %q", tt.selector)
+			// Validate pipeline structure
+			for i, step := range selector.Pipeline {
+				if step.Path == nil && step.Function == nil {
+					t.Errorf("Pipeline step %d has neither path nor function for %q", i, tt.selector)
+				}
 			}
 		})
 	}

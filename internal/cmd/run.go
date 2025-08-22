@@ -221,9 +221,16 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 		return false, fmt.Errorf("failed to create keysel parser: %w", err)
 	}
 
-	selector, err := parser.ParseSelector(keySelector)
+	expression, err := parser.ParseSelector(keySelector)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse selector %q: %w", keySelector, err)
+	}
+
+	// Try to handle as a simple path first for backwards compatibility
+	components, err := expression.GetSimplePath()
+	if err != nil {
+		// Complex expression - use evaluation-based write approach
+		return setValueInDocumentComplex(doc, expression, value)
 	}
 
 	current := doc
@@ -234,12 +241,12 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 	}
 
 	// If empty selector (root), we can't set a value
-	if len(selector.Components) == 0 {
+	if len(components) == 0 {
 		return false, fmt.Errorf("cannot set value at root")
 	}
 
 	// Navigate to the parent of the target location
-	for i, component := range selector.Components[:len(selector.Components)-1] {
+	for i, component := range components[:len(components)-1] {
 		var navigateErr error
 		current, navigateErr = navigateToComponent(current, component)
 		if navigateErr != nil {
@@ -248,8 +255,32 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 	}
 
 	// Handle the final component for setting the value
-	finalComponent := selector.Components[len(selector.Components)-1]
+	finalComponent := components[len(components)-1]
 	return setValueAtComponent(current, finalComponent, value)
+}
+
+// setValueInDocumentComplex handles complex expressions with array iteration and functions
+func setValueInDocumentComplex(doc *yaml.Node, expression *keysel.Expression, newValue string) (bool, error) {
+	// Create an evaluator
+	evaluator := keysel.NewEvaluator()
+	
+	// Find the target node using the complex expression
+	targetNode, err := expression.Evaluate(doc, evaluator)
+	if err != nil {
+		return false, fmt.Errorf("failed to evaluate complex expression: %w", err)
+	}
+	
+	if targetNode == nil {
+		return false, fmt.Errorf("complex expression did not find a target node")
+	}
+	
+	// Modify the target node directly
+	originalValue := targetNode.Value
+	targetNode.Value = newValue
+	targetNode.Kind = yaml.ScalarNode
+	
+	// Return whether the value actually changed
+	return originalValue != newValue, nil
 }
 
 // navigateToComponent navigates to a component using keysel logic
