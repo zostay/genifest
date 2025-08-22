@@ -1,3 +1,48 @@
+## WIP  TBD
+
+_Enhanced keySelector syntax with advanced pipeline operations and comprehensive documentation updates._
+
+* **Advanced KeySelector Syntax**: Complete implementation of complex yq-style expressions
+
+    * **Array iteration** with `[]` syntax for processing all elements in arrays
+    * **Pipeline operations** using `|` operator for chaining multiple operations
+    * **Filtering functions** with `select()` for conditional element selection
+    * **Comparison operators** supporting `==` and `!=` for equality tests
+    * **Complex expressions** like `.spec.containers[] | select(.name == "frontend") | .image`
+    * **Grammar-based parsing** using `participle/v2` for robust expression handling
+    * **Write operation support** for complex expressions enabling modification of selected elements
+
+* **Implementation Architecture**:
+
+    * **New parser package** `internal/keysel` with complete AST-based expression parsing
+    * **Evaluation engine** supporting pipeline processing with array iteration and filtering
+    * **Backward compatibility** maintaining support for simple path expressions
+    * **Expression validation** at parse-time with clear error messages
+    * **Dual write paths** handling both simple and complex expressions efficiently
+
+* **Real-world Applications**:
+
+    * **Container targeting** by name instead of index (`.containers[] | select(.name == "app")`)
+    * **Multi-container deployments** with selective updates to specific containers
+    * **Sidecar management** updating proxy, logging, and monitoring containers independently
+    * **Environment-specific configuration** with conditional container selection
+    * **Modern Kubernetes patterns** supporting named container architectures
+
+* **Documentation Enhancements**:
+
+    * **Comprehensive keySelector reference** with complete syntax guide and examples
+    * **Advanced patterns documentation** with real-world pipeline examples
+    * **Updated schema documentation** reflecting new syntax capabilities  
+    * **Enhanced README** with modern keySelector examples and feature comparisons
+    * **Changelog synchronization** between main changelog and docs site
+
+* **Code Quality Improvements**:
+
+    * **Parser grammar fixes** resolving infinite loop issues with empty path components
+    * **Expression evaluation** supporting complex pipelines with proper error handling
+    * **Test coverage** comprehensive tests for all new syntax features
+    * **Integration validation** verified with guestbook examples
+
 ## v1.0.0-rc2  2025-08-19
 
 _Major CLI restructuring and enhanced user experience improvements._
