@@ -323,7 +323,7 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 
 		// Set the path for change orders
 		for _, change := range c.config.Changes {
-			change.path = c.path
+			change.Path = c.path
 			result.Changes = append(result.Changes, change)
 		}
 

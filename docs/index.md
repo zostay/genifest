@@ -11,7 +11,8 @@
 - 🎯 **Dynamic Value Generation**: Multiple ways to generate values (functions, templates, scripts, files)
 - 🏷️ **Tag-Based Filtering**: Apply different sets of changes based on environment or type tags
 - 📁 **Hierarchical Configuration**: Distributed configs that keep changes close to files
-- 🔒 **Security & Safety**: Path validation, isolated execution, GitOps-ready
+- 🎛️ **Advanced Path Expressions**: yq-style keySelectors with grammar-based parsing
+- 🔒 **Security & Safety**: Path validation, isolated execution, scoped changes, GitOps-ready
 - 🚀 **CLI-First Design**: Subcommand-based architecture with enhanced progress reporting
 
 ## How It Works

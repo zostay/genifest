@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zostay/genifest/internal/config"
 )
@@ -83,4 +85,92 @@ func loadProjectConfiguration(projectDir string) (*ProjectInfo, error) {
 		WorkDir: workDir,
 		Config:  cfg,
 	}, nil
+}
+
+// printError prints a user-friendly error message and exits with status code 1.
+// This prevents Cobra from showing usage information for application errors.
+func printError(err error) {
+	printErrorWithContext(err, "")
+}
+
+// printErrorWithContext prints a user-friendly error message with context about the current command.
+func printErrorWithContext(err error, currentCommand string) {
+	if err == nil {
+		return
+	}
+
+	// Pretty print validation errors
+	if isValidationError(err) {
+		printValidationError(err, currentCommand)
+		os.Exit(1)
+		return
+	}
+
+	// Print other errors with a simple format
+	fmt.Fprintf(os.Stderr, "❌ Error: %s\n", err.Error())
+	os.Exit(1)
+}
+
+// isValidationError checks if an error is a validation-related error.
+func isValidationError(err error) bool {
+	// Check if it's our custom ValidationError type
+	var ve *config.ValidationError
+	if errors.As(err, &ve) {
+		return true
+	}
+
+	// Fall back to string-based detection for other validation errors
+	errStr := err.Error()
+	return strings.Contains(errStr, "validation failed") ||
+		strings.Contains(errStr, "configuration validation") ||
+		strings.Contains(errStr, "function") ||
+		strings.Contains(errStr, "parameter") ||
+		strings.Contains(errStr, "argument") ||
+		strings.Contains(errStr, "valueFrom")
+}
+
+// printValidationError prints a well-formatted validation error.
+func printValidationError(err error, currentCommand string) {
+	// Check if it's our custom ValidationError type
+	var ve *config.ValidationError
+	if errors.As(err, &ve) {
+		// Use the custom error's nicely formatted output
+		fmt.Fprintf(os.Stderr, "%s\n", ve.Error())
+		// Only show the tip if we're not already running validate
+		if currentCommand != "validate" {
+			fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+		}
+		return
+	}
+
+	// Handle legacy validation errors
+	fmt.Fprintf(os.Stderr, "❌ Configuration Validation Error\n\n")
+
+	errStr := err.Error()
+
+	// Remove common prefixes to make errors cleaner
+	errStr = strings.TrimPrefix(errStr, "failed to load configuration: ")
+	errStr = strings.TrimPrefix(errStr, "configuration validation failed: ")
+	errStr = strings.TrimPrefix(errStr, "validation failed: ")
+
+	// Split into main error and context
+	if strings.Contains(errStr, ": ") {
+		parts := strings.SplitN(errStr, ": ", 2)
+		if len(parts) == 2 {
+			context := parts[0]
+			message := parts[1]
+
+			fmt.Fprintf(os.Stderr, "Context: %s\n", context)
+			fmt.Fprintf(os.Stderr, "Issue:   %s\n", message)
+		} else {
+			fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+	}
+
+	// Only show the tip if we're not already running validate
+	if currentCommand != "validate" {
+		fmt.Fprintf(os.Stderr, "\n💡 Tip: Use 'genifest validate' to check your configuration\n")
+	}
 }

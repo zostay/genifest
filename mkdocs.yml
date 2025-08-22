@@ -141,8 +141,12 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.snippets:
+      base_path:
+        - .
+        - docs
       auto_append:
-        - includes/mkdocs.md
+        - ./includes/mkdocs.md
+      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -177,6 +181,7 @@ nav:
     - GitOps Workflows: examples/gitops.md
   - Reference:
     - Configuration Schema: reference/schema.md
+    - KeySelector Syntax: reference/keyselectors.md
     - ValueFrom Types: reference/valuefrom.md
     - Functions: reference/functions.md
     - Troubleshooting: reference/troubleshooting.md

@@ -200,11 +200,39 @@ File selectors use glob patterns to match files:
 
 ### Key Selectors
 
-Key selectors navigate YAML structure:
+Key selectors use **yq-style expressions** to navigate YAML structure. This implementation supports a subset of yq/jq syntax focused on path operations:
 
-- `.spec.replicas` - Simple field access
-- `.spec.template.spec.containers[0].image` - Nested with array access
-- `.metadata.labels["app.kubernetes.io/name"]` - Field with special characters
+**Field Access:**
+```yaml
+keySelector: ".spec.replicas"              # Simple field
+keySelector: ".metadata.name"              # Nested field
+keySelector: ".spec.template.spec"         # Deep nesting
+```
+
+**Array Operations:**
+```yaml  
+keySelector: ".spec.containers[0]"         # First element
+keySelector: ".items[-1]"                  # Last element (negative indexing)
+keySelector: ".items[1:3]"                 # Array slice (elements 1-2)
+keySelector: ".items[2:]"                  # From index 2 to end
+keySelector: ".items[:3]"                  # First 3 elements
+```
+
+**Special Key Access:**
+```yaml
+keySelector: ".data.[\"app.yaml\"]"        # Keys with dots
+keySelector: ".labels.[\"app.kubernetes.io/name\"]"  # Complex keys
+keySelector: ".annotations.['custom-key']" # Single quotes supported
+```
+
+**Complex Examples:**
+```yaml  
+keySelector: ".spec.template.spec.containers[0].image"
+keySelector: ".spec.volumes[0].configMap.items[1].key"
+keySelector: ".metadata.annotations.[\"deployment.kubernetes.io/revision\"]"
+```
+
+The parser uses a formal grammar for robust expression handling and validates selectors at parse time.
 
 ## Tag System
 
@@ -268,9 +296,28 @@ Genifest works to limit what it can do to just what you permit to prevent uninte
 
 ### Configuration Scoping
 
-- Each configuration file only affects its subdirectories
-- Functions and changes are properly scoped
-- No global state pollution
+- **Directory-based scoping**: Each configuration file only affects its subdirectories
+- **Change scoping**: Changes defined in a directory only apply to files within that directory tree
+- **Function scoping**: Functions are available to their definition location and child paths
+- **Path validation**: All file operations respect the configured boundaries
+- **No global pollution**: Configurations in different branches don't interfere
+
+**Example:**
+```
+project/
+├── genifest.yaml              # Global config
+├── manifests/
+│   ├── app1/
+│   │   ├── genifest.yaml      # Only affects app1/ files
+│   │   ├── deployment.yaml    # ← Changes from app1/genifest.yaml apply here
+│   │   └── service.yaml       # ← Changes from app1/genifest.yaml apply here  
+│   └── app2/
+│       ├── genifest.yaml      # Only affects app2/ files
+│       ├── deployment.yaml    # ← Changes from app2/genifest.yaml apply here
+│       └── configmap.yaml     # ← Changes from app1/ do NOT apply here
+```
+
+This prevents accidental cross-contamination where changes intended for one application accidentally affect another application's files.
 
 ## CloudHome Concept
 

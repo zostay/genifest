@@ -18,12 +18,15 @@ options in the run command.
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
+	Run: func(_ *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		return listTags(projectDir)
+		err := listTags(projectDir)
+		if err != nil {
+			printError(err)
+		}
 	},
 }
 
@@ -57,13 +60,13 @@ func listTags(projectDir string) error {
 
 	// Display results
 	if len(tags) == 0 {
-		fmt.Println("No tags found in configuration")
+		fmt.Println("🏷️  \033[33mNo tags found in configuration\033[0m")
 		return nil
 	}
 
-	fmt.Printf("Found %d tag(s) in configuration:\n", len(tags))
+	fmt.Printf("🏷️  \033[1;34mFound %d tag(s) in configuration:\033[0m\n", len(tags))
 	for _, tag := range tags {
-		fmt.Printf("  %s\n", tag)
+		fmt.Printf("  \033[36m•\033[0m \033[1m%s\033[0m\n", tag)
 	}
 
 	// Also show if there are untagged changes
@@ -76,7 +79,7 @@ func listTags(projectDir string) error {
 	}
 
 	if hasUntaggedChanges {
-		fmt.Println("\nNote: Configuration also contains untagged changes")
+		fmt.Println("\n💡 \033[33mNote:\033[0m Configuration also contains untagged changes")
 	}
 
 	return nil

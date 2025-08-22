@@ -1,14 +1,26 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zostay/genifest/internal/config"
 )
+
+// ValidationSummaryError is a special error type that indicates validation failed
+// but the summary and error display have already been handled.
+type ValidationSummaryError struct {
+	ErrorCount int
+}
+
+func (e *ValidationSummaryError) Error() string {
+	return fmt.Sprintf("validation failed with %d error(s)", e.ErrorCount)
+}
 
 var validateCmd = &cobra.Command{
 	Use:   "validate [directory]",
@@ -26,12 +38,28 @@ This command will:
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
+	Run: func(_ *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		return validateConfiguration(projectDir)
+		err := validateConfiguration(projectDir)
+		if err != nil {
+			// Check if it's our special validation summary error (handled by validateConfiguration)
+			var summaryErr *ValidationSummaryError
+			if errors.As(err, &summaryErr) {
+				// Error has been handled, just exit with error code
+				os.Exit(1)
+			} else if isValidationError(err) {
+				// ValidationError from cfg.Validate() - these should be handled by validateConfiguration
+				// but if they reach here, we need to show them properly
+				fmt.Fprintf(os.Stderr, "❌ Configuration validation failed\n")
+				os.Exit(1)
+			} else {
+				// Other errors need normal handling
+				printErrorWithContext(err, "validate")
+			}
+		}
 	},
 }
 
@@ -40,19 +68,47 @@ func init() {
 }
 
 func validateConfiguration(projectDir string) error {
-	// Load project configuration
+	// Load project configuration - if this fails with ValidationError, we need special handling
 	projectInfo, err := loadProjectConfiguration(projectDir)
 	if err != nil {
+		// Check if it's a ValidationError from config loading
+		var ve *config.ValidationError
+		if errors.As(err, &ve) {
+			// Show at least the basic info before the error
+			workDir, _ := resolveProjectDirectory(projectDir)
+			fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
+
+			// Extract the clean message without the emoji prefix
+			msg := strings.TrimPrefix(ve.Error(), "❌ ")
+
+			fmt.Printf("❌ \033[1;31mConfiguration validation failed with 1 error:\033[0m\n\n")
+			fmt.Printf("  \033[31m•\033[0m %s\n", msg)
+			fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
+			return &ValidationSummaryError{ErrorCount: 1}
+		}
 		return err
 	}
 
 	workDir := projectInfo.WorkDir
 	cfg := projectInfo.Config
 
-	fmt.Printf("Validating configuration in %s...\n", workDir)
+	fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
 
-	// Additional validation checks
+	// Collect all validation errors instead of short-circuiting
 	validationErrors := []string{}
+
+	// Run comprehensive validation from config package and collect errors
+	if err := cfg.Validate(); err != nil {
+		// Handle ValidationError specially to extract just the message
+		var ve *config.ValidationError
+		if errors.As(err, &ve) {
+			// Extract the clean message without the emoji prefix
+			msg := strings.TrimPrefix(ve.Error(), "❌ ")
+			validationErrors = append(validationErrors, msg)
+		} else {
+			validationErrors = append(validationErrors, err.Error())
+		}
+	}
 
 	// Check if all referenced files exist
 	for _, filePath := range cfg.Files {
@@ -62,50 +118,23 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 
-	// Validate changes have proper selectors
-	for i, change := range cfg.Changes {
-		if change.FileSelector == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: fileSelector is required", i))
-		}
-		if change.KeySelector == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: keySelector is required", i))
-		}
-		if isValueFromEmpty(change.ValueFrom) {
-			validationErrors = append(validationErrors, fmt.Sprintf("change %d: valueFrom is required", i))
-		}
-	}
-
-	// Validate function definitions
+	// Additional validation checks beyond what Config.Validate() already does
+	// Check for duplicate function names (Config.Validate() doesn't check for this)
 	functionNames := make(map[string]bool)
 	for i, fn := range cfg.Functions {
-		if fn.Name == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("function %d: name is required", i))
-		} else {
-			if functionNames[fn.Name] {
-				validationErrors = append(validationErrors, fmt.Sprintf("function %d: duplicate function name '%s'", i, fn.Name))
-			}
+		if fn.Name != "" && functionNames[fn.Name] {
+			validationErrors = append(validationErrors, fmt.Sprintf("function %d: duplicate function name '%s'", i, fn.Name))
+		}
+		if fn.Name != "" {
 			functionNames[fn.Name] = true
 		}
-		if isValueFromEmpty(fn.ValueFrom) {
-			validationErrors = append(validationErrors, fmt.Sprintf("function %d (%s): valueFrom is required", i, fn.Name))
-		}
 	}
 
-	// Report results
-	if len(validationErrors) > 0 {
-		fmt.Printf("❌ Configuration validation failed with %d error(s):\n", len(validationErrors))
-		for _, err := range validationErrors {
-			fmt.Printf("  • %s\n", err)
-		}
-		return fmt.Errorf("configuration validation failed")
-	}
-
-	// Success summary
-	fmt.Printf("✅ Configuration validation successful!\n\n")
-	fmt.Printf("Summary:\n")
-	fmt.Printf("  • %d file(s) managed\n", len(cfg.Files))
-	fmt.Printf("  • %d change(s) defined\n", len(cfg.Changes))
-	fmt.Printf("  • %d function(s) defined\n", len(cfg.Functions))
+	// Always show summary information first
+	fmt.Printf("\033[1mSummary:\033[0m\n")
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(cfg.Files))
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change(s) defined\n", len(cfg.Changes))
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m function(s) defined\n", len(cfg.Functions))
 
 	// Show tags if any
 	tagSet := make(map[string]bool)
@@ -115,8 +144,22 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 	if len(tagSet) > 0 {
-		fmt.Printf("  • %d unique tag(s) used\n", len(tagSet))
+		fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m unique tag(s) used\n", len(tagSet))
 	}
+	fmt.Println()
+
+	// Report results
+	if len(validationErrors) > 0 {
+		fmt.Printf("❌ \033[1;31mConfiguration validation failed with %d error(s):\033[0m\n\n", len(validationErrors))
+		for _, err := range validationErrors {
+			fmt.Printf("  \033[31m•\033[0m %s\n", err)
+		}
+		fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
+		return &ValidationSummaryError{ErrorCount: len(validationErrors)}
+	}
+
+	// Success message
+	fmt.Printf("✅ \033[1;32mConfiguration validation successful!\033[0m\n")
 
 	return nil
 }

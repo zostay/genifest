@@ -8,40 +8,64 @@ files:
   - secret.yaml
 
 changes:
-  - tag: "production"
+  - tag: production
     fileSelector: "*-deployment.yaml"
-    keySelector: ".spec.replicas"
+    keySelector: .spec.replicas
     valueFrom:
       call:
-        function: "get-replicas"
+        function: get-replicas
         args:
-          - name: "environment"
+          - name: environment
             valueFrom:
               default:
-                value: "production"
+                value: production
 
-  - tag: "staging"
+  - tag: staging
     fileSelector: "*-deployment.yaml"
-    keySelector: ".spec.replicas"
+    keySelector: .spec.replicas
     valueFrom:
       call:
-        function: "get-replicas"
+        function: get-replicas
         args:
-          - name: "environment"
+          - name: environment
             valueFrom:
               default:
-                value: "staging"
-  - fileSelector: "*-deployment.yaml"
-    keySelector: ".spec.template.spec.containers[0].image"
+                value: staging
+
+  - fileSelector: frontend-deployment.yaml
+    keySelector: .spec.template.spec.containers[] | select(.name == "frontend") | .image
     valueFrom:
       call:
-        function: "get-image-tag"
+        function: get-image-tag
         args:
-          - name: "service"
+          - name: service
             valueFrom:
               default:
-                value: "guestbook-frontend"
-          - name: "environment"
+                value: guestbook-frontend
+          - name: environment
             valueFrom:
               default:
-                value: "dev"
+                value: dev
+
+  - tag: config
+    fileSelector: configmap.yaml
+    keySelector: .data.["app.yaml"]
+    valueFrom:
+      file:
+        source: app.yaml
+
+  - tag: image
+    fileSelector: backend-deployment.yaml
+    keySelector: .spec.template.spec.containers[] | select(.name == "backend") | .image
+    valueFrom:
+      call:
+        function: get-image-tag
+        args:
+          - name: service
+            valueFrom:
+              default:
+                value: guestbook-backend
+          - name: environment
+            valueFrom:
+              default:
+                value: dev

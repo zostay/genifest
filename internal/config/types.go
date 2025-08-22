@@ -22,20 +22,20 @@ import (
 // file.
 type Config struct {
 	// Metadata is metadata about genifest configuration.
-	Metadata MetaConfig `yaml:"metadata"`
+	Metadata MetaConfig `yaml:"metadata,omitempty"`
 
 	// Files is the list of files genifest manages and has access to. Paths are
 	// local to the current directory.
-	Files []string `yaml:"files"`
+	Files []string `yaml:"files,omitempty"`
 
 	// Changes are a list of change orders that can be applied to modify the
 	// managed files.
-	Changes []ChangeOrder `yaml:"changes"`
+	Changes []ChangeOrder `yaml:"changes,omitempty"`
 
 	// Functions defines the functions that are usable by changes. A function
 	// is only usable by changes defined in the same path or changes defined
 	// at an inner path.
-	Functions []FunctionDefinition `yaml:"functions"`
+	Functions []FunctionDefinition `yaml:"functions,omitempty"`
 }
 
 // PathContext represents a path with context about where it was defined.
@@ -109,38 +109,38 @@ type MetaConfig struct {
 	// CloudHome is the path to the root of the configuration. No genifest.yaml
 	// configuration or work will be done outside of this folder. This is always
 	// set by the loader based on the working directory of the genifest command.
-	CloudHome string `yaml:"cloudHome"`
+	CloudHome string `yaml:"cloudHome,omitempty"`
 
 	// Scripts is a list of folders that may contain scripts. These are relative
 	// to the folder holding the configuration file.
-	Scripts PathContexts `yaml:"scripts"`
+	Scripts PathContexts `yaml:"scripts,omitempty"`
 
 	// Manifests is a list of folders that may contain manifests. These folders
 	// are structured with sub-folders identifying applications. This is usual
 	// only defined in the top-level genifest.yaml, but in any case, the path is
 	// relative to the directory containing the configuration file.
-	Manifests PathContexts `yaml:"manifests"`
+	Manifests PathContexts `yaml:"manifests,omitempty"`
 
 	// Files is a list of folders holding other related files, which are used with
 	// the FileInclusion ValueFrom values. These are usually defined in the top-level
 	// genifest.yaml file, but are defined relative to the configuration file
 	// holding it. Similar to Manifests, these folders are arranged using sub-folders
 	// to identify the app that the files belong to.
-	Files PathContexts `yaml:"files"`
+	Files PathContexts `yaml:"files,omitempty"`
 }
 
 // ChangeOrder represents a modification to be applied to managed files.
 // It specifies which file and key to change, along with the new value.
 type ChangeOrder struct {
-	// path is the path where this change order was discovered before config
+	// Path is the path where this change order was discovered before config
 	// merger was performed.
-	path string
+	Path string
 
 	// DocumentRef defines the file, document, and key to change.
 	DocumentRef `yaml:",inline"`
 
 	// Tag is used to select which change orders to run.
-	Tag string `yaml:"tag"`
+	Tag string `yaml:"tag,omitempty"`
 
 	// ValueFrom is the value to apply to the DocumentRef
 	ValueFrom ValueFrom `yaml:"valueFrom"`
@@ -156,7 +156,7 @@ type FunctionDefinition struct {
 	Name string `yaml:"name"`
 
 	// Params defines the function parameters.
-	Params []Parameter `yaml:"params"`
+	Params []Parameter `yaml:"params,omitempty"`
 
 	// ValueFrom defines the value returned by the function.
 	ValueFrom ValueFrom `yaml:"valueFrom"`
@@ -169,11 +169,11 @@ type Parameter struct {
 	Name string `yaml:"name"`
 
 	// Requires is true when the parameter is required.
-	Required bool `yaml:"required"`
+	Required bool `yaml:"required,omitempty"`
 
 	// Default is the value to provide when no value is provided for this
 	// parameter. Default may not be given when Required.
-	Default string `yaml:"default"`
+	Default string `yaml:"default,omitempty"`
 }
 
 // DocumentSelector is a map from YAML keys to values the document must have.
@@ -187,32 +187,32 @@ type DocumentSelector map[string]string
 type ValueFrom struct {
 	// FunctionCall calls the named function with the named arguments. The value
 	// is the result of the function call.
-	FunctionCall *FunctionCall `yaml:"call"`
+	FunctionCall *FunctionCall `yaml:"call,omitempty"`
 
 	// CallPipeline runs a function call. The output from each pipe in the
 	// pipeline is fed as an input to the next pipeline.
-	CallPipeline *CallPipeline `yaml:"pipeline"`
+	CallPipeline *CallPipeline `yaml:"pipeline,omitempty"`
 
 	// FileInclusion loads the contents of a  file from the files directory.
-	FileInclusion *FileInclusion `yaml:"file"`
+	FileInclusion *FileInclusion `yaml:"file,omitempty"`
 
 	// BasicTemplate outputs a string after replacing $style variables with
 	// specified values.
-	BasicTemplate *BasicTemplate `yaml:"template"`
+	BasicTemplate *BasicTemplate `yaml:"template,omitempty"`
 
 	// ScriptExec executes the given script from the scripts directory and uses
 	// the standard output as the value.
-	ScriptExec *ScriptExec `yaml:"script"`
+	ScriptExec *ScriptExec `yaml:"script,omitempty"`
 
 	// ArgumentRef looks up the argument from the current context. This is only
 	// available within a function definition or pipeline.
-	ArgumentRef *ArgumentRef `yaml:"argRef"`
+	ArgumentRef *ArgumentRef `yaml:"argRef,omitempty"`
 
 	// DefaultValue uses the given literal value.
-	DefaultValue *DefaultValue `yaml:"default"`
+	DefaultValue *DefaultValue `yaml:"default,omitempty"`
 
 	// DocumentRef looks up a key in the YAML document that is being changed.
-	DocumentRef *DocumentRef `yaml:"documentRef"`
+	DocumentRef *DocumentRef `yaml:"documentRef,omitempty"`
 }
 
 // FunctionCall looks up a function in the functions list and executes the
@@ -222,7 +222,7 @@ type FunctionCall struct {
 	Name string `yaml:"function"`
 
 	// Arguments to pass to the function.
-	Arguments Arguments `yaml:"args"`
+	Arguments Arguments `yaml:"args,omitempty"`
 }
 
 // Argument defines an argument to pass to a ValueFrom expression.
@@ -261,7 +261,7 @@ type CallPipe struct {
 type FileInclusion struct {
 	// App is the application sub-directory to use. If not specified, it will
 	// ue the same app folder as the change.
-	App string `yaml:"app"`
+	App string `yaml:"app,omitempty"`
 
 	// Source is the name of the file to read.
 	Source string `yaml:"source"`
@@ -276,7 +276,7 @@ type BasicTemplate struct {
 	String string `yaml:"string"`
 
 	// Variables is the list of variables available in the template.
-	Variables Arguments `yaml:"variables"`
+	Variables Arguments `yaml:"variables,omitempty"`
 }
 
 // ScriptExec executes a program, usually a script, from the scripts folder.
@@ -288,13 +288,13 @@ type ScriptExec struct {
 
 	// Stdin is the value ot use to pass as stdin to script. If this is not set,
 	// nothing will be sent to stdin.
-	Stdin *ValueFrom `yaml:"stdin"`
+	Stdin *ValueFrom `yaml:"stdin,omitempty"`
 
 	// Args is the list of arguments to pass to the script.
-	Args Arguments `yaml:"args"`
+	Args Arguments `yaml:"args,omitempty"`
 
 	// Env is the list of environment variables to set for the script.
-	Env Arguments `yaml:"env"`
+	Env Arguments `yaml:"env,omitempty"`
 }
 
 // ArgumentRef is permitted inside of a CallPipeline to refer to the output
@@ -319,14 +319,14 @@ type DocumentRef struct {
 	// the current folder, so the change may be applied multiple times. In the
 	// case of a ValueFrom field, this indicates that the current file will be
 	// used.
-	FileSelector string `yaml:"fileSelector"`
+	FileSelector string `yaml:"fileSelector,omitempty"`
 
 	// DocumentSelector may be omitted. In a ChangeOrder, omitting this value
 	// means that the KeySelector will be applied to as many documents in the
 	// files identified by the FileSelector as it matches, so it may apply to
 	// multiple files. In a ValueFrom field, this indicates that the current
 	// document will be used.
-	DocumentSelector DocumentSelector `yaml:"documentSelector"`
+	DocumentSelector DocumentSelector `yaml:"documentSelector,omitempty"`
 
 	// KeySelector identifies the specific field to select. This is in the form
 	// of a yq expression that will identify a specific field.
@@ -366,14 +366,6 @@ func isValidTag(s string) bool {
 		return true // tags are optional
 	}
 	return tagPattern.MatchString(s)
-}
-
-// ValidationContext provides context for validation including available functions
-// and the current path for function scope resolution.
-type ValidationContext struct {
-	CloudHome   string `yaml:"cloudHome"`
-	Functions   []FunctionDefinition
-	CurrentPath string
 }
 
 // LookupFunction finds the best available function for the given name from the current path.
@@ -434,25 +426,26 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
 	ctx := &ValidationContext{
-		CloudHome: c.Metadata.CloudHome,
-		Functions: c.Functions,
+		CloudHome:   c.Metadata.CloudHome,
+		Functions:   c.Functions,
+		PathBuilder: NewPathBuilder(""),
 	}
 
-	if err := c.Metadata.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("metadata validation failed: %w", err)
+	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
+		return err
 	}
 
 	for i, change := range c.Changes {
-		ctx.CurrentPath = change.path
-		if err := change.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("change %d validation failed: %w", i, err)
+		ctx.CurrentPath = change.Path
+		if err := change.ValidateWithContext(ctx.WithField("changes").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
 	for i, fn := range c.Functions {
 		ctx.CurrentPath = fn.path
-		if err := fn.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("function %d validation failed: %w", i, err)
+		if err := fn.ValidateWithContext(ctx.WithField("functions").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
@@ -554,15 +547,18 @@ func (c *ChangeOrder) Validate() error {
 // tag format, and valueFrom expression using the provided validation context.
 func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	if err := c.DocumentRef.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("document ref validation failed: %w", err)
+		return err
 	}
 
 	if !isValidTag(c.Tag) {
-		return fmt.Errorf("tag '%s' is not a valid kebab-case tag", c.Tag)
+		return safeErrorWithValue(ctx, "tag", "is not a valid kebab-case tag", c.Tag)
 	}
 
-	if err := c.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		if ctx == nil {
+			return fmt.Errorf("valueFrom validation failed: %s", err.Error())
+		}
+		return err
 	}
 
 	return nil
@@ -577,17 +573,17 @@ func (f *FunctionDefinition) Validate() error {
 // parameters, and valueFrom expression using the provided validation context.
 func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", f.Name)
 	}
 
 	for i, param := range f.Params {
-		if err := param.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("parameter %d validation failed: %w", i, err)
+		if err := param.ValidateWithContext(ctx.WithField("params").WithIndex(i)); err != nil {
+			return err
 		}
 	}
 
-	if err := f.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := f.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	return nil
@@ -600,12 +596,18 @@ func (p *Parameter) Validate() error {
 
 // ValidateWithContext validates a parameter ensuring the name is a valid identifier
 // and that required parameters don't have default values.
-func (p *Parameter) ValidateWithContext(_ *ValidationContext) error {
+func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
-		return fmt.Errorf("parameter name '%s' is not a valid identifier", p.Name)
+		if ctx == nil {
+			return fmt.Errorf("parameter name '%v' is not a valid identifier", p.Name)
+		}
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", p.Name)
 	}
 	if p.Required && p.Default != "" {
-		return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
+		if ctx == nil {
+			return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
+		}
+		return safeErrorWithField(ctx, "parameter "+p.Name, "is required and cannot have a default")
 	}
 	return nil
 }
@@ -622,55 +624,58 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 
 	if v.FunctionCall != nil {
 		count++
-		if err := v.FunctionCall.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("function call validation failed: %w", err)
+		if err := v.FunctionCall.ValidateWithContext(ctx.WithField("call")); err != nil {
+			return err
 		}
 	}
 	if v.CallPipeline != nil {
 		count++
-		if err := v.CallPipeline.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("call pipeline validation failed: %w", err)
+		if err := v.CallPipeline.ValidateWithContext(ctx.WithField("pipeline")); err != nil {
+			if ctx == nil {
+				return fmt.Errorf("call pipeline validation failed: %s", err.Error())
+			}
+			return err
 		}
 	}
 	if v.FileInclusion != nil {
 		count++
-		if err := v.FileInclusion.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("file inclusion validation failed: %w", err)
+		if err := v.FileInclusion.ValidateWithContext(ctx.WithField("file")); err != nil {
+			return err
 		}
 	}
 	if v.BasicTemplate != nil {
 		count++
-		if err := v.BasicTemplate.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("basic template validation failed: %w", err)
+		if err := v.BasicTemplate.ValidateWithContext(ctx.WithField("template")); err != nil {
+			return err
 		}
 	}
 	if v.ScriptExec != nil {
 		count++
-		if err := v.ScriptExec.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("script exec validation failed: %w", err)
+		if err := v.ScriptExec.ValidateWithContext(ctx.WithField("script")); err != nil {
+			return err
 		}
 	}
 	if v.ArgumentRef != nil {
 		count++
-		if err := v.ArgumentRef.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("argument ref validation failed: %w", err)
+		if err := v.ArgumentRef.ValidateWithContext(ctx.WithField("argRef")); err != nil {
+			return err
 		}
 	}
 	if v.DefaultValue != nil {
 		count++
-		if err := v.DefaultValue.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("default value validation failed: %w", err)
+		if err := v.DefaultValue.ValidateWithContext(ctx.WithField("default")); err != nil {
+			return err
 		}
 	}
 	if v.DocumentRef != nil {
 		count++
-		if err := v.DocumentRef.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("document ref validation failed: %w", err)
+		if err := v.DocumentRef.ValidateWithContext(ctx.WithField("documentRef")); err != nil {
+			return err
 		}
 	}
 
 	if count != 1 {
-		return fmt.Errorf("exactly one field must be set in ValueFrom, but %d fields are set", count)
+		return safeError(ctx, fmt.Sprintf("exactly one field must be set in ValueFrom, but %d fields are set", count))
 	}
 
 	return nil
@@ -685,18 +690,21 @@ func (f *FunctionCall) Validate() error {
 // referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		return fmt.Errorf("function name '%s' is not a valid identifier", f.Name)
+		if ctx == nil {
+			return fmt.Errorf("function call validation failed: function name '%v' is not a valid identifier", f.Name)
+		}
+		return safeErrorWithValue(ctx, "function", "is not a valid identifier", f.Name)
 	}
 
 	// Check if the function exists and is available
 	if ctx != nil {
 		if _, found := ctx.LookupFunction(f.Name); !found {
-			return fmt.Errorf("function '%s' is not defined or not accessible from current path", f.Name)
+			return safeErrorWithValue(ctx, "function", "is not defined or not accessible from current path", f.Name)
 		}
 	}
 
-	if err := f.Arguments.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("arguments validation failed: %w", err)
+	if err := f.Arguments.ValidateWithContext(ctx.WithField("args")); err != nil {
+		return err
 	}
 
 	return nil
@@ -711,11 +719,11 @@ func (a *Argument) Validate() error {
 // and the valueFrom expression is valid.
 func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return fmt.Errorf("argument name '%s' is not a valid identifier", a.Name)
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 
-	if err := a.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	if err := a.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
 	return nil
@@ -729,8 +737,8 @@ func (a Arguments) Validate() error {
 // ValidateWithContext validates all arguments in the list using the provided context.
 func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 	for i, arg := range a {
-		if err := arg.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("argument %d validation failed: %w", i, err)
+		if err := arg.ValidateWithContext(ctx.WithIndex(i)); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -745,18 +753,29 @@ func (c CallPipeline) Validate() error {
 // subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
-		return fmt.Errorf("call pipeline cannot be empty")
+		if ctx == nil {
+			return fmt.Errorf("call pipeline cannot be empty")
+		}
+		return safeErrorWithField(ctx, "call pipeline", "call pipeline cannot be empty")
 	}
 
 	for i, pipe := range c {
-		if err := pipe.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("pipe %d validation failed: %w", i, err)
+		pipeCtx := ctx.WithIndex(i)
+		isFinal := i == len(c)-1
+		if err := pipe.validateWithContextAndFinalFlag(pipeCtx, isFinal); err != nil {
+			if ctx == nil {
+				return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
+			}
+			return err
 		}
 
 		// Subsequent pipes must be FunctionCall or ScriptExec
 		if i > 0 {
-			if err := pipe.validateSubsequentPipe(); err != nil {
-				return fmt.Errorf("pipe %d validation failed: %w", i, err)
+			if err := pipe.validateSubsequentPipe(pipeCtx); err != nil {
+				if ctx == nil {
+					return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
+				}
+				return err
 			}
 		}
 	}
@@ -769,10 +788,10 @@ func (f *FileInclusion) Validate() error {
 }
 
 // ValidateWithContext validates a file inclusion ensuring the source field is provided.
-func (f *FileInclusion) ValidateWithContext(_ *ValidationContext) error {
+func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 	// App is optional - if not specified, uses same app folder as the change
 	if f.Source == "" {
-		return fmt.Errorf("source field is required")
+		return safeErrorWithField(ctx, "file inclusion", "source field is required")
 	}
 	return nil
 }
@@ -786,11 +805,11 @@ func (b *BasicTemplate) Validate() error {
 // and all variables are valid.
 func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 	if b.String == "" {
-		return fmt.Errorf("string field is required")
+		return safeErrorWithField(ctx, "basic template", "string field is required")
 	}
 
-	if err := b.Variables.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("variables validation failed: %w", err)
+	if err := b.Variables.ValidateWithContext(ctx.WithField("variables")); err != nil {
+		return err
 	}
 
 	return nil
@@ -805,21 +824,21 @@ func (s *ScriptExec) Validate() error {
 // and all arguments, environment variables, and stdin are valid.
 func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 	if s.ExecCommand == "" {
-		return fmt.Errorf("exec field is required")
+		return safeErrorWithField(ctx, "script exec", "exec field is required")
 	}
 
 	if s.Stdin != nil {
-		if err := s.Stdin.ValidateWithContext(ctx); err != nil {
-			return fmt.Errorf("stdin validation failed: %w", err)
+		if err := s.Stdin.ValidateWithContext(ctx.WithField("stdin")); err != nil {
+			return err
 		}
 	}
 
-	if err := s.Args.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("args validation failed: %w", err)
+	if err := s.Args.ValidateWithContext(ctx.WithField("args")); err != nil {
+		return err
 	}
 
-	if err := s.Env.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("env validation failed: %w", err)
+	if err := s.Env.ValidateWithContext(ctx.WithField("env")); err != nil {
+		return err
 	}
 
 	return nil
@@ -831,9 +850,12 @@ func (a *ArgumentRef) Validate() error {
 }
 
 // ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
-func (a *ArgumentRef) ValidateWithContext(_ *ValidationContext) error {
+func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		return fmt.Errorf("argument ref name '%s' is not a valid identifier", a.Name)
+		if ctx == nil {
+			return fmt.Errorf("argument ref validation failed: argument ref name '%v' is not a valid identifier", a.Name)
+		}
+		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 	return nil
 }
@@ -844,9 +866,9 @@ func (d *DefaultValue) Validate() error {
 }
 
 // ValidateWithContext validates a default value ensuring the value field is provided.
-func (d *DefaultValue) ValidateWithContext(_ *ValidationContext) error {
+func (d *DefaultValue) ValidateWithContext(ctx *ValidationContext) error {
 	if d.Value == "" {
-		return fmt.Errorf("value field is required")
+		return safeErrorWithField(ctx, "default value", "value field is required")
 	}
 	return nil
 }
@@ -858,9 +880,9 @@ func (d *DocumentRef) Validate() error {
 
 // ValidateWithContext validates a document reference ensuring the keySelector is provided.
 // FileSelector and DocumentSelector are optional per the documentation.
-func (d *DocumentRef) ValidateWithContext(_ *ValidationContext) error {
+func (d *DocumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if d.KeySelector == "" {
-		return fmt.Errorf("keySelector is required")
+		return safeErrorWithField(ctx, "document ref", "keySelector is required")
 	}
 	// FileSelector and DocumentSelector are optional per documentation
 	return nil
@@ -874,12 +896,31 @@ func (c *CallPipe) Validate() error {
 // ValidateWithContext validates a call pipe ensuring the valueFrom expression
 // and output name are valid.
 func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
-	if err := c.ValueFrom.ValidateWithContext(ctx); err != nil {
-		return fmt.Errorf("valueFrom validation failed: %w", err)
+	return c.validateWithContextAndFinalFlag(ctx, false)
+}
+
+// validateWithContextAndFinalFlag validates a call pipe with the option to specify
+// if this is the final pipe in a pipeline. Final pipes do not require an output.
+func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFinal bool) error {
+	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
 	}
 
-	if !isValidIdentifier(c.Output) {
-		return fmt.Errorf("output name '%s' is not a valid identifier", c.Output)
+	// Only validate output if it's provided OR if this is not the final pipe
+	// Final pipes don't require an output since there's no next pipe to consume it
+	if c.Output != "" && !isValidIdentifier(c.Output) {
+		if ctx == nil {
+			return fmt.Errorf("output name '%v' is not a valid identifier", c.Output)
+		}
+		return safeErrorWithValue(ctx, "output", "is not a valid identifier", c.Output)
+	}
+
+	// Non-final pipes must have an output
+	if !isFinal && c.Output == "" {
+		if ctx == nil {
+			return fmt.Errorf("output is required for non-final pipes")
+		}
+		return safeErrorWithField(ctx, "output", "is required for non-final pipes")
 	}
 
 	return nil
@@ -887,9 +928,12 @@ func (c *CallPipe) ValidateWithContext(ctx *ValidationContext) error {
 
 // validateSubsequentPipe checks that subsequent pipes in a pipeline are FunctionCall or ScriptExec.
 // This enforces the constraint that only the first pipe can use any ValueFrom type.
-func (c *CallPipe) validateSubsequentPipe() error {
+func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
-		return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
+		if ctx == nil {
+			return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
+		}
+		return safeError(ctx.WithField("valueFrom"), "must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
 	return nil
 }

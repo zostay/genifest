@@ -1,8 +1,5 @@
 <!-- Common snippets for MkDocs -->
 
-<!-- Version information -->
---8<-- "version.md"
-
 <!-- Installation snippet -->
 *[CLI]: Command Line Interface
 *[YAML]: YAML Ain't Markup Language
