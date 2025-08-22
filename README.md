@@ -95,16 +95,28 @@ keySelector: ".items[:3]"              # First 3 elements
 keySelector: ".items[:]"               # All elements (copy)
 ```
 
+**Array Iteration and Filtering:**
+```yaml
+keySelector: ".spec.containers[]"                               # Iterate over all containers
+keySelector: ".spec.containers[] | select(.name == \"frontend\")"  # Filter by condition
+keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"  # Pipeline operations
+```
+
 **Complex Expressions:**
 ```yaml
 keySelector: ".spec.template.spec.containers[0].image"           # Deep navigation
 keySelector: ".metadata.labels.[\"app.kubernetes.io/version\"]"  # Complex key in metadata
 keySelector: ".spec.volumes[0].configMap.items[1].key"          # Mixed array/object access
+keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | .image"  # Full pipeline
 ```
 
 ### Key Features
 
 - **Grammar-based parsing**: Uses a formal grammar parser for robust expression handling
+- **Array iteration**: Support for iterating over array elements with `[]` syntax
+- **Pipeline operations**: Chain operations with `|` for complex expressions
+- **Filtering functions**: Built-in `select()` function for conditional filtering
+- **Comparison operators**: Support for `==` and `!=` in filter conditions
 - **Negative indexing**: Array access with negative indices (e.g., `[-1]` for last element)
 - **Quoted keys**: Supports both single and double quotes for keys containing special characters
 - **Path scoping**: Changes only apply to files within their configuration directory
@@ -117,14 +129,21 @@ This implementation supports a **subset** of yq/jq syntax, focusing on the most 
 - Field access (`.field`, `.nested.field`)
 - Array indexing (`[0]`, `[-1]`)
 - Array slicing (`[1:3]`, `[2:]`, `[:3]`)
+- Array iteration (`[]`)
 - Quoted key access (`["key.with.dots"]`, `['key-with-dashes']`)
+- Pipeline operations (`|`)
+- Filtering with `select()` function
+- Comparison operators (`==`, `!=`)
+- Complex pipeline expressions (`.containers[] | select(.name == "frontend") | .image`)
 
 ❌ **Not Supported:**
-- Complex filters (`select()`, `map()`, etc.)
-- Arithmetic operations
-- String manipulation functions
-- Conditional expressions
+- Advanced filtering functions (`map()`, `has()`, `contains()`, etc.)
+- Arithmetic operations (`+`, `-`, `*`, `/`)
+- String manipulation functions (`split()`, `join()`, `length()`)
+- Conditional expressions (`if-then-else`)
 - Recursive descent (`..`)
+- Variable assignment
+- Step slicing (`[start:end:step]`)
 
 ## Value Generation System
 

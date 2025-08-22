@@ -42,9 +42,13 @@ The `keySelector` field uses **yq-style path expressions** to specify which part
 | `.field` | Access object field | `.metadata.name` |
 | `.field.nested` | Access nested field | `.spec.template.spec` |
 | `[index]` | Array element by index | `[0]`, `[1]`, `[-1]` |
+| `[]` | Array iteration | `.containers[]` |
 | `[start:end]` | Array slice | `[1:3]`, `[2:]`, `[:3]` |
 | `["key"]` | Quoted key access | `["app.yaml"]` |
 | `['key']` | Single-quoted key | `['key-name']` |
+| `\|` | Pipeline operator | `\| select(.name == "app")` |
+| `select()` | Filter function | `select(.name == "frontend")` |
+| `==`, `!=` | Comparison operators | `.name == "app"` |
 
 ### Complete Examples
 
@@ -70,6 +74,11 @@ keySelector: ".items[2:]"                    # From index 2 to end
 keySelector: ".items[:3]"                    # First 3 elements
 keySelector: ".items[:]"                     # All elements
 
+# Array iteration and pipeline operations
+keySelector: ".spec.containers[]"                                              # Iterate over containers
+keySelector: ".spec.containers[] | select(.name == \"frontend\")"              # Filter containers
+keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"     # Pipeline with field access
+
 # Complex nested access
 keySelector: ".spec.template.spec.containers[0].image"
 keySelector: ".spec.volumes[0].configMap.items[1].key"
@@ -79,6 +88,10 @@ keySelector: ".metadata.annotations.[\"deployment.kubernetes.io/revision\"]"
 ### Features
 
 - **Grammar-based parsing**: Robust expression parsing using formal grammar
+- **Array iteration**: Process all elements in arrays with `[]` syntax
+- **Pipeline operations**: Chain operations with `|` operator
+- **Filtering functions**: Built-in `select()` function for conditional filtering
+- **Comparison operators**: Support for `==` and `!=` in filter conditions
 - **Negative indexing**: Use negative numbers to access from array end
 - **Quoted keys**: Handle keys with special characters like dots, dashes, slashes
 - **Mixed access**: Combine field access, array indexing, and key access
@@ -91,17 +104,22 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 ✅ **Supported Operations:**
 - Object field access (`.field`, `.nested.field`)
 - Array indexing with positive/negative indices (`[0]`, `[-1]`)  
+- Array iteration (`[]`) for processing all elements
 - Array slicing (`[start:end]`, `[start:]`, `[:end]`)
 - Quoted key access (`["key"]`, `['key']`) for special characters
+- Pipeline operations (`|`) for chaining expressions
+- Filtering with `select()` function
+- Comparison operators (`==`, `!=`) for equality tests
 - Complex nested paths combining all above features
 
 ❌ **Not Supported:**
-- Filtering operations (`select()`, `map()`, `has()`, etc.)
-- Arithmetic and logical operations
-- String manipulation functions
-- Conditional expressions and comparisons  
+- Advanced filtering functions (`map()`, `has()`, `contains()`, etc.)
+- Arithmetic and logical operations (`+`, `-`, `*`, `/`, `and`, `or`)
+- String manipulation functions (`split()`, `join()`, `length()`)
+- Conditional expressions (`if-then-else`)
 - Recursive descent operator (`..`)
-- Pipe operations and complex queries
+- Advanced comparison operators (`<`, `>`, `<=`, `>=`)
+- Variable assignment and complex queries
 
 !!! info "Complete KeySelector Reference"
     For comprehensive documentation of keySelector syntax, grammar details, and examples, see the [KeySelector Reference](keyselectors.md).

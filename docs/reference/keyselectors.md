@@ -74,6 +74,41 @@ keySelector: ".items[:-1]"                # All except last element
 keySelector: ".items[-3:]"                # Last 3 elements
 ```
 
+### Array Iteration and Pipeline Operations
+
+Process all elements in an array and chain operations:
+
+```yaml
+# Array iteration - process all containers
+keySelector: ".spec.containers[]"
+
+# Filter with select() function
+keySelector: ".spec.containers[] | select(.name == \"frontend\")"
+keySelector: ".spec.containers[] | select(.name != \"sidecar\")"
+
+# Complete pipeline operations
+keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"
+keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | .image"
+
+# Filter and access nested properties
+keySelector: ".spec.containers[] | select(.name == \"app\") | .ports[0].containerPort"
+keySelector: ".spec.volumes[] | select(.name == \"config\") | .configMap.name"
+```
+
+### Comparison Operators
+
+Use comparison operators in select() functions:
+
+```yaml
+# Equality comparison
+keySelector: ".spec.containers[] | select(.name == \"frontend\")"
+keySelector: ".metadata.labels[] | select(.key == \"app.kubernetes.io/name\")"
+
+# Inequality comparison  
+keySelector: ".spec.containers[] | select(.name != \"sidecar\")"
+keySelector: ".spec.volumes[] | select(.name != \"tmp\")"
+```
+
 ## Complex Examples
 
 ### Deep Nested Access
@@ -106,11 +141,19 @@ keySelector: ".data.[\"config.json\"]"
 ### Real-World Scenarios
 
 ```yaml
-# Update container image in deployment
+# Update specific container image by name (modern approach)
+keySelector: ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image"
+keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | .image"
+
+# Update container image by index (legacy approach)
 keySelector: ".spec.template.spec.containers[0].image"
 
-# Modify resource limits
+# Modify resource limits for specific container
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .resources.limits.memory"
 keySelector: ".spec.template.spec.containers[0].resources.limits.memory"
+
+# Update environment variables for specific containers
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .env[0].value"
 
 # Update ConfigMap data
 keySelector: ".data.[\"app.properties\"]"
@@ -123,6 +166,9 @@ keySelector: ".spec.rules[0].host"
 
 # Modify secret data
 keySelector: ".data.[\"database-password\"]"
+
+# Update volume mount for specific container
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .volumeMounts[0].mountPath"
 ```
 
 ### Common Errors
@@ -146,33 +192,56 @@ keySelector: ".spec.replicas[0]"         # Can't index scalar value
 - **Object field access**: `.field`, `.nested.field`
 - **Array indexing**: `[0]`, `[-1]`, positive and negative indices
 - **Array slicing**: `[1:3]`, `[2:]`, `[:3]`, `[:]`  
+- **Array iteration**: `[]` for processing all elements
 - **Quoted key access**: `["key"]`, `['key']`, handling special characters
+- **Pipeline operations**: `|` chaining multiple operations
+- **Filtering with select()**: `select(.name == "value")` for conditional filtering
+- **Comparison operators**: `==`, `!=` for equality/inequality tests
 - **Complex nested paths**: mixing all above operations
 - **Grammar-based parsing**: robust expression handling
 - **Parse-time validation**: syntax checking before execution
 
 ### ❌ Not Supported (by design)
 
-- **Filtering operations**: `select()`, `map()`, `has()`, `contains()`
-- **Conditional expressions**: `if-then-else`, comparisons
+- **Advanced filtering functions**: `map()`, `has()`, `contains()`, `keys()`, `values()`
+- **Conditional expressions**: `if-then-else` constructs
 - **Arithmetic operations**: `+`, `-`, `*`, `/`, `%`
-- **String functions**: `split()`, `join()`, `length()`, regex
+- **String functions**: `split()`, `join()`, `length()`, regex operations
 - **Recursive descent**: `..` (find anywhere)
-- **Pipe operations**: `|` chaining multiple operations
 - **Variable assignment**: setting temporary variables
-- **Complex queries**: SQL-like operations
+- **Complex queries**: SQL-like operations with multiple conditions
 - **Step slicing**: `[start:end:step]` with step parameter
+- **Advanced comparison operators**: `<`, `>`, `<=`, `>=`
 
 ## Best Practices
 
 ### Clarity and Maintainability
 ```yaml
 # ✅ Good: Clear, specific selectors
-keySelector: ".spec.template.spec.containers[0].image"
+keySelector: ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image"
 keySelector: ".data.[\"application.yaml\"]"
 
-# ❌ Avoid: Overly complex expressions
+# ✅ Good: Modern approach using names instead of indices
+keySelector: ".spec.containers[] | select(.name == \"app\") | .image"
+
+# ⚠️ Acceptable but less maintainable: Index-based access
+keySelector: ".spec.template.spec.containers[0].image"
+
+# ❌ Avoid: Overly complex nested expressions
 keySelector: ".spec.template.spec.volumes[2].configMap.items[1].path"
+```
+
+### Pipeline Best Practices
+```yaml
+# ✅ Good: Use descriptive container names for filtering
+keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"
+keySelector: ".spec.containers[] | select(.name == \"sidecar\") | .env[0].value"
+
+# ✅ Good: Simple pipeline with clear intent
+keySelector: ".spec.volumes[] | select(.name == \"config\") | .configMap.name"
+
+# ❌ Avoid: Chaining too many operations
+keySelector: ".spec.containers[] | select(.name == \"app\") | .volumeMounts[] | select(.name == \"data\") | .mountPath"
 ```
 
 ### Error Prevention
@@ -191,8 +260,14 @@ keySelector: ".labels.app.kubernetes.io/name"     # Fails: dots in key
 keySelector: ".spec.replicas"
 keySelector: ".data.config"
 
+# ⚠️ Moderate: Array iteration and filtering (requires processing multiple elements)
+keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"
+
 # ⚠️ Note: Deep nesting is supported but slower
 keySelector: ".spec.template.spec.containers[0].env[5].value"
+
+# ⚠️ Slower: Complex pipelines with multiple operations
+keySelector: ".spec.containers[] | select(.name == \"app\") | .volumeMounts[0].mountPath"
 ```
 
 ## Testing KeySelectors
