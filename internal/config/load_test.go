@@ -104,7 +104,8 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 		if change.Tag == "production" || change.Tag == "staging" {
 			foundTaggedChange = true
 		}
-		if change.KeySelector == ".spec.template.spec.containers[0].image" {
+		if change.KeySelector == ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image" ||
+		   change.KeySelector == ".spec.template.spec.containers[] | select(.name == \"backend\") | .image" {
 			foundImageChange = true
 		}
 	}
