@@ -259,31 +259,30 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 	return setValueAtComponent(current, finalComponent, value)
 }
 
-// setValueInDocumentComplex handles complex expressions with array iteration and functions
+// setValueInDocumentComplex handles complex expressions with array iteration and functions.
 func setValueInDocumentComplex(doc *yaml.Node, expression *keysel.Expression, newValue string) (bool, error) {
 	// Create an evaluator
 	evaluator := keysel.NewEvaluator()
-	
 	// Find the target node using the complex expression
 	targetNode, err := expression.Evaluate(doc, evaluator)
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate complex expression: %w", err)
 	}
-	
+
 	if targetNode == nil {
 		return false, fmt.Errorf("complex expression did not find a target node")
 	}
-	
+
 	// Modify the target node directly
 	originalValue := targetNode.Value
 	targetNode.Value = newValue
 	targetNode.Kind = yaml.ScalarNode
-	
+
 	// Return whether the value actually changed
 	return originalValue != newValue, nil
 }
 
-// navigateToComponent navigates to a component using keysel logic
+// navigateToComponent navigates to a component using keysel logic.
 func navigateToComponent(node *yaml.Node, component *keysel.Component) (*yaml.Node, error) {
 	switch {
 	case component.Field != nil:
@@ -295,7 +294,7 @@ func navigateToComponent(node *yaml.Node, component *keysel.Component) (*yaml.No
 	}
 }
 
-// navigateToField navigates to a field in a mapping node
+// navigateToField navigates to a field in a mapping node.
 func navigateToField(node *yaml.Node, fieldName string) (*yaml.Node, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("cannot access field %q from non-mapping node", fieldName)
@@ -310,7 +309,7 @@ func navigateToField(node *yaml.Node, fieldName string) (*yaml.Node, error) {
 	return nil, fmt.Errorf("field %q not found", fieldName)
 }
 
-// navigateToBracket navigates using bracket notation (index or key)
+// navigateToBracket navigates using bracket notation (index or key).
 func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 	// Check if it's a slice operation (contains colon)
 	if strings.Contains(content, ":") {
@@ -320,8 +319,8 @@ func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 	// Try numeric index first
 	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
 		var index int
-		fmt.Sscanf(content, "%d", &index)
-		
+		_, _ = fmt.Sscanf(content, "%d", &index)
+
 		if node.Kind == yaml.SequenceNode {
 			if index < 0 {
 				index = len(node.Content) + index
@@ -337,7 +336,7 @@ func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 	// Handle string key indexing
 	key := content
 	// Remove quotes if present (they would have been removed by participle unquoting)
-	
+
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
 			if i+1 < len(node.Content) && node.Content[i].Value == key {
@@ -349,7 +348,7 @@ func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 	return nil, fmt.Errorf("cannot index non-mapping node with string key %q", key)
 }
 
-// setValueAtComponent sets a value at the final component location
+// setValueAtComponent sets a value at the final component location.
 func setValueAtComponent(node *yaml.Node, component *keysel.Component, value string) (bool, error) {
 	switch {
 	case component.Field != nil:
@@ -361,7 +360,7 @@ func setValueAtComponent(node *yaml.Node, component *keysel.Component, value str
 	}
 }
 
-// setValueAtField sets a value at a field in a mapping node
+// setValueAtField sets a value at a field in a mapping node.
 func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, error) {
 	if node.Kind != yaml.MappingNode {
 		return false, fmt.Errorf("cannot set field %q in non-mapping node", fieldName)
@@ -378,7 +377,7 @@ func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, err
 	return false, fmt.Errorf("field %q not found", fieldName)
 }
 
-// setValueAtBracket sets a value using bracket notation
+// setValueAtBracket sets a value using bracket notation.
 func setValueAtBracket(node *yaml.Node, content string, value string) (bool, error) {
 	// Check if it's a slice operation (contains colon)
 	if strings.Contains(content, ":") {
@@ -388,8 +387,8 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 	// Try numeric index first
 	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
 		var index int
-		fmt.Sscanf(content, "%d", &index)
-		
+		_, _ = fmt.Sscanf(content, "%d", &index)
+
 		if node.Kind == yaml.SequenceNode {
 			if index < 0 {
 				index = len(node.Content) + index
@@ -404,10 +403,10 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 	}
 
-	// Handle string key indexing  
+	// Handle string key indexing
 	key := content
 	// The key would have been unquoted by participle already
-	
+
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
 			if i+1 < len(node.Content) && node.Content[i].Value == key {

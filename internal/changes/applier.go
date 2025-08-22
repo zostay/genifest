@@ -82,7 +82,7 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 			// Normalize paths for comparison
 			changePath := filepath.Clean(change.Path)
 			filePathClean := filepath.Clean(filePath)
-			
+
 			// Check if file is within the change's directory or subdirectories
 			if !strings.HasPrefix(filePathClean, changePath+"/") && filePathClean != changePath {
 				continue

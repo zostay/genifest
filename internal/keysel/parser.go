@@ -346,6 +346,7 @@ func (e *Evaluator) evaluateBracketIndex(node *yaml.Node, content string) (*yaml
 
 // evaluateArrayIter evaluates array iteration ([]) - returns all elements as individual nodes.
 func (e *Evaluator) evaluateArrayIter(node *yaml.Node, arrayIter *ArrayIter) (*yaml.Node, error) {
+	_ = arrayIter // unused parameter, required for interface consistency
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("cannot iterate over non-sequence node")
 	}
