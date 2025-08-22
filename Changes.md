@@ -1,4 +1,4 @@
-## WIP  TBD
+## v1.0.0-rc3  2025-08-22
 
 _Enhanced keySelector syntax with advanced pipeline operations and comprehensive documentation updates._
 
