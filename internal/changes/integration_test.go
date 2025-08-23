@@ -1,8 +1,11 @@
 package changes
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/zostay/genifest/internal/config"
 )
@@ -47,7 +50,14 @@ func TestGuestbookIntegration(t *testing.T) {
 			},
 		}
 
-		value, err := applier.EvaluateChangeValue(replicasChange, "manifests/guestbook/frontend-deployment.yaml")
+		// Load the document for context
+		deploymentPath := filepath.Join(guestbookDir, "manifests/guestbook/frontend-deployment.yaml")
+		doc, err := loadYAMLDocument(t, deploymentPath)
+		if err != nil {
+			t.Fatalf("Failed to load deployment document: %v", err)
+		}
+
+		value, err := applier.EvaluateChangeValue(replicasChange, "manifests/guestbook/frontend-deployment.yaml", doc)
 		if err != nil {
 			t.Fatalf("Failed to evaluate get-replicas function: %v", err)
 		}
@@ -84,7 +94,7 @@ func TestGuestbookIntegration(t *testing.T) {
 			},
 		}
 
-		value, err = applier.EvaluateChangeValue(imageChange, "manifests/guestbook/frontend-deployment.yaml")
+		value, err = applier.EvaluateChangeValue(imageChange, "manifests/guestbook/frontend-deployment.yaml", doc)
 		if err != nil {
 			t.Fatalf("Failed to evaluate get-image-tag function: %v", err)
 		}
@@ -115,7 +125,14 @@ func TestGuestbookIntegration(t *testing.T) {
 			},
 		}
 
-		value, err = applier.EvaluateChangeValue(dbChange, "manifests/guestbook/backend-deployment.yaml")
+		// Load the backend deployment document for the database host test
+		backendPath := filepath.Join(guestbookDir, "manifests/guestbook/backend-deployment.yaml")
+		backendDoc, err := loadYAMLDocument(t, backendPath)
+		if err != nil {
+			t.Fatalf("Failed to load backend deployment document: %v", err)
+		}
+
+		value, err = applier.EvaluateChangeValue(dbChange, "manifests/guestbook/backend-deployment.yaml", backendDoc)
 		if err != nil {
 			t.Fatalf("Failed to evaluate get-database-host function: %v", err)
 		}
@@ -241,6 +258,26 @@ func TestEvalContextWithRealConfig(t *testing.T) {
 	if val, exists := newCtx.GetVariable("new"); !exists || val != "variable" {
 		t.Error("New context doesn't have new variable")
 	}
+}
+
+// loadYAMLDocument loads a YAML document from a file for testing.
+func loadYAMLDocument(t *testing.T, filePath string) (*yaml.Node, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var doc yaml.Node
+	err = yaml.Unmarshal(content, &doc)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the first document if it's a document node, otherwise return the root
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		return doc.Content[0], nil
+	}
+	return &doc, nil
 }
 
 // getProjectRoot finds the project root directory for testing.
