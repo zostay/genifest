@@ -110,8 +110,14 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 
-	// Check if all referenced files exist
-	for _, filePath := range cfg.Files {
+	// Resolve files and check if they exist
+	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("failed to resolve file patterns: %s", err.Error()))
+		resolvedFiles = cfg.Files.Include // Fallback for further validation
+	}
+
+	for _, filePath := range resolvedFiles {
 		fullPath := filepath.Join(workDir, filePath)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			validationErrors = append(validationErrors, fmt.Sprintf("referenced file does not exist: %s", filePath))
@@ -132,7 +138,11 @@ func validateConfiguration(projectDir string) error {
 
 	// Always show summary information first
 	fmt.Printf("\033[1mSummary:\033[0m\n")
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(cfg.Files))
+	// Get resolved files count for display (reuse resolvedFiles from above)
+	if len(resolvedFiles) == 0 && len(cfg.Files.Include) > 0 {
+		resolvedFiles = cfg.Files.Include // Fallback
+	}
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(resolvedFiles))
 	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change(s) defined\n", len(cfg.Changes))
 	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m function(s) defined\n", len(cfg.Functions))
 

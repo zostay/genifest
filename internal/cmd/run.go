@@ -88,7 +88,12 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) will be processed (all changes)\n", changesToRun)
 	}
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(cfg.Files))
+	// Get resolved files count for display
+	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		resolvedFiles = cfg.Files.Include // Fallback to include list
+	}
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(resolvedFiles))
 	fmt.Printf("\n")
 
 	if changesToRun == 0 {
@@ -483,9 +488,11 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
-	// Collect all files from the configuration
-	filesToProcess := make([]string, 0, len(cfg.Files))
-	filesToProcess = append(filesToProcess, cfg.Files...)
+	// Resolve files with wildcard expansion
+	filesToProcess, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		return stats, fmt.Errorf("failed to resolve files: %w", err)
+	}
 
 	// Process each file
 	for _, filePath := range filesToProcess {

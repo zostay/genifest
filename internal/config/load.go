@@ -108,7 +108,10 @@ func createSyntheticConfig(dir string) (*Config, error) {
 	}
 
 	return &Config{
-		Files: files,
+		Files: FilesConfig{
+			Include: files,
+			Exclude: []string{"genifest.yml", "genifest.yaml"},
+		},
 	}, nil
 }
 
@@ -233,19 +236,17 @@ func (lc *loadingContext) processConfigMetadata(configWP configWithPath, configD
 		}
 	}
 
-	// Load Scripts directories (single level only)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Scripts, 0, effectiveCloudHome); err != nil {
-		return err
-	}
+	// Load unified Paths directories with their configured depths
+	for _, pathConfig := range config.Metadata.Paths {
+		maxDepth := pathConfig.Depth // Use 0-based depth directly
 
-	// Load Manifests directories (two levels)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Manifests, 1, effectiveCloudHome); err != nil {
-		return err
-	}
+		// Create PathContext slice for compatibility with loadMetadataPaths
+		pathContexts := PathContexts{PathContext{Path: pathConfig.Path}}
+		pathContexts[0].SetContextPath(configDir)
 
-	// Load Files directories (two levels)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Files, 1, effectiveCloudHome); err != nil {
-		return err
+		if err := lc.loadMetadataPaths(configDir, pathContexts, maxDepth, effectiveCloudHome); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -278,38 +279,23 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 			configDir = "."
 		}
 
-		// Process Scripts
-		for _, scriptCtx := range c.config.Metadata.Scripts {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        scriptCtx.Path,
+		// Process unified Paths
+		for _, pathConfig := range c.config.Metadata.Paths {
+			newConfig := PathConfig{
+				Path:    pathConfig.Path,
+				Scripts: pathConfig.Scripts,
+				Files:   pathConfig.Files,
+				Depth:   pathConfig.Depth,
 			}
-			result.Metadata.Scripts = append(result.Metadata.Scripts, newCtx)
-		}
-
-		// Process Manifests
-		for _, manifestCtx := range c.config.Metadata.Manifests {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        manifestCtx.Path,
-			}
-			result.Metadata.Manifests = append(result.Metadata.Manifests, newCtx)
-		}
-
-		// Process Files
-		for _, fileCtx := range c.config.Metadata.Files {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        fileCtx.Path,
-			}
-			result.Metadata.Files = append(result.Metadata.Files, newCtx)
+			newConfig.SetContextPath(configDir)
+			result.Metadata.Paths = append(result.Metadata.Paths, newConfig)
 		}
 	}
 
 	// Merge Files, Changes, and Functions across all configurations
 	for _, c := range configs {
-		// Add files with proper relative paths
-		for _, file := range c.config.Files {
+		// Merge files with proper relative paths
+		for _, file := range c.config.Files.Include {
 			var fullFilePath string
 			if c.path == "." || c.path == "" {
 				// Files from root directory
@@ -318,8 +304,11 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 				// Files from subdirectories - prefix with relative path
 				fullFilePath = filepath.Join(c.path, file)
 			}
-			result.Files = append(result.Files, fullFilePath)
+			result.Files.Include = append(result.Files.Include, fullFilePath)
 		}
+
+		// Merge exclude patterns
+		result.Files.Exclude = append(result.Files.Exclude, c.config.Files.Exclude...)
 
 		// Set the path for change orders
 		for _, change := range c.config.Changes {
