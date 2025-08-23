@@ -3,12 +3,12 @@ module github.com/zostay/genifest
 go 1.24.4
 
 require (
+	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/spf13/cobra v1.9.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
