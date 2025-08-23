@@ -22,7 +22,8 @@ The configuration system uses a **metadata-driven loading approach**:
 
 #### Core Types
 - `Config` - Main configuration structure containing metadata, files, changes, and functions
-- `MetaConfig` - Metadata including cloudHome, scripts, manifests, and files paths
+- `MetaConfig` - Metadata including cloudHome and unified paths configuration
+- `PathConfig` - Unified path configuration with capabilities (scripts/files) and configurable depth
 - `PathContext` - Represents paths with context about where they were defined
 - `ChangeOrder` - Defines modifications to be applied to managed files
 - `FunctionDefinition` - Defines reusable functions for value generation
@@ -30,10 +31,10 @@ The configuration system uses a **metadata-driven loading approach**:
 
 #### Loading Behavior
 1. **Starts with root `genifest.yaml`** - Loads the top-level configuration first
-2. **Metadata-driven discovery** - Uses `scripts`, `manifests`, and `files` paths to discover additional directories
-3. **Depth-limited recursion**:
-   - Scripts directories: single level only
-   - Manifests/Files directories: two levels deep
+2. **Metadata-driven discovery** - Uses unified `paths` configuration to discover additional directories
+3. **Configurable depth recursion**:
+   - Each path can specify its own depth (0-based indexing, default: 0)
+   - Depth 0: single level only, Depth 1: one level deep, etc.
 4. **Synthetic configs** - Creates configurations for directories without `genifest.yaml` containing all `.yaml`/`.yml` files
 5. **CloudHome scoping** - Respects cloudHome boundaries and local overrides
 
@@ -139,13 +140,21 @@ genifest run --include-tags production     # Apply only production-tagged change
 ```yaml
 metadata:
   cloudHome: "."           # Optional: override cloudHome for this scope
-  scripts: ["scripts"]     # Directories containing scripts (single level)
-  manifests: ["k8s"]       # Directories containing manifests (two levels)
-  files: ["files"]         # Directories containing template files (two levels)
+  paths:
+    - path: "scripts"      # Directory path
+      scripts: true        # Enable script execution access
+      depth: 0             # Single level only (0-based)
+    - path: "k8s"          # Directory path  
+      files: true          # Enable file inclusion access
+      depth: 1             # One level deep (0-based)
+    - path: "files"        # Directory path
+      files: true          # Enable file inclusion access
+      depth: 0             # Single level only (0-based)
 
 files:
-  - "deployment.yaml"      # Files managed by genifest
-  - "service.yaml"
+  include:
+    - "deployment.yaml"    # Files managed by genifest
+    - "service.yaml"
 
 changes:
   - tag: "production"      # Optional tag for conditional application
@@ -172,7 +181,7 @@ functions:
 
 ### Loading Rules
 - **Root discovery**: Starts by loading root `genifest.yaml` or creates synthetic config
-- **Metadata processing**: Follows `scripts`, `manifests`, `files` paths to discover additional directories
+- **Metadata processing**: Follows unified `paths` configuration to discover additional directories
 - **Automatic inclusion**: Directories without `genifest.yaml` get synthetic configs with all YAML files
 - **Scope respect**: Each config's metadata only affects its subdirectories
 - **Security**: All paths must stay within cloudHome boundaries

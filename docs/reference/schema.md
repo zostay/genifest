@@ -11,9 +11,11 @@ Complete schema reference for Genifest configuration files.
 # genifest.yaml
 metadata:
   cloudHome: string              # Optional: security boundary
-  scripts: [string]              # Optional: script directories
-  manifests: [string]            # Optional: manifest directories  
-  files: [string]                # Optional: file directories
+  paths:                         # Optional: unified directory configuration
+    - path: string               # Required: directory path
+      scripts: boolean           # Optional: enable script execution access
+      files: boolean             # Optional: enable file inclusion access  
+      depth: integer             # Optional: directory depth (0-based, default 0)
 
 functions:                       # Optional: function definitions
   - name: string                 # Required: function name
@@ -22,7 +24,9 @@ functions:                       # Optional: function definitions
         required: boolean        # Optional: default false
     valueFrom: ValueFrom         # Required: value generation
 
-files: [string]                  # Optional: managed files
+files:                           # Optional: managed files
+  include: [string]              # Optional: files to include (supports wildcards)
+  exclude: [string]              # Optional: files to exclude (supports wildcards)
 
 changes:                         # Optional: change definitions
   - tag: string                  # Optional: filter tag

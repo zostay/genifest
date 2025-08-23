@@ -16,9 +16,16 @@ Genifest uses YAML configuration files named `genifest.yaml`.
 ```yaml
 metadata:
   cloudHome: "."              # Security boundary for file operations
-  scripts: ["scripts"]        # Directories containing executable scripts
-  manifests: ["manifests"]    # Directories containing Kubernetes manifests
-  files: ["files"]           # Directories containing template files
+  paths:                      # Unified directory configuration
+    - path: "scripts"         # Directory path
+      scripts: true           # Enable script execution access
+      depth: 0                # Directory depth (0-based, 0=single level)
+    - path: "manifests" 
+      files: true             # Enable file inclusion access
+      depth: 1                # Go one level deep into subdirectories
+    - path: "files"
+      files: true
+      depth: 0
 ```
 
 ### Functions Section
