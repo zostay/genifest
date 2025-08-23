@@ -76,7 +76,7 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	}
 
 	// Check functions are loaded
-	expectedFunctions := []string{"get-replicas", "get-image-tag", "get-database-host"}
+	expectedFunctions := []string{"get-replicas", "get-image-tag", "get-database-host", "quote", "rotN"}
 	if len(config.Functions) != len(expectedFunctions) {
 		t.Errorf("Expected %d functions, got %d", len(expectedFunctions), len(config.Functions))
 	}
