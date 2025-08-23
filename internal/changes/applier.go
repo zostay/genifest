@@ -25,12 +25,13 @@ func NewApplier(cfg *config.Config) *Applier {
 	}
 
 	// Build script and file directory lists from metadata
-	var scriptsDirs, filesDirs []string
-	for _, script := range cfg.Metadata.Scripts {
-		scriptsDirs = append(scriptsDirs, filepath.Join(cloudHome, script.Path))
+	scriptsDirs := make([]string, len(cfg.Metadata.Scripts))
+	filesDirs := make([]string, len(cfg.Metadata.Files))
+	for i, script := range cfg.Metadata.Scripts {
+		scriptsDirs[i] = filepath.Join(cloudHome, script.Path)
 	}
-	for _, file := range cfg.Metadata.Files {
-		filesDirs = append(filesDirs, filepath.Join(cloudHome, file.Path))
+	for i, file := range cfg.Metadata.Files {
+		filesDirs[i] = filepath.Join(cloudHome, file.Path)
 	}
 
 	evalCtx := NewEvalContextWithPaths(cloudHome, scriptsDirs, filesDirs, cfg.Functions)

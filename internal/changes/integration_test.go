@@ -52,7 +52,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 		// Load the document for context
 		deploymentPath := filepath.Join(guestbookDir, "manifests/guestbook/frontend-deployment.yaml")
-		doc, err := loadYAMLDocument(t, deploymentPath)
+		doc, err := loadYAMLDocument(deploymentPath)
 		if err != nil {
 			t.Fatalf("Failed to load deployment document: %v", err)
 		}
@@ -127,7 +127,7 @@ func TestGuestbookIntegration(t *testing.T) {
 
 		// Load the backend deployment document for the database host test
 		backendPath := filepath.Join(guestbookDir, "manifests/guestbook/backend-deployment.yaml")
-		backendDoc, err := loadYAMLDocument(t, backendPath)
+		backendDoc, err := loadYAMLDocument(backendPath)
 		if err != nil {
 			t.Fatalf("Failed to load backend deployment document: %v", err)
 		}
@@ -261,7 +261,7 @@ func TestEvalContextWithRealConfig(t *testing.T) {
 }
 
 // loadYAMLDocument loads a YAML document from a file for testing.
-func loadYAMLDocument(t *testing.T, filePath string) (*yaml.Node, error) {
+func loadYAMLDocument(filePath string) (*yaml.Node, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
