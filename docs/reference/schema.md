@@ -47,6 +47,7 @@ The `keySelector` field uses **yq-style path expressions** to specify which part
 | `["key"]` | Quoted key access | `["app.yaml"]` |
 | `['key']` | Single-quoted key | `['key-name']` |
 | `\|` | Pipeline operator | `\| select(.name == "app")` |
+| `//` | Alternative operator | `// "default-value"` |
 | `select()` | Filter function | `select(.name == "frontend")` |
 | `==`, `!=` | Comparison operators | `.name == "app"` |
 
@@ -79,6 +80,11 @@ keySelector: ".spec.containers[]"                                              #
 keySelector: ".spec.containers[] | select(.name == \"frontend\")"              # Filter containers
 keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"     # Pipeline with field access
 
+# Alternative values for fallbacks
+keySelector: ".metadata.annotations[\"missing\"] // \"default-value\""          # Fallback if annotation missing
+keySelector: ".spec.replicas // \"3\""                                         # Default replica count
+keySelector: ".data.config // \"fallback-config\""                             # Default configuration
+
 # Complex nested access
 keySelector: ".spec.template.spec.containers[0].image"
 keySelector: ".spec.volumes[0].configMap.items[1].key"
@@ -108,6 +114,7 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 - Array slicing (`[start:end]`, `[start:]`, `[:end]`)
 - Quoted key access (`["key"]`, `['key']`) for special characters
 - Pipeline operations (`|`) for chaining expressions
+- Alternative operator (`//`) for fallback values when paths don't exist
 - Filtering with `select()` function
 - Comparison operators (`==`, `!=`) for equality tests
 - Complex nested paths combining all above features

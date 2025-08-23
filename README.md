@@ -102,6 +102,13 @@ keySelector: ".spec.containers[] | select(.name == \"frontend\")"  # Filter by c
 keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"  # Pipeline operations
 ```
 
+**Alternative/Default Values:**
+```yaml
+keySelector: ".metadata.annotations[\"missing\"] // \"default\""     # Fallback to default if missing
+keySelector: ".spec.replicas // \"1\""                            # Use 1 if replicas not set
+keySelector: ".data.config // \"fallback-config\""                # Default configuration value
+```
+
 **Complex Expressions:**
 ```yaml
 keySelector: ".spec.template.spec.containers[0].image"           # Deep navigation
@@ -115,6 +122,7 @@ keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | 
 - **Grammar-based parsing**: Uses a formal grammar parser for robust expression handling
 - **Array iteration**: Support for iterating over array elements with `[]` syntax
 - **Pipeline operations**: Chain operations with `|` for complex expressions
+- **Alternative operator**: Use `//` to provide fallback values when paths don't exist
 - **Filtering functions**: Built-in `select()` function for conditional filtering
 - **Comparison operators**: Support for `==` and `!=` in filter conditions
 - **Negative indexing**: Array access with negative indices (e.g., `[-1]` for last element)
@@ -132,6 +140,7 @@ This implementation supports a **subset** of yq/jq syntax, focusing on the most 
 - Array iteration (`[]`)
 - Quoted key access (`["key.with.dots"]`, `['key-with-dashes']`)
 - Pipeline operations (`|`)
+- Alternative operator (`//` for fallback values)
 - Filtering with `select()` function
 - Comparison operators (`==`, `!=`)
 - Complex pipeline expressions (`.containers[] | select(.name == "frontend") | .image`)
