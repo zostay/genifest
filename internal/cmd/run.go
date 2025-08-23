@@ -612,24 +612,18 @@ func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResu
 		oldValue = "<not found>" // Value doesn't exist yet
 	}
 
-	// For document references, we need to evaluate the value in the context of this document
-	if result.Change.KeySelector != "" {
-		// Create evaluation context with this document
-		evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
+	// Always evaluate the value in the context of this document
+	// Create evaluation context with this document
+	evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
 
-		// Evaluate the ValueFrom in the context of this document
-		value, err := evalCtx.Evaluate(result.Change.ValueFrom)
-		if err != nil {
-			return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
-		}
-
-		// Apply the change using the key selector
-		changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
-		return changed, oldValue, err
+	// Evaluate the ValueFrom in the context of this document
+	value, err := evalCtx.Evaluate(result.Change.ValueFrom)
+	if err != nil {
+		return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
 	}
 
-	// For other types of changes, use the pre-evaluated value
-	changed, err := setValueInDocument(doc, result.KeyPath, result.Value)
+	// Apply the change using the key selector
+	changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
 	return changed, oldValue, err
 }
 
