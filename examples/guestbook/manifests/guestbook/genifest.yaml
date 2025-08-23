@@ -69,3 +69,26 @@ changes:
             valueFrom:
               default:
                 value: dev
+
+  - tag: config
+    fileSelector: configmap.yaml
+    keySelector: .data.quote
+    valueFrom:
+      pipeline:
+        - valueFrom:
+            call:
+              function: quote
+              args:
+                - name: text
+                  valueFrom:
+                    default:
+                      value: tyranny
+          output: quotation
+        - valueFrom:
+            call:
+              function: rot13
+              args:
+                - name: text
+                  valueFrom:
+                    argRef:
+                      name: quotation

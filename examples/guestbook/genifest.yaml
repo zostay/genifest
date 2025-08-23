@@ -1,41 +1,69 @@
 metadata:
-  cloudHome: "."
-  scripts: ["scripts"]
-  manifests: ["manifests"]
-  files: ["files"]
+  cloudHome: .
+  scripts: [scripts]
+  manifests: [manifests]
+  files: [files]
 
 functions:
-  - name: "get-replicas"
+  - name: get-replicas
     params:
-      - name: "environment"
+      - name: environment
         required: true
     valueFrom:
       default:
         value: "2"
 
-  - name: "get-image-tag"
+  - name: get-image-tag
     params:
-      - name: "service"
+      - name: service
         required: true
-      - name: "environment"
+      - name: environment
         required: true
     valueFrom:
       template:
         string: "${service}:${environment}-latest"
         variables:
-          - name: "service"
+          - name: service
             valueFrom:
               argRef:
-                name: "service"
-          - name: "environment"
+                name: service
+          - name: environment
             valueFrom:
               argRef:
-                name: "environment"
+                name: environment
 
-  - name: "get-database-host"
+  - name: get-database-host
     params:
-      - name: "environment"
+      - name: environment
         required: true
     valueFrom:
       default:
-        value: "postgres-service"
+        value: postgres-service
+
+  - name: quote
+    params:
+      - name: text
+        required: true
+    valueFrom:
+      script:
+        exec: quotes.sh
+        args:
+          - name: text
+            valueFrom:
+              argRef:
+                name: text
+  - name: rot13
+    params:
+      - name: text
+        required: true
+    valueFrom:
+      script:
+        exec: rot13.sh
+        stdin:
+          argRef:
+            name: text
+        args:
+          - name: N
+            valueFrom:
+              documentRef:
+                keySelector: .metadata.annotations["genifest.qubling.com/rotN"]
