@@ -106,7 +106,7 @@ func (fc FilesConfig) ResolveFiles(baseDir string) ([]string, error) {
 	for _, file := range result {
 		excluded := false
 		for _, excludePattern := range excludePatterns {
-			matched, err := filepath.Match(excludePattern, filepath.Base(file))
+			matched, err := filepath.Match(excludePattern, file)
 			if err == nil && matched {
 				excluded = true
 				break

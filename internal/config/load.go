@@ -91,25 +91,9 @@ func loadConfigFile(path string) (*Config, error) {
 // containing all .yaml and .yml files in the directory. This allows directories
 // to be included in the configuration even without explicit genifest.yaml files.
 func createSyntheticConfig(dir string) (*Config, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	var files []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if strings.HasSuffix(strings.ToLower(name), ".yaml") || strings.HasSuffix(strings.ToLower(name), ".yml") {
-			files = append(files, name)
-		}
-	}
-
 	return &Config{
 		Files: FilesConfig{
-			Include: files,
+			Include: []string{"*.yml", "*.yaml"},
 			Exclude: []string{"genifest.yml", "genifest.yaml"},
 		},
 	}, nil
@@ -252,6 +236,23 @@ func (lc *loadingContext) processConfigMetadata(configWP configWithPath, configD
 	return nil
 }
 
+func mergeFilesWithRelativePaths(c *configWithPath, output []string, input []string) []string {
+	// Merge files with proper relative paths
+	for _, file := range input {
+		var fullFilePath string
+		if c.path == "." || c.path == "" {
+			// Files from root directory
+			fullFilePath = file
+		} else {
+			// Files from subdirectories - prefix with relative path
+			fullFilePath = filepath.Join(c.path, file)
+		}
+		output = append(output, fullFilePath)
+	}
+
+	return output
+}
+
 // mergeConfigs combines multiple configurations into a single Config.
 // It merges metadata paths, files, changes, and functions while preserving
 // the context path information for proper scoping.
@@ -294,21 +295,8 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 
 	// Merge Files, Changes, and Functions across all configurations
 	for _, c := range configs {
-		// Merge files with proper relative paths
-		for _, file := range c.config.Files.Include {
-			var fullFilePath string
-			if c.path == "." || c.path == "" {
-				// Files from root directory
-				fullFilePath = file
-			} else {
-				// Files from subdirectories - prefix with relative path
-				fullFilePath = filepath.Join(c.path, file)
-			}
-			result.Files.Include = append(result.Files.Include, fullFilePath)
-		}
-
-		// Merge exclude patterns
-		result.Files.Exclude = append(result.Files.Exclude, c.config.Files.Exclude...)
+		result.Files.Include = mergeFilesWithRelativePaths(&c, result.Files.Include, c.config.Files.Include)
+		result.Files.Exclude = mergeFilesWithRelativePaths(&c, result.Files.Exclude, c.config.Files.Exclude)
 
 		// Set the path for change orders
 		for _, change := range c.config.Changes {
