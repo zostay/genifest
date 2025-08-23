@@ -52,13 +52,13 @@ functions:
             valueFrom:
               argRef:
                 name: text
-  - name: rot13
+  - name: rotN
     params:
       - name: text
         required: true
     valueFrom:
       script:
-        exec: rot13.sh
+        exec: rotNN.sh
         stdin:
           argRef:
             name: text

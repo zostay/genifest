@@ -86,7 +86,7 @@ changes:
           output: quotation
         - valueFrom:
             call:
-              function: rot13
+              function: rotN
               args:
                 - name: text
                   valueFrom:
