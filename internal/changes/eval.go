@@ -278,21 +278,21 @@ func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	err := cmd.Run()
 	if err != nil {
 		// Include both stdout and stderr in error message for debugging
 		var errorMsg strings.Builder
 		errorMsg.WriteString(fmt.Sprintf("script execution failed: %v", err))
-		
+
 		if stderr.Len() > 0 {
 			errorMsg.WriteString(fmt.Sprintf("\nstderr: %s", strings.TrimSpace(stderr.String())))
 		}
-		
+
 		if stdout.Len() > 0 {
 			errorMsg.WriteString(fmt.Sprintf("\nstdout: %s", strings.TrimSpace(stdout.String())))
 		}
-		
+
 		return "", fmt.Errorf("%s", errorMsg.String())
 	}
 
