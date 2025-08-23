@@ -1,6 +1,7 @@
 package changes
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -195,7 +196,7 @@ func (ctx *EvalContext) evaluateFunctionCall(fc config.FunctionCall) (string, er
 		}
 	}
 
-	// Create new context with function arguments
+	// Create new context with function arguments, preserving document context
 	functionCtx := ctx.WithVariables(functionVars)
 
 	// Evaluate the function's ValueFrom
@@ -253,13 +254,29 @@ func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error)
 		cmd.Stdin = strings.NewReader(stdinValue)
 	}
 
-	// Execute and capture output
-	output, err := cmd.Output()
+	// Execute and capture both stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("script execution failed: %w", err)
+		// Include both stdout and stderr in error message for debugging
+		var errorMsg strings.Builder
+		errorMsg.WriteString(fmt.Sprintf("script execution failed: %v", err))
+		
+		if stderr.Len() > 0 {
+			errorMsg.WriteString(fmt.Sprintf("\nstderr: %s", strings.TrimSpace(stderr.String())))
+		}
+		
+		if stdout.Len() > 0 {
+			errorMsg.WriteString(fmt.Sprintf("\nstdout: %s", strings.TrimSpace(stdout.String())))
+		}
+		
+		return "", fmt.Errorf("%s", errorMsg.String())
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // evaluateFileInclusion reads a file and returns its contents.
