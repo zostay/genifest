@@ -18,6 +18,7 @@ var selectorLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "LParen", Pattern: `\(`},
 	{Name: "RParen", Pattern: `\)`},
 	{Name: "Pipe", Pattern: `\|`},
+	{Name: "Alternative", Pattern: `//`},
 	{Name: "Colon", Pattern: `:`},
 	{Name: "Comma", Pattern: `,`},
 	{Name: "Equals", Pattern: `==`},
@@ -29,9 +30,15 @@ var selectorLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Whitespace", Pattern: `\s+`},
 })
 
-// Expression represents the root of a yq-style expression with pipes.
+// Expression represents the root of a yq-style expression with alternatives.
 type Expression struct {
-	Pipeline []*PipelineStep `parser:"@@ ( Pipe @@ )*"`
+	Left        *Pipeline `parser:"@@"`
+	Alternative *Literal  `parser:"( Alternative @@ )?"`
+}
+
+// Pipeline represents a pipeline of steps connected by pipes.
+type Pipeline struct {
+	Steps []*PipelineStep `parser:"@@ ( Pipe @@ )*"`
 }
 
 // PipelineStep represents one step in a pipeline.
@@ -115,12 +122,12 @@ func NewParser() (*Parser, error) {
 // ParseSelector parses a yq-style expression string using participle/v2 grammar.
 func (p *Parser) ParseSelector(selectorStr string) (*Expression, error) {
 	if selectorStr == "" {
-		return &Expression{Pipeline: []*PipelineStep{{Path: &Path{Components: []*Component{}}}}}, nil
+		return &Expression{Left: &Pipeline{Steps: []*PipelineStep{{Path: &Path{Components: []*Component{}}}}}}, nil
 	}
 
 	// Handle special case of root selector "."
 	if selectorStr == "." {
-		return &Expression{Pipeline: []*PipelineStep{{Path: &Path{Components: []*Component{}}}}}, nil
+		return &Expression{Left: &Pipeline{Steps: []*PipelineStep{{Path: &Path{Components: []*Component{}}}}}}, nil
 	}
 
 	expression, err := p.parser.ParseString("", selectorStr)
@@ -133,6 +140,26 @@ func (p *Parser) ParseSelector(selectorStr string) (*Expression, error) {
 
 // Evaluate evaluates the expression against a YAML node using the new pipeline AST.
 func (e *Expression) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, error) {
+	// Try to evaluate the main pipeline first
+	result, err := e.Left.Evaluate(node, evaluator)
+	if err == nil {
+		return result, nil
+	}
+
+	// If the main pipeline failed and we have an alternative, use it
+	if e.Alternative != nil {
+		alternativeNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: evaluator.literalToString(e.Alternative),
+		}
+		return alternativeNode, nil
+	}
+
+	// No alternative, return the original error
+	return nil, err
+}
+
+func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, error) {
 	// Start with the input node
 	current := node
 
@@ -142,9 +169,9 @@ func (e *Expression) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node
 	}
 
 	// Process the pipeline - handle array iteration specially
-	for i, step := range e.Pipeline {
+	for i, step := range p.Steps {
 		var err error
-		current, err = evaluator.evaluatePipelineStepWithIteration(current, step, e.Pipeline[i+1:])
+		current, err = evaluator.evaluatePipelineStepWithIteration(current, step, p.Steps[i+1:])
 		if err != nil {
 			return nil, fmt.Errorf("pipeline step %d failed: %w", i, err)
 		}
@@ -523,11 +550,16 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 
 // GetSimplePath extracts a simple path for write operations (backwards compatibility).
 func (e *Expression) GetSimplePath() ([]*Component, error) {
-	if len(e.Pipeline) != 1 {
+	// Alternative expressions are not supported for write operations
+	if e.Alternative != nil {
+		return nil, fmt.Errorf("write operations don't support alternative expressions")
+	}
+
+	if len(e.Left.Steps) != 1 {
 		return nil, fmt.Errorf("write operations require simple paths, not complex pipelines")
 	}
 
-	step := e.Pipeline[0]
+	step := e.Left.Steps[0]
 	if step.Path == nil {
 		return nil, fmt.Errorf("write operations require path expressions, not functions")
 	}

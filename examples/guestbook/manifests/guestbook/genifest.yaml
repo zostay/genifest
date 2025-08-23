@@ -81,8 +81,8 @@ changes:
               args:
                 - name: text
                   valueFrom:
-                    default:
-                      value: tyranny
+                    documentRef:
+                      keySelector: .metadata.annotations["genifest.qubling.com/quote"] // "tyranny"
           output: quotation
         - valueFrom:
             call:
