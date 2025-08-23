@@ -586,7 +586,7 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 
 	// Apply each change result to the document
 	for _, result := range results {
-		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, result, applier, filePath)
+		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, &result, applier, filePath)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply change %s: %w", result.KeyPath, err)
 		}
@@ -605,7 +605,7 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 }
 
 // applyChangeToDocumentWithOldValue applies a single change to a YAML document and returns the old value.
-func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
+func applyChangeToDocumentWithOldValue(doc *yaml.Node, result *changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
 	// First, get the old value
 	oldValue, err := getValueInDocument(doc, result.Change.KeySelector)
 	if err != nil {
@@ -621,6 +621,9 @@ func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResu
 	if err != nil {
 		return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
 	}
+
+	// Update result with evaluated value for display purposes
+	result.Value = value
 
 	// Apply the change using the key selector
 	changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
