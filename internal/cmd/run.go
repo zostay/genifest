@@ -277,6 +277,7 @@ func setValueInDocumentComplex(doc *yaml.Node, expression *keysel.Expression, ne
 	originalValue := targetNode.Value
 	targetNode.Value = newValue
 	targetNode.Kind = yaml.ScalarNode
+	targetNode.Tag = "" // Clear the tag so YAML can infer the correct type
 
 	// Return whether the value actually changed
 	return originalValue != newValue, nil
@@ -370,6 +371,7 @@ func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, err
 		if i+1 < len(node.Content) && node.Content[i].Value == fieldName {
 			node.Content[i+1].Value = value
 			node.Content[i+1].Kind = yaml.ScalarNode
+			node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 			return true, nil
 		}
 	}
@@ -398,6 +400,7 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 			}
 			node.Content[index].Value = value
 			node.Content[index].Kind = yaml.ScalarNode
+			node.Content[index].Tag = "" // Clear the tag so YAML can infer the correct type
 			return true, nil
 		}
 		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
@@ -412,6 +415,7 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 			if i+1 < len(node.Content) && node.Content[i].Value == key {
 				node.Content[i+1].Value = value
 				node.Content[i+1].Kind = yaml.ScalarNode
+				node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 				return true, nil
 			}
 		}
