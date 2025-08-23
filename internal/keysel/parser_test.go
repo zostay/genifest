@@ -1,6 +1,7 @@
 package keysel
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -68,6 +69,18 @@ func TestParse(t *testing.T) {
 			selector: ".spec.template.spec.containers[] | select(.name == \"backend\") | .image",
 		},
 		{
+			name:     "alternative operator with string",
+			selector: ".metadata.annotations[\"missing\"] // \"default-value\"",
+		},
+		{
+			name:     "alternative operator with nested path",
+			selector: ".spec.replicas // \"1\"",
+		},
+		{
+			name:     "pipeline with alternative",
+			selector: ".spec.containers[] | select(.name == \"app\") | .image // \"default:latest\"",
+		},
+		{
 			name:      "invalid selector",
 			selector:  ".spec[",
 			shouldErr: true,
@@ -106,14 +119,29 @@ func TestParse(t *testing.T) {
 			}
 
 			// Basic validation - expression should have pipeline steps
-			if len(selector.Pipeline) == 0 {
+			if selector.Left == nil {
+				t.Errorf("Parsed expression has no left pipeline for %q", tt.selector)
+				return
+			}
+			if len(selector.Left.Steps) == 0 {
 				t.Errorf("Parsed expression has no pipeline steps for %q", tt.selector)
 			}
 
 			// Validate pipeline structure
-			for i, step := range selector.Pipeline {
+			for i, step := range selector.Left.Steps {
 				if step.Path == nil && step.Function == nil {
 					t.Errorf("Pipeline step %d has neither path nor function for %q", i, tt.selector)
+				}
+			}
+
+			// Test alternative operator validation for specific cases
+			if strings.Contains(tt.selector, "//") {
+				if selector.Alternative == nil {
+					t.Errorf("Expected alternative value for selector %q with // operator", tt.selector)
+				}
+			} else {
+				if selector.Alternative != nil {
+					t.Errorf("Unexpected alternative value for selector %q without // operator", tt.selector)
 				}
 			}
 		})
