@@ -64,6 +64,11 @@ func validateProjectDirectory(workDir string) error {
 // loadProjectConfiguration resolves the project directory and loads the configuration.
 // This is the main utility function that combines directory resolution, validation, and config loading.
 func loadProjectConfiguration(projectDir string) (*ProjectInfo, error) {
+	return loadProjectConfigurationWithMode(projectDir, config.ValidationModePermissive)
+}
+
+// loadProjectConfigurationWithMode loads project configuration with specified schema validation mode.
+func loadProjectConfigurationWithMode(projectDir string, mode config.ValidationMode) (*ProjectInfo, error) {
 	// Resolve the project directory
 	workDir, err := resolveProjectDirectory(projectDir)
 	if err != nil {
@@ -75,8 +80,8 @@ func loadProjectConfiguration(projectDir string) (*ProjectInfo, error) {
 		return nil, err
 	}
 
-	// Load configuration
-	cfg, err := config.LoadFromDirectory(workDir)
+	// Load configuration with specified validation mode
+	cfg, err := config.LoadFromDirectoryWithValidation(workDir, mode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}

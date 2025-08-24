@@ -30,6 +30,7 @@ linters:
             - github.com/zostay
             - gopkg.in/yaml.v3
             - github.com/spf13/cobra
+            - github.com/xeipuuv/gojsonschema
         tests:
           files:
             - $test
@@ -37,6 +38,7 @@ linters:
             - $gostd
             - github.com/zostay
             - gopkg.in/yaml.v3
+            - github.com/xeipuuv/gojsonschema
   exclusions:
     generated: lax
     presets:

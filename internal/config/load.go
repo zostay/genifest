@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,11 @@ import (
 // It starts by reading the top-level genifest.yaml and then loads directories
 // indicated by the metadata settings (Scripts, Manifests, Files).
 func LoadFromDirectory(rootDir string) (*Config, error) {
+	return LoadFromDirectoryWithValidation(rootDir, ValidationModePermissive)
+}
+
+// LoadFromDirectoryWithValidation loads configurations with specified schema validation mode.
+func LoadFromDirectoryWithValidation(rootDir string, mode ValidationMode) (*Config, error) {
 	abs, err := filepath.Abs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path for %s: %w", rootDir, err)
@@ -21,10 +27,11 @@ func LoadFromDirectory(rootDir string) (*Config, error) {
 
 	// Initialize loading context
 	lc := &loadingContext{
-		configs:     make([]configWithPath, 0),
-		rootDir:     abs,
-		processed:   make(map[string]bool),
-		primaryHome: abs,
+		configs:        make([]configWithPath, 0),
+		rootDir:        abs,
+		processed:      make(map[string]bool),
+		primaryHome:    abs,
+		validationMode: mode,
 	}
 
 	// Load the root directory first
@@ -66,17 +73,36 @@ type configWithPath struct {
 // loadingContext tracks the state during recursive config loading.
 // It maintains a list of loaded configs and prevents infinite recursion.
 type loadingContext struct {
-	configs     []configWithPath
-	rootDir     string
-	processed   map[string]bool // Track processed directories to avoid cycles
-	primaryHome string          // The primary cloudHome from root
+	configs        []configWithPath
+	rootDir        string
+	processed      map[string]bool // Track processed directories to avoid cycles
+	primaryHome    string          // The primary cloudHome from root
+	validationMode ValidationMode  // Schema validation mode to use
 }
 
-// loadConfigFile loads a single genifest.yaml configuration file from the given path.
-func loadConfigFile(path string) (*Config, error) {
+// loadConfigFileWithValidation loads a configuration file with specified validation mode.
+func loadConfigFileWithValidation(path string, mode ValidationMode) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+
+	// Perform schema validation if not in permissive mode
+	if mode != ValidationModePermissive {
+		if err := ValidateWithSchema(data, mode); err != nil {
+			// Check if it's a warning error
+			var warningErr *SchemaWarningsError
+			if errors.As(err, &warningErr) && mode == ValidationModeWarn {
+				// Display warnings immediately but continue loading
+				fmt.Fprintf(os.Stderr, "⚠️  Schema validation warnings in %s:\n", path)
+				for _, warning := range warningErr.Warnings {
+					fmt.Fprintf(os.Stderr, "  • %s\n", warning.String())
+				}
+				fmt.Fprintf(os.Stderr, "\n")
+			} else {
+				return nil, fmt.Errorf("schema validation failed for %s: %w", path, err)
+			}
+		}
 	}
 
 	var config Config
@@ -90,35 +116,32 @@ func loadConfigFile(path string) (*Config, error) {
 // createSyntheticConfig creates a config for directories without genifest.yaml
 // containing all .yaml and .yml files in the directory. This allows directories
 // to be included in the configuration even without explicit genifest.yaml files.
-func createSyntheticConfig(dir string) (*Config, error) {
+func createSyntheticConfig(_ string) *Config {
 	return &Config{
 		Files: FilesConfig{
 			Include: []string{"*.yml", "*.yaml"},
 			Exclude: []string{"genifest.yml", "genifest.yaml"},
 		},
-	}, nil
+	}
 }
 
 // loadDirectoryConfig loads a config from a directory, either from genifest.yaml or synthetic.
 // If genifest.yaml exists, it loads that; otherwise it creates a synthetic config
 // with all YAML files in the directory.
-func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string) (configWithPath, error) {
+func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string, mode ValidationMode) (configWithPath, error) {
 	genifestPath := filepath.Join(dirPath, "genifest.yaml")
 	var config *Config
 	var err error
 
 	if _, statErr := os.Stat(genifestPath); statErr == nil {
-		// genifest.yaml exists, load it normally
-		config, err = loadConfigFile(genifestPath)
+		// genifest.yaml exists, load it normally with validation
+		config, err = loadConfigFileWithValidation(genifestPath, mode)
 		if err != nil {
 			return configWithPath{}, fmt.Errorf("failed to load %s: %w", genifestPath, err)
 		}
 	} else {
 		// No genifest.yaml, create synthetic config
-		config, err = createSyntheticConfig(dirPath)
-		if err != nil {
-			return configWithPath{}, fmt.Errorf("failed to create synthetic config for %s: %w", dirPath, err)
-		}
+		config = createSyntheticConfig(dirPath)
 	}
 
 	return configWithPath{
@@ -171,7 +194,7 @@ func (lc *loadingContext) loadDirectoryRecursive(dirPath string, currentDepth, m
 	}
 
 	// Load the config for this directory
-	configWP, err := loadDirectoryConfig(dirPath, relativePath, cloudHome)
+	configWP, err := loadDirectoryConfig(dirPath, relativePath, cloudHome, lc.validationMode)
 	if err != nil {
 		return err
 	}

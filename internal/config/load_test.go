@@ -55,6 +55,14 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	// Check that files are loaded from the configuration
 	// This includes both files explicitly listed in genifest.yaml and files
 	// discovered through synthetic configs in subdirectories
+
+	// Resolve files to get actual filenames instead of patterns
+	resolvedFiles, err := config.Files.ResolveFiles(guestbookDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve files: %v", err)
+	}
+
+	t.Logf("Loaded %d resolved files: %v", len(resolvedFiles), resolvedFiles)
 	expectedFiles := []string{
 		"manifests/guestbook/frontend-deployment.yaml",
 		"manifests/guestbook/backend-deployment.yaml",
@@ -71,13 +79,13 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	}
 
 	// Check that we have at least the expected files (there may be more from synthetic configs)
-	if len(config.Files.Include) < len(expectedFiles) {
-		t.Errorf("Expected at least %d files, got %d", len(expectedFiles), len(config.Files.Include))
+	if len(resolvedFiles) < len(expectedFiles) {
+		t.Errorf("Expected at least %d files, got %d", len(expectedFiles), len(resolvedFiles))
 	}
 
 	// Verify each expected file is present
 	fileMap := make(map[string]bool)
-	for _, file := range config.Files.Include {
+	for _, file := range resolvedFiles {
 		fileMap[file] = true
 	}
 
