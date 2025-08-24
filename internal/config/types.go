@@ -24,9 +24,9 @@ type Config struct {
 	// Metadata is metadata about genifest configuration.
 	Metadata MetaConfig `yaml:"metadata,omitempty"`
 
-	// Files is the list of files genifest manages and has access to. Paths are
-	// local to the current directory.
-	Files []string `yaml:"files,omitempty"`
+	// Files defines which files genifest manages and has access to using
+	// include/exclude patterns with wildcard support.
+	Files FilesConfig `yaml:"files,omitempty"`
 
 	// Changes are a list of change orders that can be applied to modify the
 	// managed files.
@@ -36,6 +36,93 @@ type Config struct {
 	// is only usable by changes defined in the same path or changes defined
 	// at an inner path.
 	Functions []FunctionDefinition `yaml:"functions,omitempty"`
+}
+
+// FilesConfig defines which files are managed using include/exclude patterns.
+type FilesConfig struct {
+	// Include is a list of file patterns to include. If present, only files
+	// matching these patterns are included. Supports wildcard patterns.
+	Include []string `yaml:"include,omitempty"`
+
+	// Exclude is a list of file patterns to exclude. These are removed from
+	// the include list. Defaults to ["genifest.yml", "genifest.yaml"] if not specified.
+	Exclude []string `yaml:"exclude,omitempty"`
+}
+
+// ResolveFiles returns the final list of files after applying include/exclude patterns
+// with wildcard expansion support.
+func (fc FilesConfig) ResolveFiles(baseDir string) ([]string, error) {
+	var result []string
+
+	// If no include patterns specified, default to all files
+	includePatterns := fc.Include
+	if len(includePatterns) == 0 {
+		includePatterns = []string{"*"}
+	}
+
+	// Expand include patterns
+	for _, pattern := range includePatterns {
+		if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") || strings.Contains(pattern, "[") {
+			// Wildcard pattern - use filepath.Glob
+			var matches []string
+			var err error
+
+			if filepath.IsAbs(pattern) {
+				matches, err = filepath.Glob(pattern)
+			} else {
+				matches, err = filepath.Glob(filepath.Join(baseDir, pattern))
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to expand pattern %q: %w", pattern, err)
+			}
+
+			// Convert absolute paths back to relative
+			for _, match := range matches {
+				if filepath.IsAbs(match) && strings.HasPrefix(match, baseDir+string(filepath.Separator)) {
+					relPath, err := filepath.Rel(baseDir, match)
+					if err == nil {
+						result = append(result, relPath)
+					} else {
+						result = append(result, match)
+					}
+				} else {
+					result = append(result, match)
+				}
+			}
+		} else {
+			// Literal pattern
+			result = append(result, pattern)
+		}
+	}
+
+	// Apply exclude patterns
+	excludePatterns := fc.Exclude
+	if len(excludePatterns) == 0 {
+		excludePatterns = []string{"genifest.yml", "genifest.yaml"}
+	}
+
+	filtered := make([]string, 0, len(result))
+	for _, file := range result {
+		excluded := false
+		for _, excludePattern := range excludePatterns {
+			matched, err := filepath.Match(excludePattern, file)
+			if err == nil && matched {
+				excluded = true
+				break
+			}
+			// Also check full path match
+			if matched, err := filepath.Match(excludePattern, file); err == nil && matched {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, file)
+		}
+	}
+
+	return filtered, nil
 }
 
 // PathContext represents a path with context about where it was defined.
@@ -103,30 +190,140 @@ func (pcs *PathContexts) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+// PathConfig represents a path configuration that can contain nested configurations,
+// scripts, files, or other resources. It can be specified as either a simple string
+// or a detailed configuration map.
+type PathConfig struct {
+	// Path is the relative path to the directory
+	Path string `yaml:"path"`
+
+	// Scripts indicates whether this path contains scripts accessible to ScriptExec
+	Scripts bool `yaml:"scripts,omitempty"`
+
+	// Files indicates whether this path contains files that can be included with FileInclusion
+	Files bool `yaml:"files,omitempty"`
+
+	// Depth specifies how many folders deep to include in the configuration discovery
+	// 0 means only the specified directory, 1 means one level deep, etc.
+	// Default is 0 (single level only)
+	Depth int `yaml:"depth,omitempty"`
+
+	// contextPath is the directory path where this configuration was found
+	contextPath string
+}
+
+// ContextPath returns the directory path where this configuration was found.
+func (pc PathConfig) ContextPath() string {
+	return pc.contextPath
+}
+
+// SetContextPath sets the directory path where this configuration was found.
+func (pc *PathConfig) SetContextPath(path string) {
+	pc.contextPath = path
+}
+
+// MarshalYAML implements yaml.Marshaler for PathConfig.
+// If only Path is set, marshal as a simple string.
+func (pc PathConfig) MarshalYAML() (interface{}, error) {
+	// If this is a simple path (no additional config), marshal as string
+	if !pc.Scripts && !pc.Files && pc.Depth == 0 {
+		return pc.Path, nil
+	}
+
+	// Otherwise marshal as full struct
+	return struct {
+		Path    string `yaml:"path"`
+		Scripts bool   `yaml:"scripts,omitempty"`
+		Files   bool   `yaml:"files,omitempty"`
+		Depth   int    `yaml:"depth,omitempty"`
+	}{
+		Path:    pc.Path,
+		Scripts: pc.Scripts,
+		Files:   pc.Files,
+		Depth:   pc.Depth,
+	}, nil
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for PathConfig.
+// Supports both string and map formats.
+func (pc *PathConfig) UnmarshalYAML(value *yaml.Node) error {
+	// Try to unmarshal as a simple string first
+	var path string
+	if err := value.Decode(&path); err == nil {
+		pc.Path = path
+		pc.Scripts = false
+		pc.Files = false
+		pc.Depth = 0 // Default depth is 0 (single level only)
+		return nil
+	}
+
+	// If that fails, try to unmarshal as a full struct
+	var config struct {
+		Path    string `yaml:"path"`
+		Scripts bool   `yaml:"scripts,omitempty"`
+		Files   bool   `yaml:"files,omitempty"`
+		Depth   int    `yaml:"depth,omitempty"`
+	}
+
+	if err := value.Decode(&config); err != nil {
+		return err
+	}
+
+	pc.Path = config.Path
+	pc.Scripts = config.Scripts
+	pc.Files = config.Files
+	pc.Depth = config.Depth
+	if pc.Depth == 0 {
+		pc.Depth = 0 // Default depth is 0 (single level only)
+	}
+
+	return nil
+}
+
+// PathConfigs is a slice of PathConfig that implements custom YAML marshalling.
+type PathConfigs []PathConfig
+
+// MarshalYAML implements yaml.Marshaler for PathConfigs.
+func (pcs PathConfigs) MarshalYAML() (interface{}, error) {
+	result := make([]interface{}, len(pcs))
+	for i, pc := range pcs {
+		marshaled, err := pc.MarshalYAML()
+		if err != nil {
+			return nil, err
+		}
+		result[i] = marshaled
+	}
+	return result, nil
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for PathConfigs.
+func (pcs *PathConfigs) UnmarshalYAML(value *yaml.Node) error {
+	var items []yaml.Node
+	if err := value.Decode(&items); err != nil {
+		return err
+	}
+
+	*pcs = make(PathConfigs, len(items))
+	for i, item := range items {
+		if err := (*pcs)[i].UnmarshalYAML(&item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // MetaConfig contains metadata about the genifest configuration including
-// directory paths for scripts, manifests, and files, as well as the cloudHome boundary.
+// directory paths and processing rules, as well as the cloudHome boundary.
 type MetaConfig struct {
 	// CloudHome is the path to the root of the configuration. No genifest.yaml
 	// configuration or work will be done outside of this folder. This is always
 	// set by the loader based on the working directory of the genifest command.
 	CloudHome string `yaml:"cloudHome,omitempty"`
 
-	// Scripts is a list of folders that may contain scripts. These are relative
-	// to the folder holding the configuration file.
-	Scripts PathContexts `yaml:"scripts,omitempty"`
-
-	// Manifests is a list of folders that may contain manifests. These folders
-	// are structured with sub-folders identifying applications. This is usual
-	// only defined in the top-level genifest.yaml, but in any case, the path is
-	// relative to the directory containing the configuration file.
-	Manifests PathContexts `yaml:"manifests,omitempty"`
-
-	// Files is a list of folders holding other related files, which are used with
-	// the FileInclusion ValueFrom values. These are usually defined in the top-level
-	// genifest.yaml file, but are defined relative to the configuration file
-	// holding it. Similar to Manifests, these folders are arranged using sub-folders
-	// to identify the app that the files belong to.
-	Files PathContexts `yaml:"files,omitempty"`
+	// Paths is a unified list of paths that can contain nested configurations,
+	// scripts, files, or other resources. Each path can be specified as either
+	// a string (simple path) or a map with configuration options.
+	Paths PathConfigs `yaml:"paths,omitempty"`
 }
 
 // ChangeOrder represents a modification to be applied to managed files.
@@ -469,20 +666,8 @@ func (m *MetaConfig) ValidateWithContext(ctx *ValidationContext) error {
 	}
 
 	if cloudHome != "" {
-		for _, scriptCtx := range m.Scripts {
-			if err := m.validatePathWithinHome(cloudHome, scriptCtx.Path, "script"); err != nil {
-				return err
-			}
-		}
-
-		for _, manifestCtx := range m.Manifests {
-			if err := m.validatePathWithinHome(cloudHome, manifestCtx.Path, "manifest"); err != nil {
-				return err
-			}
-		}
-
-		for _, fileCtx := range m.Files {
-			if err := m.validatePathWithinHome(cloudHome, fileCtx.Path, "file"); err != nil {
+		for _, pathConfig := range m.Paths {
+			if err := m.validatePathWithinHome(cloudHome, pathConfig.Path, ""); err != nil {
 				return err
 			}
 		}
@@ -508,6 +693,9 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 
 		// Check if the normalized path attempts to escape
 		if strings.Contains(cleanPath, "..") {
+			if pathType == "" {
+				return fmt.Errorf("path '%s' attempts to reference parent directories outside of cloudHome", relativePath)
+			}
 			return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of cloudHome", pathType, relativePath)
 		}
 	}
@@ -517,11 +705,17 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 
 	absRoot, err := filepath.Abs(rootPath)
 	if err != nil {
+		if pathType == "" {
+			return fmt.Errorf("path '%s' failed to validate because of filesystem error: %w", rootPath, err)
+		}
 		return fmt.Errorf("%s path '%s' failed to validate because of filesystem error: %w", pathType, rootPath, err)
 	}
 
 	// Check for absolute paths (not allowed)
 	if filepath.IsAbs(cleanPath) {
+		if pathType == "" {
+			return fmt.Errorf("path '%s' must be relative, not absolute", relativePath)
+		}
 		return fmt.Errorf("%s path '%s' must be relative, not absolute", pathType, relativePath)
 	}
 
@@ -532,6 +726,9 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 
 	// Check if the resolved path is still within the cloudHome boundary
 	if !strings.HasPrefix(cleanAbsPath, absRoot+string(filepath.Separator)) && cleanAbsPath != absRoot {
+		if pathType == "" {
+			return fmt.Errorf("path '%s' attempts to reference parent directories outside of cloudHome", relativePath)
+		}
 		return fmt.Errorf("%s path '%s' attempts to reference parent directories outside of cloudHome", pathType, relativePath)
 	}
 

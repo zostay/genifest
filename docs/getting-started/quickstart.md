@@ -54,9 +54,16 @@ cat genifest.yaml
 ```yaml
 metadata:
   cloudHome: "."
-  scripts: ["scripts"]
-  manifests: ["manifests"]
-  files: ["files"]
+  paths:
+    - path: "scripts"
+      scripts: true
+      depth: 0
+    - path: "manifests"
+      files: true
+      depth: 1
+    - path: "files"
+      files: true
+      depth: 1
 
 functions:
   - name: "get-replicas"
@@ -70,7 +77,7 @@ functions:
 
 This defines:
 
-- **Metadata**: Where to find scripts, manifests, and files
+- **Metadata**: Directory paths with their capabilities and depths
 - **Functions**: Reusable value generators
 
 Now consider the configuration in `manifests/guestbook/genifest.yaml`:
@@ -81,13 +88,14 @@ cat manifests/guestbook/genifest.yaml
 
 ```yaml
 files:
-   - backend-deployment.yaml
-   - backend-service.yaml
-   - configmap.yaml
-   - frontend-deployment.yaml
-   - frontend-service.yaml
-   - ingress.yaml
-   - secret.yaml
+  include:
+    - backend-deployment.yaml
+    - backend-service.yaml
+    - configmap.yaml
+    - frontend-deployment.yaml
+    - frontend-service.yaml
+    - ingress.yaml
+    - secret.yaml
 
 changes:
    - tag: "production"
@@ -217,7 +225,10 @@ cd my-k8s-project
 cat > genifest.yaml << EOF
 metadata:
   cloudHome: "."
-  manifests: ["k8s"]
+  paths:
+    - path: "k8s"
+      files: true
+      depth: 0
 
 functions:
   - name: "get-replicas"

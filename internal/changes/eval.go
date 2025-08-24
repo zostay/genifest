@@ -1,6 +1,7 @@
 package changes
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,21 +33,33 @@ type EvalContext struct {
 	// CloudHome is the base directory for resolving relative paths
 	CloudHome string
 
-	// ScriptsDir is the directory containing scripts
-	ScriptsDir string
+	// ScriptsDirs are the directories containing scripts (search path)
+	ScriptsDirs []string
 
-	// FilesDir is the directory containing files
-	FilesDir string
+	// FilesDirs are the directories containing files (search path)
+	FilesDirs []string
 }
 
-// NewEvalContext creates a new evaluation context.
+// NewEvalContext creates a new evaluation context with single directories (legacy).
 func NewEvalContext(cloudHome, scriptsDir, filesDir string, functions []config.FunctionDefinition) *EvalContext {
+	var scriptsDirs, filesDirs []string
+	if scriptsDir != "" {
+		scriptsDirs = []string{scriptsDir}
+	}
+	if filesDir != "" {
+		filesDirs = []string{filesDir}
+	}
+	return NewEvalContextWithPaths(cloudHome, scriptsDirs, filesDirs, functions)
+}
+
+// NewEvalContextWithPaths creates a new evaluation context with multiple search paths.
+func NewEvalContextWithPaths(cloudHome string, scriptsDirs, filesDirs []string, functions []config.FunctionDefinition) *EvalContext {
 	return &EvalContext{
-		Variables:  make(map[string]string),
-		Functions:  functions,
-		CloudHome:  cloudHome,
-		ScriptsDir: scriptsDir,
-		FilesDir:   filesDir,
+		Variables:   make(map[string]string),
+		Functions:   functions,
+		CloudHome:   cloudHome,
+		ScriptsDirs: scriptsDirs,
+		FilesDirs:   filesDirs,
 	}
 }
 
@@ -195,7 +208,7 @@ func (ctx *EvalContext) evaluateFunctionCall(fc config.FunctionCall) (string, er
 		}
 	}
 
-	// Create new context with function arguments
+	// Create new context with function arguments, preserving document context
 	functionCtx := ctx.WithVariables(functionVars)
 
 	// Evaluate the function's ValueFrom
@@ -205,11 +218,19 @@ func (ctx *EvalContext) evaluateFunctionCall(fc config.FunctionCall) (string, er
 // evaluateScriptExec executes a script and returns its stdout.
 func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error) {
 	// Resolve script path
-	scriptPath := filepath.Join(ctx.ScriptsDir, se.ExecCommand)
-
-	// Check if script exists
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("script %q not found at %s", se.ExecCommand, scriptPath)
+	// Find script in search path
+	var scriptPath string
+	var found bool
+	for _, dir := range ctx.ScriptsDirs {
+		candidatePath := filepath.Join(dir, se.ExecCommand)
+		if _, err := os.Stat(candidatePath); err == nil {
+			scriptPath = candidatePath
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("script %q not found in any of the script directories: %v", se.ExecCommand, ctx.ScriptsDirs)
 	}
 
 	// Prepare command
@@ -253,13 +274,29 @@ func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error)
 		cmd.Stdin = strings.NewReader(stdinValue)
 	}
 
-	// Execute and capture output
-	output, err := cmd.Output()
+	// Execute and capture both stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("script execution failed: %w", err)
+		// Include both stdout and stderr in error message for debugging
+		var errorMsg strings.Builder
+		errorMsg.WriteString(fmt.Sprintf("script execution failed: %v", err))
+
+		if stderr.Len() > 0 {
+			errorMsg.WriteString(fmt.Sprintf("\nstderr: %s", strings.TrimSpace(stderr.String())))
+		}
+
+		if stdout.Len() > 0 {
+			errorMsg.WriteString(fmt.Sprintf("\nstdout: %s", strings.TrimSpace(stdout.String())))
+		}
+
+		return "", fmt.Errorf("%s", errorMsg.String())
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // evaluateFileInclusion reads a file and returns its contents.
@@ -276,12 +313,25 @@ func (ctx *EvalContext) evaluateFileInclusion(fi config.FileInclusion) (string, 
 		}
 	}
 
-	// Build file path
+	// Search for file in all file directories
 	var filePath string
-	if appDir != "" {
-		filePath = filepath.Join(ctx.FilesDir, appDir, fi.Source)
-	} else {
-		filePath = filepath.Join(ctx.FilesDir, fi.Source)
+	var found bool
+	for _, dir := range ctx.FilesDirs {
+		var candidatePath string
+		if appDir != "" {
+			candidatePath = filepath.Join(dir, appDir, fi.Source)
+		} else {
+			candidatePath = filepath.Join(dir, fi.Source)
+		}
+		if _, err := os.Stat(candidatePath); err == nil {
+			filePath = candidatePath
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return "", fmt.Errorf("file %q not found in any of the file directories: %v", fi.Source, ctx.FilesDirs)
 	}
 
 	// Read file

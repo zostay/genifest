@@ -14,9 +14,16 @@ Genifest uses YAML configuration files to define how to generate and modify Kube
 ```yaml
 metadata:
   cloudHome: "."
-  scripts: ["scripts"]
-  manifests: ["manifests"]
-  files: ["files"]
+  paths:
+    - path: "scripts"
+      scripts: true
+      depth: 0
+    - path: "manifests"
+      files: true
+      depth: 1
+    - path: "files"
+      files: true
+      depth: 0
 
 functions:
   - name: "example-function"

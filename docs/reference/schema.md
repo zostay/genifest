@@ -11,9 +11,11 @@ Complete schema reference for Genifest configuration files.
 # genifest.yaml
 metadata:
   cloudHome: string              # Optional: security boundary
-  scripts: [string]              # Optional: script directories
-  manifests: [string]            # Optional: manifest directories  
-  files: [string]                # Optional: file directories
+  paths:                         # Optional: unified directory configuration
+    - path: string               # Required: directory path
+      scripts: boolean           # Optional: enable script execution access
+      files: boolean             # Optional: enable file inclusion access  
+      depth: integer             # Optional: directory depth (0-based, default 0)
 
 functions:                       # Optional: function definitions
   - name: string                 # Required: function name
@@ -22,7 +24,9 @@ functions:                       # Optional: function definitions
         required: boolean        # Optional: default false
     valueFrom: ValueFrom         # Required: value generation
 
-files: [string]                  # Optional: managed files
+files:                           # Optional: managed files
+  include: [string]              # Optional: files to include (supports wildcards)
+  exclude: [string]              # Optional: files to exclude (supports wildcards)
 
 changes:                         # Optional: change definitions
   - tag: string                  # Optional: filter tag
@@ -47,6 +51,7 @@ The `keySelector` field uses **yq-style path expressions** to specify which part
 | `["key"]` | Quoted key access | `["app.yaml"]` |
 | `['key']` | Single-quoted key | `['key-name']` |
 | `\|` | Pipeline operator | `\| select(.name == "app")` |
+| `//` | Alternative operator | `// "default-value"` |
 | `select()` | Filter function | `select(.name == "frontend")` |
 | `==`, `!=` | Comparison operators | `.name == "app"` |
 
@@ -79,6 +84,11 @@ keySelector: ".spec.containers[]"                                              #
 keySelector: ".spec.containers[] | select(.name == \"frontend\")"              # Filter containers
 keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"     # Pipeline with field access
 
+# Alternative values for fallbacks
+keySelector: ".metadata.annotations[\"missing\"] // \"default-value\""          # Fallback if annotation missing
+keySelector: ".spec.replicas // \"3\""                                         # Default replica count
+keySelector: ".data.config // \"fallback-config\""                             # Default configuration
+
 # Complex nested access
 keySelector: ".spec.template.spec.containers[0].image"
 keySelector: ".spec.volumes[0].configMap.items[1].key"
@@ -108,6 +118,7 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 - Array slicing (`[start:end]`, `[start:]`, `[:end]`)
 - Quoted key access (`["key"]`, `['key']`) for special characters
 - Pipeline operations (`|`) for chaining expressions
+- Alternative operator (`//`) for fallback values when paths don't exist
 - Filtering with `select()` function
 - Comparison operators (`==`, `!=`) for equality tests
 - Complex nested paths combining all above features

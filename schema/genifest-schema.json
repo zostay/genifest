@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genifest.qubling.com/schema/genifest-config.json",
+  "title": "Genifest Configuration",
+  "description": "Schema for Genifest configuration files",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "$ref": "#/$defs/MetaConfig"
+    },
+    "functions": {
+      "type": "array",
+      "description": "Function definitions for reusable value generation",
+      "items": {
+        "$ref": "#/$defs/FunctionDefinition"
+      }
+    },
+    "files": {
+      "$ref": "#/$defs/FilesConfig"
+    },
+    "changes": {
+      "type": "array",
+      "description": "Change orders defining modifications to apply to files",
+      "items": {
+        "$ref": "#/$defs/ChangeOrder"
+      }
+    }
+  },
+  "$defs": {
+    "MetaConfig": {
+      "type": "object",
+      "description": "Metadata configuration for directory discovery and security",
+      "additionalProperties": false,
+      "properties": {
+        "cloudHome": {
+          "type": "string",
+          "description": "Security boundary directory - all operations must stay within this path"
+        },
+        "paths": {
+          "type": "array",
+          "description": "Unified directory configuration with capabilities and depths",
+          "items": {
+            "$ref": "#/$defs/PathConfig"
+          }
+        }
+      }
+    },
+    "PathConfig": {
+      "type": "object",
+      "description": "Directory configuration with capabilities and depth",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to the directory"
+        },
+        "scripts": {
+          "type": "boolean",
+          "description": "Enable script execution access for this path",
+          "default": false
+        },
+        "files": {
+          "type": "boolean", 
+          "description": "Enable file inclusion access for this path",
+          "default": false
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Directory depth for configuration discovery (0-based, 0=single level)",
+          "default": 0
+        }
+      }
+    },
+    "FilesConfig": {
+      "type": "object",
+      "description": "File selection configuration with include/exclude patterns",
+      "additionalProperties": false,
+      "properties": {
+        "include": {
+          "type": "array",
+          "description": "Files to include (supports wildcards)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "description": "Files to exclude from include list (supports wildcards)",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "FunctionDefinition": {
+      "type": "object",
+      "description": "Function definition for reusable value generation",
+      "additionalProperties": false,
+      "required": ["name", "valueFrom"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$",
+          "description": "Function name (lowercase, hyphens allowed, must start/end with letter/number)"
+        },
+        "params": {
+          "type": "array",
+          "description": "Function parameters",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/ValueFrom"
+        }
+      }
+    },
+    "Parameter": {
+      "type": "object",
+      "description": "Function parameter definition",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+          "description": "Parameter name"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this parameter is required",
+          "default": false
+        }
+      }
+    },
+    "ChangeOrder": {
+      "type": "object",
+      "description": "Change order defining a modification to apply to files",
+      "additionalProperties": false,
+      "required": ["fileSelector", "keySelector", "valueFrom"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$",
+          "description": "Optional tag for filtering changes"
+        },
+        "fileSelector": {
+          "type": "string",
+          "description": "Glob pattern to match files"
+        },
+        "keySelector": {
+          "type": "string",
+          "description": "YAML path expression to specify which field to modify"
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/ValueFrom"
+        }
+      }
+    },
+    "ValueFrom": {
+      "type": "object",
+      "description": "Value generation expression - exactly one field must be set",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["default"],
+          "properties": {
+            "default": {
+              "$ref": "#/$defs/DefaultValue"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["argRef"],
+          "properties": {
+            "argRef": {
+              "$ref": "#/$defs/ArgumentRef"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["template"],
+          "properties": {
+            "template": {
+              "$ref": "#/$defs/BasicTemplate"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["call"],
+          "properties": {
+            "call": {
+              "$ref": "#/$defs/FunctionCall"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["script"],
+          "properties": {
+            "script": {
+              "$ref": "#/$defs/ScriptExec"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["file"],
+          "properties": {
+            "file": {
+              "$ref": "#/$defs/FileInclusion"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["documentRef"],
+          "properties": {
+            "documentRef": {
+              "$ref": "#/$defs/DocumentRef"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["pipeline"],
+          "properties": {
+            "pipeline": {
+              "$ref": "#/$defs/CallPipeline"
+            }
+          }
+        }
+      ]
+    },
+    "DefaultValue": {
+      "type": "object",
+      "description": "Literal string value",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Literal value to use"
+        }
+      }
+    },
+    "ArgumentRef": {
+      "type": "object",
+      "description": "Reference to a variable from the evaluation context",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the variable to reference"
+        }
+      }
+    },
+    "BasicTemplate": {
+      "type": "object", 
+      "description": "Template string with ${variable} substitution",
+      "additionalProperties": false,
+      "required": ["string"],
+      "properties": {
+        "string": {
+          "type": "string",
+          "description": "Template string with ${variable} placeholders"
+        },
+        "variables": {
+          "type": "array",
+          "description": "Variables available for substitution",
+          "items": {
+            "$ref": "#/$defs/Argument"
+          }
+        }
+      }
+    },
+    "FunctionCall": {
+      "type": "object",
+      "description": "Call to a named function",
+      "additionalProperties": false,
+      "required": ["function"],
+      "properties": {
+        "function": {
+          "type": "string",
+          "description": "Name of the function to call"
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments to pass to the function",
+          "items": {
+            "$ref": "#/$defs/Argument"
+          }
+        }
+      }
+    },
+    "ScriptExec": {
+      "type": "object",
+      "description": "Execute a script from the scripts directory",
+      "additionalProperties": false,
+      "required": ["exec"],
+      "properties": {
+        "exec": {
+          "type": "string",
+          "description": "Script filename to execute"
+        },
+        "args": {
+          "type": "array",
+          "description": "Command line arguments",
+          "items": {
+            "$ref": "#/$defs/Argument"
+          }
+        },
+        "env": {
+          "type": "array",
+          "description": "Environment variables",
+          "items": {
+            "$ref": "#/$defs/Argument"
+          }
+        },
+        "stdin": {
+          "$ref": "#/$defs/ValueFrom",
+          "description": "Data to pass to script via stdin"
+        }
+      }
+    },
+    "FileInclusion": {
+      "type": "object",
+      "description": "Include content from a file",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "app": {
+          "type": "string",
+          "description": "Optional subdirectory name"
+        },
+        "source": {
+          "type": "string",
+          "description": "Filename to include"
+        }
+      }
+    },
+    "DocumentRef": {
+      "type": "object",
+      "description": "Reference to a field in the current YAML document",
+      "additionalProperties": false,
+      "required": ["keySelector"],
+      "properties": {
+        "keySelector": {
+          "type": "string",
+          "description": "YAML path expression to the field"
+        }
+      }
+    },
+    "CallPipeline": {
+      "type": "array",
+      "description": "Sequence of operations where each feeds into the next",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/CallPipe"
+      }
+    },
+    "CallPipe": {
+      "type": "object",
+      "description": "Single step in a pipeline",
+      "additionalProperties": false,
+      "required": ["valueFrom"],
+      "properties": {
+        "valueFrom": {
+          "$ref": "#/$defs/ValueFrom"
+        },
+        "output": {
+          "type": "string",
+          "description": "Name for the output variable (available to next step)"
+        }
+      }
+    },
+    "Argument": {
+      "type": "object",
+      "description": "Named argument with value generation",
+      "additionalProperties": false,
+      "required": ["name", "valueFrom"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Argument name"
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/ValueFrom"
+        }
+      }
+    }
+  }
+}

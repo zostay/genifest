@@ -88,7 +88,12 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) will be processed (all changes)\n", changesToRun)
 	}
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(cfg.Files))
+	// Get resolved files count for display
+	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		resolvedFiles = cfg.Files.Include // Fallback to include list
+	}
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(resolvedFiles))
 	fmt.Printf("\n")
 
 	if changesToRun == 0 {
@@ -277,6 +282,7 @@ func setValueInDocumentComplex(doc *yaml.Node, expression *keysel.Expression, ne
 	originalValue := targetNode.Value
 	targetNode.Value = newValue
 	targetNode.Kind = yaml.ScalarNode
+	targetNode.Tag = "" // Clear the tag so YAML can infer the correct type
 
 	// Return whether the value actually changed
 	return originalValue != newValue, nil
@@ -370,6 +376,7 @@ func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, err
 		if i+1 < len(node.Content) && node.Content[i].Value == fieldName {
 			node.Content[i+1].Value = value
 			node.Content[i+1].Kind = yaml.ScalarNode
+			node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 			return true, nil
 		}
 	}
@@ -398,6 +405,7 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 			}
 			node.Content[index].Value = value
 			node.Content[index].Kind = yaml.ScalarNode
+			node.Content[index].Tag = "" // Clear the tag so YAML can infer the correct type
 			return true, nil
 		}
 		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
@@ -412,6 +420,7 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 			if i+1 < len(node.Content) && node.Content[i].Value == key {
 				node.Content[i+1].Value = value
 				node.Content[i+1].Kind = yaml.ScalarNode
+				node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 				return true, nil
 			}
 		}
@@ -479,9 +488,11 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
-	// Collect all files from the configuration
-	filesToProcess := make([]string, 0, len(cfg.Files))
-	filesToProcess = append(filesToProcess, cfg.Files...)
+	// Resolve files with wildcard expansion
+	filesToProcess, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		return stats, fmt.Errorf("failed to resolve files: %w", err)
+	}
 
 	// Process each file
 	for _, filePath := range filesToProcess {
@@ -586,7 +597,7 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 
 	// Apply each change result to the document
 	for _, result := range results {
-		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, result, applier, filePath)
+		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, &result, applier, filePath)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply change %s: %w", result.KeyPath, err)
 		}
@@ -605,31 +616,28 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 }
 
 // applyChangeToDocumentWithOldValue applies a single change to a YAML document and returns the old value.
-func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
+func applyChangeToDocumentWithOldValue(doc *yaml.Node, result *changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
 	// First, get the old value
 	oldValue, err := getValueInDocument(doc, result.Change.KeySelector)
 	if err != nil {
 		oldValue = "<not found>" // Value doesn't exist yet
 	}
 
-	// For document references, we need to evaluate the value in the context of this document
-	if result.Change.KeySelector != "" {
-		// Create evaluation context with this document
-		evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
+	// Always evaluate the value in the context of this document
+	// Create evaluation context with this document
+	evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
 
-		// Evaluate the ValueFrom in the context of this document
-		value, err := evalCtx.Evaluate(result.Change.ValueFrom)
-		if err != nil {
-			return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
-		}
-
-		// Apply the change using the key selector
-		changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
-		return changed, oldValue, err
+	// Evaluate the ValueFrom in the context of this document
+	value, err := evalCtx.Evaluate(result.Change.ValueFrom)
+	if err != nil {
+		return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
 	}
 
-	// For other types of changes, use the pre-evaluated value
-	changed, err := setValueInDocument(doc, result.KeyPath, result.Value)
+	// Update result with evaluated value for display purposes
+	result.Value = value
+
+	// Apply the change using the key selector
+	changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
 	return changed, oldValue, err
 }
 

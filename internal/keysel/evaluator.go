@@ -37,6 +37,22 @@ func (e *Evaluator) EvaluateSelector(node *yaml.Node, selectorStr string) (strin
 	return e.nodeToString(result)
 }
 
+// literalToString converts a literal AST node to its string representation.
+func (e *Evaluator) literalToString(literal *Literal) string {
+	if literal.String != nil {
+		// Remove surrounding quotes
+		s := *literal.String
+		if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
+			return s[1 : len(s)-1]
+		}
+		return s
+	}
+	if literal.Number != nil {
+		return fmt.Sprintf("%d", *literal.Number)
+	}
+	return ""
+}
+
 // nodeToString converts a YAML node to its string representation.
 func (e *Evaluator) nodeToString(node *yaml.Node) (string, error) {
 	if node.Kind == yaml.ScalarNode {

@@ -164,7 +164,8 @@ func TestValidateConfiguration_Success(t *testing.T) {
 	// Create genifest.yaml
 	configContent := `metadata:
   cloudHome: "."
-files: []
+files:
+  include: []
 functions:
   - name: "test-function"
     valueFrom:
@@ -230,9 +231,10 @@ func TestValidateConfiguration_ValidationErrors(t *testing.T) {
 	// Create genifest.yaml with references to non-existent files
 	configContent := `metadata:
   cloudHome: "."
-files: 
-  - "missing1.yaml"
-  - "missing2.yaml"
+files:
+  include:
+    - "missing1.yaml"
+    - "missing2.yaml"
 functions:
   - name: "test-function"
     valueFrom:
@@ -314,7 +316,8 @@ func TestValidateConfiguration_ConfigLoadingValidationError(t *testing.T) {
 			name: "invalid function name",
 			configContent: `metadata:
   cloudHome: "."
-files: []
+files:
+  include: []
 functions:
   - name: "1invalid-name"
     valueFrom:
@@ -327,7 +330,8 @@ changes: []`,
 			name: "missing keySelector",
 			configContent: `metadata:
   cloudHome: "."
-files: []
+files:
+  include: []
 functions: []
 changes:
   - fileSelector: "*.yaml"
@@ -422,7 +426,8 @@ func TestValidateConfiguration_AdditionalValidationChecks(t *testing.T) {
 			name: "duplicate function names",
 			configContent: `metadata:
   cloudHome: "."
-files: []
+files:
+  include: []
 functions:
   - name: "duplicate"
     valueFrom:
@@ -441,9 +446,10 @@ changes: []`,
 			name: "missing referenced files",
 			configContent: `metadata:
   cloudHome: "."
-files: 
-  - "missing1.yaml"
-  - "missing2.yaml"
+files:
+  include:
+    - "missing1.yaml"
+    - "missing2.yaml"
 functions: []
 changes: []`,
 			expectedErrors: []string{
@@ -526,7 +532,8 @@ func TestValidateConfiguration_WithTags(t *testing.T) {
 
 	configContent := `metadata:
   cloudHome: "."
-files: []
+files:
+  include: []
 functions:
   - name: "test-function"
     valueFrom:

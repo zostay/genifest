@@ -1,11 +1,12 @@
 files:
-  - backend-deployment.yaml
-  - backend-service.yaml
-  - configmap.yaml
-  - frontend-deployment.yaml
-  - frontend-service.yaml
-  - ingress.yaml
-  - secret.yaml
+  include:
+    - backend-deployment.yaml
+    - backend-service.yaml
+    - configmap.yaml
+    - frontend-deployment.yaml
+    - frontend-service.yaml
+    - ingress.yaml
+    - secret.yaml
 
 changes:
   - tag: production
@@ -69,3 +70,26 @@ changes:
             valueFrom:
               default:
                 value: dev
+
+  - tag: config
+    fileSelector: configmap.yaml
+    keySelector: .data.quote
+    valueFrom:
+      pipeline:
+        - valueFrom:
+            call:
+              function: quote
+              args:
+                - name: text
+                  valueFrom:
+                    documentRef:
+                      keySelector: .metadata.annotations["genifest.qubling.com/quote"] // "tyranny"
+          output: quotation
+        - valueFrom:
+            call:
+              function: rotN
+              args:
+                - name: text
+                  valueFrom:
+                    argRef:
+                      name: quotation

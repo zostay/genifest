@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/zostay/genifest/internal/config"
 )
 
@@ -22,16 +24,19 @@ func NewApplier(cfg *config.Config) *Applier {
 		cloudHome = "."
 	}
 
-	// Build script and file directories from metadata
-	var scriptsDir, filesDir string
-	if len(cfg.Metadata.Scripts) > 0 {
-		scriptsDir = filepath.Join(cloudHome, cfg.Metadata.Scripts[0].Path)
-	}
-	if len(cfg.Metadata.Files) > 0 {
-		filesDir = filepath.Join(cloudHome, cfg.Metadata.Files[0].Path)
+	// Build script and file directory lists from unified paths metadata
+	var scriptsDirs, filesDirs []string
+	for _, pathConfig := range cfg.Metadata.Paths {
+		fullPath := filepath.Join(cloudHome, pathConfig.Path)
+		if pathConfig.Scripts {
+			scriptsDirs = append(scriptsDirs, fullPath)
+		}
+		if pathConfig.Files {
+			filesDirs = append(filesDirs, fullPath)
+		}
 	}
 
-	evalCtx := NewEvalContext(cloudHome, scriptsDir, filesDir, cfg.Functions)
+	evalCtx := NewEvalContextWithPaths(cloudHome, scriptsDirs, filesDirs, cfg.Functions)
 
 	return &Applier{
 		config:  cfg,
@@ -45,9 +50,12 @@ func (a *Applier) GetEvalContext() *EvalContext {
 }
 
 // EvaluateChangeValue evaluates a change order's value in the context of a specific file.
-func (a *Applier) EvaluateChangeValue(change config.ChangeOrder, filePath string) (string, error) {
-	// Create context for this specific file
+func (a *Applier) EvaluateChangeValue(change config.ChangeOrder, filePath string, doc *yaml.Node) (string, error) {
+	// Create context for this specific file and document
 	ctx := a.evalCtx.WithFile(filePath)
+	if doc != nil {
+		ctx = ctx.WithDocument(doc)
+	}
 
 	// Evaluate the change's ValueFrom
 	return ctx.Evaluate(change.ValueFrom)
@@ -105,16 +113,11 @@ func (a *Applier) ApplyChanges(filePath string, tags []string) ([]ChangeResult, 
 			}
 		}
 
-		// Evaluate the change value
-		value, err := a.EvaluateChangeValue(change, filePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate change for file %s: %w", filePath, err)
-		}
-
+		// Don't pre-evaluate the change value - let it be evaluated later with document context
 		results = append(results, ChangeResult{
 			Change:   change,
 			FilePath: filePath,
-			Value:    value,
+			Value:    "", // Empty value means evaluate later
 			KeyPath:  change.KeySelector,
 		})
 	}
