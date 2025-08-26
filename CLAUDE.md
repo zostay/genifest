@@ -267,3 +267,4 @@ The command-line interface implements a subcommand-based architecture:
 - **Test Coverage**: Focus on integration tests and critical path validation over 100% unit test coverage
 - Always run genifeest by passing the diretory to the command: genifest run examples/guestbook, genifest valiadate examples/guestbook, genifest tag examples/genifest, etc. Do not change directories to run genifest.
 - Never avoid installing a library or using one because it fails depguard. Add the dependency and if there's a problem, it will be caught in review.
+- When testing, do not compile and run. If you forget to compile, then you can run old code by accident. Always use "go run ./ <cli-args...>" to test the code to ensure that you're always running the latest code.

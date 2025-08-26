@@ -597,6 +597,12 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 
 	// Apply each change result to the document
 	for _, result := range results {
+		// Check if document selector matches this document
+		matches := matchesDocumentSelector(doc, result.Change.DocumentSelector)
+		if !matches {
+			continue
+		}
+
 		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, &result, applier, filePath)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply change %s: %w", result.KeyPath, err)
@@ -639,6 +645,62 @@ func applyChangeToDocumentWithOldValue(doc *yaml.Node, result *changes.ChangeRes
 	// Apply the change using the key selector
 	changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
 	return changed, oldValue, err
+}
+
+// matchesDocumentSelector checks if a document matches the given document selector.
+func matchesDocumentSelector(doc *yaml.Node, selector config.DocumentSelector) bool {
+	// If no selector provided, match all documents
+	if len(selector) == 0 {
+		return true
+	}
+
+	// Start from the root content if this is a document node
+	current := doc
+	if current.Kind == yaml.DocumentNode && len(current.Content) > 0 {
+		current = current.Content[0]
+	}
+
+	// Check each selector key-value pair
+	for selectorKey, expectedValue := range selector {
+		actualValue, err := getDocumentValue(current, selectorKey)
+		if err != nil || actualValue != expectedValue {
+			return false
+		}
+	}
+
+	return true
+}
+
+// getDocumentValue gets a value from a YAML document using a simple key path.
+func getDocumentValue(doc *yaml.Node, keyPath string) (string, error) {
+	// Split the key path by dots
+	parts := strings.Split(keyPath, ".")
+	current := doc
+
+	// Navigate through the path
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		if current.Kind != yaml.MappingNode {
+			return "", fmt.Errorf("cannot navigate to %q from non-mapping node", part)
+		}
+
+		found := false
+		for i := 0; i < len(current.Content); i += 2 {
+			if i+1 < len(current.Content) && current.Content[i].Value == part {
+				current = current.Content[i+1]
+				found = true
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("key %q not found", part)
+		}
+	}
+
+	return current.Value, nil
 }
 
 // getValueInDocument gets a value from a YAML document using a key selector.

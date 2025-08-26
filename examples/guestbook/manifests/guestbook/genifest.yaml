@@ -50,6 +50,9 @@ changes:
 
   - tag: config
     fileSelector: configmap.yaml
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-config
     keySelector: .data.["app.yaml"]
     valueFrom:
       file:
@@ -73,6 +76,9 @@ changes:
 
   - tag: config
     fileSelector: configmap.yaml
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-quotes
     keySelector: .data.quote
     valueFrom:
       pipeline:
