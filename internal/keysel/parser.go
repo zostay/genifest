@@ -69,6 +69,13 @@ type Bracket struct {
 	Content string `parser:"Dot? LBracket @( Number ( Colon Number? )? | Colon Number? | ( String | SingleString ) | Colon ) RBracket"`
 }
 
+// IsQuotedString returns true if the bracket content represents a quoted string.
+func (b *Bracket) IsQuotedString() bool {
+	content := b.Content
+	return (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
+}
+
 // ArrayIter represents array iteration ([]).
 type ArrayIter struct {
 	Token string `parser:"Dot? LBracket RBracket"`
@@ -338,25 +345,30 @@ func (e *Evaluator) evaluateBracketSlice(node *yaml.Node, content string) (*yaml
 
 // evaluateBracketIndex handles index operations like [0], [-1], ["key"].
 func (e *Evaluator) evaluateBracketIndex(node *yaml.Node, content string) (*yaml.Node, error) {
-	// Try numeric index first
-	if idx, err := strconv.Atoi(content); err == nil {
-		if node.Kind == yaml.SequenceNode {
-			if idx < 0 {
-				// Negative indexing from the end
-				idx = len(node.Content) + idx
+	// Check if this is a quoted string first
+	isQuotedString := (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
+
+	// Only try numeric parsing if it's not a quoted string
+	if !isQuotedString {
+		if idx, err := strconv.Atoi(content); err == nil {
+			if node.Kind == yaml.SequenceNode {
+				if idx < 0 {
+					// Negative indexing from the end
+					idx = len(node.Content) + idx
+				}
+				if idx < 0 || idx >= len(node.Content) {
+					return nil, fmt.Errorf("array index %d out of bounds (length %d)", idx, len(node.Content))
+				}
+				return node.Content[idx], nil
 			}
-			if idx < 0 || idx >= len(node.Content) {
-				return nil, fmt.Errorf("array index %d out of bounds (length %d)", idx, len(node.Content))
-			}
-			return node.Content[idx], nil
+			return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", idx)
 		}
-		return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", idx)
 	}
 
 	// Handle string key indexing (remove quotes if present)
 	key := content
-	if (strings.HasPrefix(key, "\"") && strings.HasSuffix(key, "\"")) ||
-		(strings.HasPrefix(key, "'") && strings.HasSuffix(key, "'")) {
+	if isQuotedString {
 		key = key[1 : len(key)-1]
 	}
 

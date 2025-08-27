@@ -238,6 +238,14 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 		return setValueInDocumentComplex(doc, expression, value)
 	}
 
+	// Check if any component uses bracket notation - if so, use complex path
+	// to ensure proper quoted string handling
+	for _, component := range components {
+		if component.Bracket != nil {
+			return setValueInDocumentComplex(doc, expression, value)
+		}
+	}
+
 	current := doc
 
 	// If we start with a document node, navigate to its content
@@ -322,26 +330,34 @@ func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 		return nil, fmt.Errorf("slice operations not supported for value setting")
 	}
 
-	// Try numeric index first
-	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
-		var index int
-		_, _ = fmt.Sscanf(content, "%d", &index)
+	// Check if this is a quoted string first
+	isQuotedString := (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
 
-		if node.Kind == yaml.SequenceNode {
-			if index < 0 {
-				index = len(node.Content) + index
+	// Only try numeric parsing if it's not a quoted string
+	if !isQuotedString {
+		if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
+			var index int
+			_, _ = fmt.Sscanf(content, "%d", &index)
+
+			if node.Kind == yaml.SequenceNode {
+				if index < 0 {
+					index = len(node.Content) + index
+				}
+				if index < 0 || index >= len(node.Content) {
+					return nil, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+				}
+				return node.Content[index], nil
 			}
-			if index < 0 || index >= len(node.Content) {
-				return nil, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
-			}
-			return node.Content[index], nil
+			return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 		}
-		return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 	}
 
-	// Handle string key indexing
+	// Handle string key indexing (remove quotes if present)
 	key := content
-	// Remove quotes if present (they would have been removed by participle unquoting)
+	if isQuotedString {
+		key = key[1 : len(key)-1]
+	}
 
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
@@ -391,29 +407,37 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 		return false, fmt.Errorf("slice operations not supported for value setting")
 	}
 
-	// Try numeric index first
-	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
-		var index int
-		_, _ = fmt.Sscanf(content, "%d", &index)
+	// Check if this is a quoted string first
+	isQuotedString := (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
 
-		if node.Kind == yaml.SequenceNode {
-			if index < 0 {
-				index = len(node.Content) + index
+	// Only try numeric parsing if it's not a quoted string
+	if !isQuotedString {
+		if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
+			var index int
+			_, _ = fmt.Sscanf(content, "%d", &index)
+
+			if node.Kind == yaml.SequenceNode {
+				if index < 0 {
+					index = len(node.Content) + index
+				}
+				if index < 0 || index >= len(node.Content) {
+					return false, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+				}
+				node.Content[index].Value = value
+				node.Content[index].Kind = yaml.ScalarNode
+				node.Content[index].Tag = "" // Clear the tag so YAML can infer the correct type
+				return true, nil
 			}
-			if index < 0 || index >= len(node.Content) {
-				return false, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
-			}
-			node.Content[index].Value = value
-			node.Content[index].Kind = yaml.ScalarNode
-			node.Content[index].Tag = "" // Clear the tag so YAML can infer the correct type
-			return true, nil
+			return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 		}
-		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 	}
 
-	// Handle string key indexing
+	// Handle string key indexing (remove quotes if present)
 	key := content
-	// The key would have been unquoted by participle already
+	if isQuotedString {
+		key = key[1 : len(key)-1]
+	}
 
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
