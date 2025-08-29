@@ -147,6 +147,16 @@ func (p *Parser) ParseSelector(selectorStr string) (*Expression, error) {
 
 // Evaluate evaluates the expression against a YAML node using the new pipeline AST.
 func (e *Expression) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate expression: node is nil")
+	}
+	if evaluator == nil {
+		return nil, fmt.Errorf("cannot evaluate expression: evaluator is nil")
+	}
+	if e.Left == nil {
+		return nil, fmt.Errorf("cannot evaluate expression: pipeline is nil")
+	}
+	
 	// Try to evaluate the main pipeline first
 	result, err := e.Left.Evaluate(node, evaluator)
 	if err == nil {
@@ -167,6 +177,16 @@ func (e *Expression) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node
 }
 
 func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate pipeline: node is nil")
+	}
+	if evaluator == nil {
+		return nil, fmt.Errorf("cannot evaluate pipeline: evaluator is nil")
+	}
+	if p == nil {
+		return nil, fmt.Errorf("cannot evaluate pipeline: pipeline is nil")
+	}
+	
 	// Start with the input node
 	current := node
 
@@ -177,6 +197,13 @@ func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, 
 
 	// Process the pipeline - handle array iteration specially
 	for i, step := range p.Steps {
+		if step == nil {
+			return nil, fmt.Errorf("pipeline step %d is nil", i)
+		}
+		if current == nil {
+			return nil, fmt.Errorf("pipeline step %d: current node is nil", i)
+		}
+		
 		var err error
 		current, err = evaluator.evaluatePipelineStepWithIteration(current, step, p.Steps[i+1:])
 		if err != nil {
@@ -199,6 +226,13 @@ func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, 
 
 // evaluatePipelineStep evaluates a single step in the pipeline.
 func (e *Evaluator) evaluatePipelineStep(node *yaml.Node, step *PipelineStep) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate pipeline step: node is nil")
+	}
+	if step == nil {
+		return nil, fmt.Errorf("cannot evaluate pipeline step: step is nil")
+	}
+	
 	switch {
 	case step.Path != nil:
 		return e.evaluatePath(node, step.Path)
@@ -211,6 +245,13 @@ func (e *Evaluator) evaluatePipelineStep(node *yaml.Node, step *PipelineStep) (*
 
 // evaluatePath evaluates a path expression.
 func (e *Evaluator) evaluatePath(node *yaml.Node, path *Path) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate path: node is nil")
+	}
+	if path == nil {
+		return nil, fmt.Errorf("cannot evaluate path: path is nil")
+	}
+	
 	current := node
 
 	// Handle empty path (root access)
@@ -219,7 +260,14 @@ func (e *Evaluator) evaluatePath(node *yaml.Node, path *Path) (*yaml.Node, error
 	}
 
 	// Evaluate each component
-	for _, component := range path.Components {
+	for i, component := range path.Components {
+		if component == nil {
+			return nil, fmt.Errorf("path component %d is nil", i)
+		}
+		if current == nil {
+			return nil, fmt.Errorf("current node is nil at path component %d", i)
+		}
+		
 		var err error
 		current, err = e.evaluateComponent(current, component)
 		if err != nil {
@@ -232,6 +280,13 @@ func (e *Evaluator) evaluatePath(node *yaml.Node, path *Path) (*yaml.Node, error
 
 // evaluateComponent evaluates a single component.
 func (e *Evaluator) evaluateComponent(node *yaml.Node, component *Component) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate component: node is nil")
+	}
+	if component == nil {
+		return nil, fmt.Errorf("cannot evaluate component: component is nil")
+	}
+	
 	switch {
 	case component.Field != nil:
 		return e.evaluateField(node, component.Field)
@@ -246,13 +301,22 @@ func (e *Evaluator) evaluateComponent(node *yaml.Node, component *Component) (*y
 
 // evaluateField evaluates a field access against a YAML node.
 func (e *Evaluator) evaluateField(node *yaml.Node, field *Field) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate field: node is nil")
+	}
+	if field == nil {
+		return nil, fmt.Errorf("cannot evaluate field: field is nil")
+	}
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("cannot access field %q from non-mapping node", field.Name)
+	}
+	if node.Content == nil {
+		return nil, fmt.Errorf("cannot access field %q: node content is nil", field.Name)
 	}
 
 	// Search for the field in the mapping
 	for i := 0; i < len(node.Content); i += 2 {
-		if i+1 < len(node.Content) && node.Content[i].Value == field.Name {
+		if i+1 < len(node.Content) && node.Content[i] != nil && node.Content[i+1] != nil && node.Content[i].Value == field.Name {
 			return node.Content[i+1], nil
 		}
 	}
@@ -262,6 +326,13 @@ func (e *Evaluator) evaluateField(node *yaml.Node, field *Field) (*yaml.Node, er
 
 // evaluateBracket evaluates a bracket access (index or slice) against a YAML node.
 func (e *Evaluator) evaluateBracket(node *yaml.Node, bracket *Bracket) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate bracket: node is nil")
+	}
+	if bracket == nil {
+		return nil, fmt.Errorf("cannot evaluate bracket: bracket is nil")
+	}
+	
 	content := bracket.Content
 
 	// Check if it contains a colon (slice operation)
@@ -275,8 +346,14 @@ func (e *Evaluator) evaluateBracket(node *yaml.Node, bracket *Bracket) (*yaml.No
 
 // evaluateBracketSlice handles slice operations like [1:3], [1:], [:3], [:].
 func (e *Evaluator) evaluateBracketSlice(node *yaml.Node, content string) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot slice: node is nil")
+	}
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("cannot slice non-sequence node")
+	}
+	if node.Content == nil {
+		return nil, fmt.Errorf("cannot slice: node content is nil")
 	}
 
 	length := len(node.Content)
@@ -353,12 +430,18 @@ func (e *Evaluator) evaluateBracketIndex(node *yaml.Node, content string) (*yaml
 	if !isQuotedString {
 		if idx, err := strconv.Atoi(content); err == nil {
 			if node.Kind == yaml.SequenceNode {
+				if node.Content == nil {
+					return nil, fmt.Errorf("cannot index: sequence node content is nil")
+				}
 				if idx < 0 {
 					// Negative indexing from the end
 					idx = len(node.Content) + idx
 				}
 				if idx < 0 || idx >= len(node.Content) {
 					return nil, fmt.Errorf("array index %d out of bounds (length %d)", idx, len(node.Content))
+				}
+				if node.Content[idx] == nil {
+					return nil, fmt.Errorf("array element at index %d is nil", idx)
 				}
 				return node.Content[idx], nil
 			}
@@ -373,8 +456,11 @@ func (e *Evaluator) evaluateBracketIndex(node *yaml.Node, content string) (*yaml
 	}
 
 	if node.Kind == yaml.MappingNode {
+		if node.Content == nil {
+			return nil, fmt.Errorf("cannot index: mapping node content is nil")
+		}
 		for i := 0; i < len(node.Content); i += 2 {
-			if i+1 < len(node.Content) && node.Content[i].Value == key {
+			if i+1 < len(node.Content) && node.Content[i] != nil && node.Content[i+1] != nil && node.Content[i].Value == key {
 				return node.Content[i+1], nil
 			}
 		}
@@ -386,6 +472,9 @@ func (e *Evaluator) evaluateBracketIndex(node *yaml.Node, content string) (*yaml
 // evaluateArrayIter evaluates array iteration ([]) - returns all elements as individual nodes.
 func (e *Evaluator) evaluateArrayIter(node *yaml.Node, arrayIter *ArrayIter) (*yaml.Node, error) {
 	_ = arrayIter // unused parameter, required for interface consistency
+	if node == nil {
+		return nil, fmt.Errorf("cannot iterate: node is nil")
+	}
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("cannot iterate over non-sequence node")
 	}
@@ -398,6 +487,13 @@ func (e *Evaluator) evaluateArrayIter(node *yaml.Node, arrayIter *ArrayIter) (*y
 
 // evaluateFunction evaluates a function call like select().
 func (e *Evaluator) evaluateFunction(node *yaml.Node, function *Function) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate function: node is nil")
+	}
+	if function == nil {
+		return nil, fmt.Errorf("cannot evaluate function: function is nil")
+	}
+	
 	switch function.Name {
 	case "select":
 		return e.evaluateSelect(node, function)
@@ -408,11 +504,23 @@ func (e *Evaluator) evaluateFunction(node *yaml.Node, function *Function) (*yaml
 
 // evaluateSelect evaluates the select() function for filtering.
 func (e *Evaluator) evaluateSelect(node *yaml.Node, function *Function) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate select: node is nil")
+	}
+	if function == nil {
+		return nil, fmt.Errorf("cannot evaluate select: function is nil")
+	}
+	if function.Args == nil {
+		return nil, fmt.Errorf("select() function has nil arguments")
+	}
 	if len(function.Args) != 1 {
 		return nil, fmt.Errorf("select() function requires exactly 1 argument, got %d", len(function.Args))
 	}
 
 	arg := function.Args[0]
+	if arg == nil {
+		return nil, fmt.Errorf("select() function argument is nil")
+	}
 	if arg.Comparison == nil {
 		return nil, fmt.Errorf("select() function requires a comparison argument")
 	}
@@ -433,6 +541,19 @@ func (e *Evaluator) evaluateSelect(node *yaml.Node, function *Function) (*yaml.N
 
 // evaluateComparison evaluates a comparison expression.
 func (e *Evaluator) evaluateComparison(node *yaml.Node, comparison *Comparison) (bool, error) {
+	if node == nil {
+		return false, fmt.Errorf("cannot evaluate comparison: node is nil")
+	}
+	if comparison == nil {
+		return false, fmt.Errorf("cannot evaluate comparison: comparison is nil")
+	}
+	if comparison.Left == nil {
+		return false, fmt.Errorf("cannot evaluate comparison: left side is nil")
+	}
+	if comparison.Right == nil {
+		return false, fmt.Errorf("cannot evaluate comparison: right side is nil")
+	}
+	
 	// Evaluate the left side (path) against the current node
 	leftNode, err := e.evaluatePath(node, comparison.Left)
 	if err != nil {
@@ -441,7 +562,7 @@ func (e *Evaluator) evaluateComparison(node *yaml.Node, comparison *Comparison) 
 
 	// Get the string value from the left side
 	leftValue := ""
-	if leftNode.Kind == yaml.ScalarNode {
+	if leftNode != nil && leftNode.Kind == yaml.ScalarNode {
 		leftValue = leftNode.Value
 	}
 
@@ -492,6 +613,16 @@ func (e *Evaluator) pathHasArrayIteration(path *Path) bool {
 
 // evaluateWithArrayIteration handles expressions with array iteration.
 func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, remainingSteps []*PipelineStep) (*yaml.Node, error) {
+	if node == nil {
+		return nil, fmt.Errorf("cannot evaluate array iteration: node is nil")
+	}
+	if path == nil {
+		return nil, fmt.Errorf("cannot evaluate array iteration: path is nil")
+	}
+	if path.Components == nil {
+		return nil, fmt.Errorf("cannot evaluate array iteration: path components are nil")
+	}
+	
 	// Find the array iteration component
 	var beforeIter []*Component
 	var afterIter []*Component
@@ -515,6 +646,13 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 	// Navigate to the array
 	current := node
 	for _, component := range beforeIter {
+		if component == nil {
+			return nil, fmt.Errorf("path component before array iteration is nil")
+		}
+		if current == nil {
+			return nil, fmt.Errorf("current node is nil while navigating to array")
+		}
+		
 		var err error
 		current, err = e.evaluateComponent(current, component)
 		if err != nil {
@@ -523,15 +661,31 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 	}
 
 	// Ensure we have an array
+	if current == nil {
+		return nil, fmt.Errorf("array iteration: navigated to nil node")
+	}
 	if current.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("array iteration requires a sequence node")
+	}
+	if current.Content == nil {
+		return nil, fmt.Errorf("array iteration: sequence node content is nil")
 	}
 
 	// Iterate over array elements
 	for _, element := range current.Content {
+		if element == nil {
+			continue // Skip nil elements
+		}
 		// Apply remaining path components to this element
 		elementResult := element
 		for _, component := range afterIter {
+			if component == nil {
+				return nil, fmt.Errorf("path component after array iteration is nil")
+			}
+			if elementResult == nil {
+				break // Can't continue with nil element
+			}
+			
 			var err error
 			elementResult, err = e.evaluateComponent(elementResult, component)
 			if err != nil {
@@ -541,6 +695,13 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 
 		// Apply remaining pipeline steps
 		for _, step := range remainingSteps {
+			if step == nil {
+				return nil, fmt.Errorf("remaining pipeline step is nil")
+			}
+			if elementResult == nil {
+				break // Can't continue with nil element
+			}
+			
 			var err error
 			elementResult, err = e.evaluatePipelineStep(elementResult, step)
 			if err != nil {
@@ -562,6 +723,13 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 
 // GetSimplePath extracts a simple path for write operations (backwards compatibility).
 func (e *Expression) GetSimplePath() ([]*Component, error) {
+	if e == nil {
+		return nil, fmt.Errorf("cannot get simple path: expression is nil")
+	}
+	if e.Left == nil {
+		return nil, fmt.Errorf("cannot get simple path: pipeline is nil")
+	}
+	
 	// Alternative expressions are not supported for write operations
 	if e.Alternative != nil {
 		return nil, fmt.Errorf("write operations don't support alternative expressions")
@@ -572,12 +740,18 @@ func (e *Expression) GetSimplePath() ([]*Component, error) {
 	}
 
 	step := e.Left.Steps[0]
+	if step == nil {
+		return nil, fmt.Errorf("pipeline step is nil")
+	}
 	if step.Path == nil {
 		return nil, fmt.Errorf("write operations require path expressions, not functions")
 	}
 
 	// Check for complex features not supported in writes
-	for _, component := range step.Path.Components {
+	for i, component := range step.Path.Components {
+		if component == nil {
+			return nil, fmt.Errorf("path component %d is nil", i)
+		}
 		if component.ArrayIter != nil {
 			return nil, fmt.Errorf("write operations do not support array iteration")
 		}
