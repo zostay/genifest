@@ -30,19 +30,39 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	}
 
 	// Verify metadata paths are populated
-	if len(config.Metadata.Scripts) == 0 {
-		t.Error("Expected scripts metadata to be populated")
+	if len(config.Metadata.Paths) == 0 {
+		t.Error("Expected paths metadata to be populated")
 	}
-	if len(config.Metadata.Manifests) == 0 {
-		t.Error("Expected manifests metadata to be populated")
+
+	// Check that we have script and file paths
+	hasScripts := false
+	hasFiles := false
+	for _, path := range config.Metadata.Paths {
+		if path.Scripts {
+			hasScripts = true
+		}
+		if path.Files {
+			hasFiles = true
+		}
 	}
-	if len(config.Metadata.Files) == 0 {
-		t.Error("Expected files metadata to be populated")
+	if !hasScripts {
+		t.Error("Expected to find paths with scripts flag set")
+	}
+	if !hasFiles {
+		t.Error("Expected to find paths with files flag set")
 	}
 
 	// Check that files are loaded from the configuration
 	// This includes both files explicitly listed in genifest.yaml and files
 	// discovered through synthetic configs in subdirectories
+
+	// Resolve files to get actual filenames instead of patterns
+	resolvedFiles, err := config.Files.ResolveFiles(guestbookDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve files: %v", err)
+	}
+
+	t.Logf("Loaded %d resolved files: %v", len(resolvedFiles), resolvedFiles)
 	expectedFiles := []string{
 		"manifests/guestbook/frontend-deployment.yaml",
 		"manifests/guestbook/backend-deployment.yaml",
@@ -59,13 +79,13 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	}
 
 	// Check that we have at least the expected files (there may be more from synthetic configs)
-	if len(config.Files) < len(expectedFiles) {
-		t.Errorf("Expected at least %d files, got %d", len(expectedFiles), len(config.Files))
+	if len(resolvedFiles) < len(expectedFiles) {
+		t.Errorf("Expected at least %d files, got %d", len(expectedFiles), len(resolvedFiles))
 	}
 
 	// Verify each expected file is present
 	fileMap := make(map[string]bool)
-	for _, file := range config.Files {
+	for _, file := range resolvedFiles {
 		fileMap[file] = true
 	}
 
@@ -76,7 +96,7 @@ func TestLoadFromDirectory_GuestbookExample(t *testing.T) {
 	}
 
 	// Check functions are loaded
-	expectedFunctions := []string{"get-replicas", "get-image-tag", "get-database-host"}
+	expectedFunctions := []string{"get-replicas", "get-image-tag", "get-database-host", "quote", "rotN"}
 	if len(config.Functions) != len(expectedFunctions) {
 		t.Errorf("Expected %d functions, got %d", len(expectedFunctions), len(config.Functions))
 	}
@@ -137,7 +157,7 @@ func TestLoadFromDirectory_GuestbookSyntheticConfigs(t *testing.T) {
 	foundGuestbookManifests := false
 	foundPostgresManifests := false
 
-	for _, file := range config.Files {
+	for _, file := range config.Files.Include {
 		if filepath.Dir(file) == "manifests/guestbook" {
 			foundGuestbookManifests = true
 		}

@@ -88,7 +88,12 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) will be processed (all changes)\n", changesToRun)
 	}
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(cfg.Files))
+	// Get resolved files count for display
+	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		resolvedFiles = cfg.Files.Include // Fallback to include list
+	}
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(resolvedFiles))
 	fmt.Printf("\n")
 
 	if changesToRun == 0 {
@@ -233,6 +238,14 @@ func setValueInDocument(doc *yaml.Node, keySelector, value string) (bool, error)
 		return setValueInDocumentComplex(doc, expression, value)
 	}
 
+	// Check if any component uses bracket notation - if so, use complex path
+	// to ensure proper quoted string handling
+	for _, component := range components {
+		if component.Bracket != nil {
+			return setValueInDocumentComplex(doc, expression, value)
+		}
+	}
+
 	current := doc
 
 	// If we start with a document node, navigate to its content
@@ -277,6 +290,7 @@ func setValueInDocumentComplex(doc *yaml.Node, expression *keysel.Expression, ne
 	originalValue := targetNode.Value
 	targetNode.Value = newValue
 	targetNode.Kind = yaml.ScalarNode
+	targetNode.Tag = "" // Clear the tag so YAML can infer the correct type
 
 	// Return whether the value actually changed
 	return originalValue != newValue, nil
@@ -316,26 +330,34 @@ func navigateToBracket(node *yaml.Node, content string) (*yaml.Node, error) {
 		return nil, fmt.Errorf("slice operations not supported for value setting")
 	}
 
-	// Try numeric index first
-	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
-		var index int
-		_, _ = fmt.Sscanf(content, "%d", &index)
+	// Check if this is a quoted string first
+	isQuotedString := (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
 
-		if node.Kind == yaml.SequenceNode {
-			if index < 0 {
-				index = len(node.Content) + index
+	// Only try numeric parsing if it's not a quoted string
+	if !isQuotedString {
+		if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
+			var index int
+			_, _ = fmt.Sscanf(content, "%d", &index)
+
+			if node.Kind == yaml.SequenceNode {
+				if index < 0 {
+					index = len(node.Content) + index
+				}
+				if index < 0 || index >= len(node.Content) {
+					return nil, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+				}
+				return node.Content[index], nil
 			}
-			if index < 0 || index >= len(node.Content) {
-				return nil, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
-			}
-			return node.Content[index], nil
+			return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 		}
-		return nil, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 	}
 
-	// Handle string key indexing
+	// Handle string key indexing (remove quotes if present)
 	key := content
-	// Remove quotes if present (they would have been removed by participle unquoting)
+	if isQuotedString {
+		key = key[1 : len(key)-1]
+	}
 
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
@@ -370,6 +392,7 @@ func setValueAtField(node *yaml.Node, fieldName string, value string) (bool, err
 		if i+1 < len(node.Content) && node.Content[i].Value == fieldName {
 			node.Content[i+1].Value = value
 			node.Content[i+1].Kind = yaml.ScalarNode
+			node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 			return true, nil
 		}
 	}
@@ -384,34 +407,44 @@ func setValueAtBracket(node *yaml.Node, content string, value string) (bool, err
 		return false, fmt.Errorf("slice operations not supported for value setting")
 	}
 
-	// Try numeric index first
-	if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
-		var index int
-		_, _ = fmt.Sscanf(content, "%d", &index)
+	// Check if this is a quoted string first
+	isQuotedString := (strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) ||
+		(strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'"))
 
-		if node.Kind == yaml.SequenceNode {
-			if index < 0 {
-				index = len(node.Content) + index
+	// Only try numeric parsing if it's not a quoted string
+	if !isQuotedString {
+		if _, err := fmt.Sscanf(content, "%d", new(int)); err == nil {
+			var index int
+			_, _ = fmt.Sscanf(content, "%d", &index)
+
+			if node.Kind == yaml.SequenceNode {
+				if index < 0 {
+					index = len(node.Content) + index
+				}
+				if index < 0 || index >= len(node.Content) {
+					return false, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
+				}
+				node.Content[index].Value = value
+				node.Content[index].Kind = yaml.ScalarNode
+				node.Content[index].Tag = "" // Clear the tag so YAML can infer the correct type
+				return true, nil
 			}
-			if index < 0 || index >= len(node.Content) {
-				return false, fmt.Errorf("array index %d out of bounds (length %d)", index, len(node.Content))
-			}
-			node.Content[index].Value = value
-			node.Content[index].Kind = yaml.ScalarNode
-			return true, nil
+			return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 		}
-		return false, fmt.Errorf("cannot index non-sequence node with numeric index %d", index)
 	}
 
-	// Handle string key indexing
+	// Handle string key indexing (remove quotes if present)
 	key := content
-	// The key would have been unquoted by participle already
+	if isQuotedString {
+		key = key[1 : len(key)-1]
+	}
 
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i < len(node.Content); i += 2 {
 			if i+1 < len(node.Content) && node.Content[i].Value == key {
 				node.Content[i+1].Value = value
 				node.Content[i+1].Kind = yaml.ScalarNode
+				node.Content[i+1].Tag = "" // Clear the tag so YAML can infer the correct type
 				return true, nil
 			}
 		}
@@ -479,9 +512,11 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
-	// Collect all files from the configuration
-	filesToProcess := make([]string, 0, len(cfg.Files))
-	filesToProcess = append(filesToProcess, cfg.Files...)
+	// Resolve files with wildcard expansion
+	filesToProcess, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		return stats, fmt.Errorf("failed to resolve files: %w", err)
+	}
 
 	// Process each file
 	for _, filePath := range filesToProcess {
@@ -586,7 +621,13 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 
 	// Apply each change result to the document
 	for _, result := range results {
-		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, result, applier, filePath)
+		// Check if document selector matches this document
+		matches := matchesDocumentSelector(doc, result.Change.DocumentSelector)
+		if !matches {
+			continue
+		}
+
+		changed, oldValue, err := applyChangeToDocumentWithOldValue(doc, &result, applier, filePath)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply change %s: %w", result.KeyPath, err)
 		}
@@ -605,32 +646,85 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 }
 
 // applyChangeToDocumentWithOldValue applies a single change to a YAML document and returns the old value.
-func applyChangeToDocumentWithOldValue(doc *yaml.Node, result changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
+func applyChangeToDocumentWithOldValue(doc *yaml.Node, result *changes.ChangeResult, applier *changes.Applier, filePath string) (bool, string, error) {
 	// First, get the old value
 	oldValue, err := getValueInDocument(doc, result.Change.KeySelector)
 	if err != nil {
 		oldValue = "<not found>" // Value doesn't exist yet
 	}
 
-	// For document references, we need to evaluate the value in the context of this document
-	if result.Change.KeySelector != "" {
-		// Create evaluation context with this document
-		evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
+	// Always evaluate the value in the context of this document
+	// Create evaluation context with this document
+	evalCtx := applier.GetEvalContext().WithFile(filePath).WithDocument(doc)
 
-		// Evaluate the ValueFrom in the context of this document
-		value, err := evalCtx.Evaluate(result.Change.ValueFrom)
-		if err != nil {
-			return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
-		}
-
-		// Apply the change using the key selector
-		changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
-		return changed, oldValue, err
+	// Evaluate the ValueFrom in the context of this document
+	value, err := evalCtx.Evaluate(result.Change.ValueFrom)
+	if err != nil {
+		return false, oldValue, fmt.Errorf("failed to evaluate change value: %w", err)
 	}
 
-	// For other types of changes, use the pre-evaluated value
-	changed, err := setValueInDocument(doc, result.KeyPath, result.Value)
+	// Update result with evaluated value for display purposes
+	result.Value = value
+
+	// Apply the change using the key selector
+	changed, err := setValueInDocument(doc, result.Change.KeySelector, value)
 	return changed, oldValue, err
+}
+
+// matchesDocumentSelector checks if a document matches the given document selector.
+func matchesDocumentSelector(doc *yaml.Node, selector config.DocumentSelector) bool {
+	// If no selector provided, match all documents
+	if len(selector) == 0 {
+		return true
+	}
+
+	// Start from the root content if this is a document node
+	current := doc
+	if current.Kind == yaml.DocumentNode && len(current.Content) > 0 {
+		current = current.Content[0]
+	}
+
+	// Check each selector key-value pair
+	for selectorKey, expectedValue := range selector {
+		actualValue, err := getDocumentValue(current, selectorKey)
+		if err != nil || actualValue != expectedValue {
+			return false
+		}
+	}
+
+	return true
+}
+
+// getDocumentValue gets a value from a YAML document using a simple key path.
+func getDocumentValue(doc *yaml.Node, keyPath string) (string, error) {
+	// Split the key path by dots
+	parts := strings.Split(keyPath, ".")
+	current := doc
+
+	// Navigate through the path
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		if current.Kind != yaml.MappingNode {
+			return "", fmt.Errorf("cannot navigate to %q from non-mapping node", part)
+		}
+
+		found := false
+		for i := 0; i < len(current.Content); i += 2 {
+			if i+1 < len(current.Content) && current.Content[i].Value == part {
+				current = current.Content[i+1]
+				found = true
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("key %q not found", part)
+		}
+	}
+
+	return current.Value, nil
 }
 
 // getValueInDocument gets a value from a YAML document using a key selector.

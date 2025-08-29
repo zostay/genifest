@@ -11,31 +11,46 @@ Genifest uses a **metadata-driven approach** to discover and load configuration 
 ### Discovery Process
 
 1. **Root Discovery**: Starts by loading the root `genifest.yaml` file
-2. **Metadata Processing**: Uses `scripts`, `manifests`, and `files` paths to discover additional directories
+2. **Metadata Processing**: Uses unified `paths` configuration to discover additional directories
 3. **Recursive Loading**: Loads configurations from discovered directories with depth limits
 4. **Synthetic Configs**: Creates automatic configurations for directories without explicit `genifest.yaml` files
 
 ```mermaid
 graph TD
     A[Root genifest.yaml] --> B[Metadata Discovery]
-    B --> C[Scripts Dirs<br/>Single Level]
-    B --> D[Manifests Dirs<br/>Two Levels]
-    B --> E[Files Dirs<br/>Two Levels]
+    B --> C[Path with scripts=true<br/>Configurable Depth]
+    B --> D[Path with files=true<br/>Configurable Depth]
     C --> F[Load Configs]
     D --> F
-    E --> F
     F --> G[Merge All Configs]
 ```
 
-### Depth Limits
+### Configurable Directory Depths
 
-- **Scripts directories**: Single level only (no subdirectories)
-- **Manifests directories**: Two levels deep
-- **Files directories**: Two levels deep
+Each path in the metadata can specify its own depth limit:
 
-The intention is that manifests and files will tend to be organized as `<root>/<app>` structures, while scripts should be limited to the folder itself. 
+- **Depth 0**: Only the specified directory (single level)
+- **Depth 1**: One level deep (directory + subdirectories)
+- **Depth N**: N levels deep into the directory tree
 
-It is permissible for script folders to contain configuration, but not expected to be common. Such a configuration could be used to modify non-Kubernetes configuration of the scripts, for example.
+**Default Depth**: 0 (single level only)
+
+**Example Configuration**:
+```yaml
+metadata:
+  paths:
+    - path: "scripts"
+      scripts: true
+      depth: 0           # Single level only
+    - path: "manifests"
+      files: true
+      depth: 1           # Go one level deep (manifests/app/)
+    - path: "files"
+      files: true
+      depth: 2           # Go two levels deep (files/category/app/)
+```
+
+The typical pattern is that manifests and files will be organized as `<root>/<app>` structures, while scripts are usually kept at a single level.
 
 ## Value Generation System
 

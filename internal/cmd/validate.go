@@ -35,15 +35,37 @@ This command will:
 - Verify file selectors and key selectors
 - Report any configuration errors found
 
+Schema validation modes:
+- Default: Permissive mode (ignore unknown fields)
+- --warn: Show warnings for unknown fields but continue
+- --strict: Fail validation on unknown fields
+
 If a directory is specified, the command will operate from that directory instead 
 of the current working directory.`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		var projectDir string
 		if len(args) > 0 {
 			projectDir = args[0]
 		}
-		err := validateConfiguration(projectDir)
+
+		// Determine validation mode from flags
+		strict, _ := cmd.Flags().GetBool("strict")
+		warn, _ := cmd.Flags().GetBool("warn")
+
+		var mode config.ValidationMode
+		if strict && warn {
+			fmt.Fprintf(os.Stderr, "❌ Cannot use both --strict and --warn flags together\n")
+			os.Exit(1)
+		} else if strict {
+			mode = config.ValidationModeStrict
+		} else if warn {
+			mode = config.ValidationModeWarn
+		} else {
+			mode = config.ValidationModePermissive
+		}
+
+		err := validateConfigurationWithMode(projectDir, mode)
 		if err != nil {
 			// Check if it's our special validation summary error (handled by validateConfiguration)
 			var summaryErr *ValidationSummaryError
@@ -64,12 +86,18 @@ of the current working directory.`,
 }
 
 func init() {
+	validateCmd.Flags().Bool("strict", false, "Enable strict schema validation (fail on unknown fields)")
+	validateCmd.Flags().Bool("warn", false, "Enable schema validation warnings (warn on unknown fields)")
 	rootCmd.AddCommand(validateCmd)
 }
 
 func validateConfiguration(projectDir string) error {
+	return validateConfigurationWithMode(projectDir, config.ValidationModePermissive)
+}
+
+func validateConfigurationWithMode(projectDir string, mode config.ValidationMode) error {
 	// Load project configuration - if this fails with ValidationError, we need special handling
-	projectInfo, err := loadProjectConfiguration(projectDir)
+	projectInfo, err := loadProjectConfigurationWithMode(projectDir, mode)
 	if err != nil {
 		// Check if it's a ValidationError from config loading
 		var ve *config.ValidationError
@@ -110,8 +138,14 @@ func validateConfiguration(projectDir string) error {
 		}
 	}
 
-	// Check if all referenced files exist
-	for _, filePath := range cfg.Files {
+	// Resolve files and check if they exist
+	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
+	if err != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("failed to resolve file patterns: %s", err.Error()))
+		resolvedFiles = cfg.Files.Include // Fallback for further validation
+	}
+
+	for _, filePath := range resolvedFiles {
 		fullPath := filepath.Join(workDir, filePath)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			validationErrors = append(validationErrors, fmt.Sprintf("referenced file does not exist: %s", filePath))
@@ -132,7 +166,11 @@ func validateConfiguration(projectDir string) error {
 
 	// Always show summary information first
 	fmt.Printf("\033[1mSummary:\033[0m\n")
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(cfg.Files))
+	// Get resolved files count for display (reuse resolvedFiles from above)
+	if len(resolvedFiles) == 0 && len(cfg.Files.Include) > 0 {
+		resolvedFiles = cfg.Files.Include // Fallback
+	}
+	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(resolvedFiles))
 	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change(s) defined\n", len(cfg.Changes))
 	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m function(s) defined\n", len(cfg.Functions))
 

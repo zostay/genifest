@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,11 @@ import (
 // It starts by reading the top-level genifest.yaml and then loads directories
 // indicated by the metadata settings (Scripts, Manifests, Files).
 func LoadFromDirectory(rootDir string) (*Config, error) {
+	return LoadFromDirectoryWithValidation(rootDir, ValidationModePermissive)
+}
+
+// LoadFromDirectoryWithValidation loads configurations with specified schema validation mode.
+func LoadFromDirectoryWithValidation(rootDir string, mode ValidationMode) (*Config, error) {
 	abs, err := filepath.Abs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path for %s: %w", rootDir, err)
@@ -21,10 +27,11 @@ func LoadFromDirectory(rootDir string) (*Config, error) {
 
 	// Initialize loading context
 	lc := &loadingContext{
-		configs:     make([]configWithPath, 0),
-		rootDir:     abs,
-		processed:   make(map[string]bool),
-		primaryHome: abs,
+		configs:        make([]configWithPath, 0),
+		rootDir:        abs,
+		processed:      make(map[string]bool),
+		primaryHome:    abs,
+		validationMode: mode,
 	}
 
 	// Load the root directory first
@@ -66,17 +73,36 @@ type configWithPath struct {
 // loadingContext tracks the state during recursive config loading.
 // It maintains a list of loaded configs and prevents infinite recursion.
 type loadingContext struct {
-	configs     []configWithPath
-	rootDir     string
-	processed   map[string]bool // Track processed directories to avoid cycles
-	primaryHome string          // The primary cloudHome from root
+	configs        []configWithPath
+	rootDir        string
+	processed      map[string]bool // Track processed directories to avoid cycles
+	primaryHome    string          // The primary cloudHome from root
+	validationMode ValidationMode  // Schema validation mode to use
 }
 
-// loadConfigFile loads a single genifest.yaml configuration file from the given path.
-func loadConfigFile(path string) (*Config, error) {
+// loadConfigFileWithValidation loads a configuration file with specified validation mode.
+func loadConfigFileWithValidation(path string, mode ValidationMode) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+
+	// Perform schema validation if not in permissive mode
+	if mode != ValidationModePermissive {
+		if err := ValidateWithSchema(data, mode); err != nil {
+			// Check if it's a warning error
+			var warningErr *SchemaWarningsError
+			if errors.As(err, &warningErr) && mode == ValidationModeWarn {
+				// Display warnings immediately but continue loading
+				fmt.Fprintf(os.Stderr, "⚠️  Schema validation warnings in %s:\n", path)
+				for _, warning := range warningErr.Warnings {
+					fmt.Fprintf(os.Stderr, "  • %s\n", warning.String())
+				}
+				fmt.Fprintf(os.Stderr, "\n")
+			} else {
+				return nil, fmt.Errorf("schema validation failed for %s: %w", path, err)
+			}
+		}
 	}
 
 	var config Config
@@ -90,48 +116,32 @@ func loadConfigFile(path string) (*Config, error) {
 // createSyntheticConfig creates a config for directories without genifest.yaml
 // containing all .yaml and .yml files in the directory. This allows directories
 // to be included in the configuration even without explicit genifest.yaml files.
-func createSyntheticConfig(dir string) (*Config, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	var files []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if strings.HasSuffix(strings.ToLower(name), ".yaml") || strings.HasSuffix(strings.ToLower(name), ".yml") {
-			files = append(files, name)
-		}
-	}
-
+func createSyntheticConfig(_ string) *Config {
 	return &Config{
-		Files: files,
-	}, nil
+		Files: FilesConfig{
+			Include: []string{"*.yml", "*.yaml"},
+			Exclude: []string{"genifest.yml", "genifest.yaml"},
+		},
+	}
 }
 
 // loadDirectoryConfig loads a config from a directory, either from genifest.yaml or synthetic.
 // If genifest.yaml exists, it loads that; otherwise it creates a synthetic config
 // with all YAML files in the directory.
-func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string) (configWithPath, error) {
+func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string, mode ValidationMode) (configWithPath, error) {
 	genifestPath := filepath.Join(dirPath, "genifest.yaml")
 	var config *Config
 	var err error
 
 	if _, statErr := os.Stat(genifestPath); statErr == nil {
-		// genifest.yaml exists, load it normally
-		config, err = loadConfigFile(genifestPath)
+		// genifest.yaml exists, load it normally with validation
+		config, err = loadConfigFileWithValidation(genifestPath, mode)
 		if err != nil {
 			return configWithPath{}, fmt.Errorf("failed to load %s: %w", genifestPath, err)
 		}
 	} else {
 		// No genifest.yaml, create synthetic config
-		config, err = createSyntheticConfig(dirPath)
-		if err != nil {
-			return configWithPath{}, fmt.Errorf("failed to create synthetic config for %s: %w", dirPath, err)
-		}
+		config = createSyntheticConfig(dirPath)
 	}
 
 	return configWithPath{
@@ -184,7 +194,7 @@ func (lc *loadingContext) loadDirectoryRecursive(dirPath string, currentDepth, m
 	}
 
 	// Load the config for this directory
-	configWP, err := loadDirectoryConfig(dirPath, relativePath, cloudHome)
+	configWP, err := loadDirectoryConfig(dirPath, relativePath, cloudHome, lc.validationMode)
 	if err != nil {
 		return err
 	}
@@ -233,22 +243,37 @@ func (lc *loadingContext) processConfigMetadata(configWP configWithPath, configD
 		}
 	}
 
-	// Load Scripts directories (single level only)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Scripts, 0, effectiveCloudHome); err != nil {
-		return err
-	}
+	// Load unified Paths directories with their configured depths
+	for _, pathConfig := range config.Metadata.Paths {
+		maxDepth := pathConfig.Depth // Use 0-based depth directly
 
-	// Load Manifests directories (two levels)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Manifests, 1, effectiveCloudHome); err != nil {
-		return err
-	}
+		// Create PathContext slice for compatibility with loadMetadataPaths
+		pathContexts := PathContexts{PathContext{Path: pathConfig.Path}}
+		pathContexts[0].SetContextPath(configDir)
 
-	// Load Files directories (two levels)
-	if err := lc.loadMetadataPaths(configDir, config.Metadata.Files, 1, effectiveCloudHome); err != nil {
-		return err
+		if err := lc.loadMetadataPaths(configDir, pathContexts, maxDepth, effectiveCloudHome); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func mergeFilesWithRelativePaths(c *configWithPath, output []string, input []string) []string {
+	// Merge files with proper relative paths
+	for _, file := range input {
+		var fullFilePath string
+		if c.path == "." || c.path == "" {
+			// Files from root directory
+			fullFilePath = file
+		} else {
+			// Files from subdirectories - prefix with relative path
+			fullFilePath = filepath.Join(c.path, file)
+		}
+		output = append(output, fullFilePath)
+	}
+
+	return output
 }
 
 // mergeConfigs combines multiple configurations into a single Config.
@@ -278,48 +303,23 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 			configDir = "."
 		}
 
-		// Process Scripts
-		for _, scriptCtx := range c.config.Metadata.Scripts {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        scriptCtx.Path,
+		// Process unified Paths
+		for _, pathConfig := range c.config.Metadata.Paths {
+			newConfig := PathConfig{
+				Path:    pathConfig.Path,
+				Scripts: pathConfig.Scripts,
+				Files:   pathConfig.Files,
+				Depth:   pathConfig.Depth,
 			}
-			result.Metadata.Scripts = append(result.Metadata.Scripts, newCtx)
-		}
-
-		// Process Manifests
-		for _, manifestCtx := range c.config.Metadata.Manifests {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        manifestCtx.Path,
-			}
-			result.Metadata.Manifests = append(result.Metadata.Manifests, newCtx)
-		}
-
-		// Process Files
-		for _, fileCtx := range c.config.Metadata.Files {
-			newCtx := PathContext{
-				contextPath: configDir,
-				Path:        fileCtx.Path,
-			}
-			result.Metadata.Files = append(result.Metadata.Files, newCtx)
+			newConfig.SetContextPath(configDir)
+			result.Metadata.Paths = append(result.Metadata.Paths, newConfig)
 		}
 	}
 
 	// Merge Files, Changes, and Functions across all configurations
 	for _, c := range configs {
-		// Add files with proper relative paths
-		for _, file := range c.config.Files {
-			var fullFilePath string
-			if c.path == "." || c.path == "" {
-				// Files from root directory
-				fullFilePath = file
-			} else {
-				// Files from subdirectories - prefix with relative path
-				fullFilePath = filepath.Join(c.path, file)
-			}
-			result.Files = append(result.Files, fullFilePath)
-		}
+		result.Files.Include = mergeFilesWithRelativePaths(&c, result.Files.Include, c.config.Files.Include)
+		result.Files.Exclude = mergeFilesWithRelativePaths(&c, result.Files.Exclude, c.config.Files.Exclude)
 
 		// Set the path for change orders
 		for _, change := range c.config.Changes {

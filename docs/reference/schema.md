@@ -11,9 +11,11 @@ Complete schema reference for Genifest configuration files.
 # genifest.yaml
 metadata:
   cloudHome: string              # Optional: security boundary
-  scripts: [string]              # Optional: script directories
-  manifests: [string]            # Optional: manifest directories  
-  files: [string]                # Optional: file directories
+  paths:                         # Optional: unified directory configuration
+    - path: string               # Required: directory path
+      scripts: boolean           # Optional: enable script execution access
+      files: boolean             # Optional: enable file inclusion access  
+      depth: integer             # Optional: directory depth (0-based, default 0)
 
 functions:                       # Optional: function definitions
   - name: string                 # Required: function name
@@ -22,11 +24,15 @@ functions:                       # Optional: function definitions
         required: boolean        # Optional: default false
     valueFrom: ValueFrom         # Required: value generation
 
-files: [string]                  # Optional: managed files
+files:                           # Optional: managed files
+  include: [string]              # Optional: files to include (supports wildcards)
+  exclude: [string]              # Optional: files to exclude (supports wildcards)
 
 changes:                         # Optional: change definitions
   - tag: string                  # Optional: filter tag
     fileSelector: string         # Required: file pattern
+    documentSelector:            # Optional: document selector for multi-document files
+      field: string              # YAML field to match (supports dot notation)
     keySelector: string          # Required: YAML path
     valueFrom: ValueFrom         # Required: value generation
 ```
@@ -47,6 +53,7 @@ The `keySelector` field uses **yq-style path expressions** to specify which part
 | `["key"]` | Quoted key access | `["app.yaml"]` |
 | `['key']` | Single-quoted key | `['key-name']` |
 | `\|` | Pipeline operator | `\| select(.name == "app")` |
+| `//` | Alternative operator | `// "default-value"` |
 | `select()` | Filter function | `select(.name == "frontend")` |
 | `==`, `!=` | Comparison operators | `.name == "app"` |
 
@@ -79,6 +86,11 @@ keySelector: ".spec.containers[]"                                              #
 keySelector: ".spec.containers[] | select(.name == \"frontend\")"              # Filter containers
 keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"     # Pipeline with field access
 
+# Alternative values for fallbacks
+keySelector: ".metadata.annotations[\"missing\"] // \"default-value\""          # Fallback if annotation missing
+keySelector: ".spec.replicas // \"3\""                                         # Default replica count
+keySelector: ".data.config // \"fallback-config\""                             # Default configuration
+
 # Complex nested access
 keySelector: ".spec.template.spec.containers[0].image"
 keySelector: ".spec.volumes[0].configMap.items[1].key"
@@ -108,6 +120,7 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 - Array slicing (`[start:end]`, `[start:]`, `[:end]`)
 - Quoted key access (`["key"]`, `['key']`) for special characters
 - Pipeline operations (`|`) for chaining expressions
+- Alternative operator (`//`) for fallback values when paths don't exist
 - Filtering with `select()` function
 - Comparison operators (`==`, `!=`) for equality tests
 - Complex nested paths combining all above features
@@ -123,6 +136,68 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 
 !!! info "Complete KeySelector Reference"
     For comprehensive documentation of keySelector syntax, grammar details, and examples, see the [KeySelector Reference](keyselectors.md).
+
+## DocumentSelector Schema
+
+For files containing multiple YAML documents (separated by `---`), `documentSelector` allows targeting specific documents:
+
+```yaml
+documentSelector:
+  field.name: "value"        # Simple field matching
+  metadata.name: "config"    # Nested field matching  
+  kind: "ConfigMap"          # Resource type matching
+```
+
+### Features
+
+- **Simple field matching**: Match documents by any YAML field value
+- **Dot notation**: Access nested fields using `field.subfield` syntax
+- **Multiple criteria**: All specified fields must match for document selection
+- **Optional**: If omitted, changes apply to all documents in the file
+- **Case sensitive**: Exact string matching for all values
+
+### Examples
+
+```yaml
+# Target ConfigMap with specific name
+changes:
+  - fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: "app-config"
+    keySelector: ".data.config"
+    valueFrom:
+      default:
+        value: "updated-value"
+
+# Target different ConfigMap in same file
+  - fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: "app-secrets"
+    keySelector: ".data.password"
+    valueFrom:
+      default:
+        value: "encrypted-password"
+
+# Target by multiple criteria
+  - fileSelector: "resources.yaml"
+    documentSelector:
+      kind: Deployment
+      metadata.name: "frontend"
+      metadata.namespace: "production"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      default:
+        value: "5"
+```
+
+### Best Practices
+
+- **Use specific criteria**: Target documents precisely to avoid unintended changes
+- **Combine with fileSelector**: Use both selectors for maximum precision
+- **Consistent naming**: Use clear, descriptive document names for easier targeting
+- **Validate selectors**: Test document selection with `genifest validate` command
 
 ## ValueFrom Schema
 

@@ -84,6 +84,7 @@ keySelector: ".items[-1]"              # Last array element (negative indexing)
 ```yaml
 keySelector: ".data.config"            # Simple key access
 keySelector: ".data.[\"app.yaml\"]"    # Quoted keys (for keys with special characters)
+keySelector: ".data.[\"1password.json\"]"  # Quoted string keys (prevents numeric parsing)
 keySelector: ".labels.[\"app.kubernetes.io/name\"]"  # Complex key names
 ```
 
@@ -102,6 +103,13 @@ keySelector: ".spec.containers[] | select(.name == \"frontend\")"  # Filter by c
 keySelector: ".spec.containers[] | select(.name == \"frontend\") | .image"  # Pipeline operations
 ```
 
+**Alternative/Default Values:**
+```yaml
+keySelector: ".metadata.annotations[\"missing\"] // \"default\""     # Fallback to default if missing
+keySelector: ".spec.replicas // \"1\""                            # Use 1 if replicas not set
+keySelector: ".data.config // \"fallback-config\""                # Default configuration value
+```
+
 **Complex Expressions:**
 ```yaml
 keySelector: ".spec.template.spec.containers[0].image"           # Deep navigation
@@ -115,10 +123,12 @@ keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | 
 - **Grammar-based parsing**: Uses a formal grammar parser for robust expression handling
 - **Array iteration**: Support for iterating over array elements with `[]` syntax
 - **Pipeline operations**: Chain operations with `|` for complex expressions
+- **Alternative operator**: Use `//` to provide fallback values when paths don't exist
 - **Filtering functions**: Built-in `select()` function for conditional filtering
 - **Comparison operators**: Support for `==` and `!=` in filter conditions
 - **Negative indexing**: Array access with negative indices (e.g., `[-1]` for last element)
 - **Quoted keys**: Supports both single and double quotes for keys containing special characters
+- **Smart bracket parsing**: Correctly distinguishes between numeric indices (`[1]`) and quoted string keys (`["1password.json"]`)
 - **Path scoping**: Changes only apply to files within their configuration directory
 
 ### Differences from yq/jq
@@ -132,6 +142,7 @@ This implementation supports a **subset** of yq/jq syntax, focusing on the most 
 - Array iteration (`[]`)
 - Quoted key access (`["key.with.dots"]`, `['key-with-dashes']`)
 - Pipeline operations (`|`)
+- Alternative operator (`//` for fallback values)
 - Filtering with `select()` function
 - Comparison operators (`==`, `!=`)
 - Complex pipeline expressions (`.containers[] | select(.name == "frontend") | .image`)
@@ -144,6 +155,40 @@ This implementation supports a **subset** of yq/jq syntax, focusing on the most 
 - Recursive descent (`..`)
 - Variable assignment
 - Step slicing (`[start:end:step]`)
+
+## Document Selection
+
+For multi-document YAML files (documents separated by `---`), you can target specific documents using `documentSelector`:
+
+```yaml
+changes:
+  - tag: config
+    fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-config  # Target specific document by name
+    keySelector: ".data.[\"app.yaml\"]"
+    valueFrom:
+      file:
+        source: app.yaml
+  
+  - tag: config  
+    fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-quotes  # Target different document in same file
+    keySelector: ".data.quote"
+    valueFrom:
+      default:
+        value: "updated quote"
+```
+
+### DocumentSelector Features
+
+- **Simple key-value matching**: Uses dot notation for nested field access (`metadata.name`, `spec.type`)
+- **Multi-document support**: Apply different changes to different documents in the same file
+- **Precise targeting**: Only documents matching all selector criteria will have changes applied
+- **Optional**: If omitted, changes apply to all documents in the file
 
 ## Value Generation System
 

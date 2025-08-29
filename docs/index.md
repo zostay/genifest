@@ -74,8 +74,13 @@ graph TD
     ```yaml
     metadata:
       cloudHome: "."
-      manifests: ["k8s"]
-      scripts: ["scripts"]
+      paths:
+        - path: "k8s"
+          files: true
+          depth: 0
+        - path: "scripts"
+          scripts: true
+          depth: 0
     
     functions:
       - name: "get-replicas"

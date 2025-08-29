@@ -53,7 +53,14 @@ keySelector: ".annotations.[\"deployment.kubernetes.io/revision\"]"
 keySelector: ".data.['config-file']"
 keySelector: ".labels.['custom-key']"
 keySelector: ".annotations.['build-timestamp']"
+
+# Important: Quoted strings starting with numbers
+keySelector: ".data.[\"1password.json\"]"     # String key (not numeric index 1)
+keySelector: ".config.[\"2fa-settings\"]"     # String key (not numeric index 2) 
+keySelector: ".secrets.[\"3rd-party-key\"]"   # String key (not numeric index 3)
 ```
+
+**Key Point**: The parser correctly distinguishes between numeric indices (`[1]`) and quoted string keys (`["1password.json"]`). Always use quotes for string keys that start with numbers to prevent them from being interpreted as array indices.
 
 ### Array Slicing
 
@@ -109,6 +116,24 @@ keySelector: ".spec.containers[] | select(.name != \"sidecar\")"
 keySelector: ".spec.volumes[] | select(.name != \"tmp\")"
 ```
 
+### Alternative/Default Operator
+
+Use the `//` operator to provide fallback values when paths don't exist or are empty:
+
+```yaml
+# Basic alternative values
+keySelector: ".metadata.annotations[\"missing-annotation\"] // \"default-value\""
+keySelector: ".spec.replicas // \"1\""
+keySelector: ".data.config // \"fallback-config\""
+
+# Complex alternatives with nested paths
+keySelector: ".spec.template.spec.containers[0].resources.limits.memory // \"256Mi\""
+keySelector: ".metadata.labels[\"version\"] // \"unknown\""
+
+# Combined with pipelines (alternatives evaluated last)
+keySelector: ".spec.containers[] | select(.name == \"app\") | .image // \"default:latest\""
+```
+
 ## Complex Examples
 
 ### Deep Nested Access
@@ -148,27 +173,28 @@ keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | 
 # Update container image by index (legacy approach)
 keySelector: ".spec.template.spec.containers[0].image"
 
-# Modify resource limits for specific container
-keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .resources.limits.memory"
-keySelector: ".spec.template.spec.containers[0].resources.limits.memory"
+# Modify resource limits for specific container with defaults
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .resources.limits.memory // \"256Mi\""
+keySelector: ".spec.template.spec.containers[0].resources.limits.memory // \"128Mi\""
 
-# Update environment variables for specific containers
-keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .env[0].value"
+# Update environment variables with fallback values
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .env[0].value // \"default-value\""
 
-# Update ConfigMap data
-keySelector: ".data.[\"app.properties\"]"
+# Update ConfigMap data with alternatives
+keySelector: ".data.[\"app.properties\"] // \"# Default configuration\""
+keySelector: ".data.config // \"default: true\""
 
-# Change service port
-keySelector: ".spec.ports[0].port"
+# Configuration with fallbacks
+keySelector: ".spec.replicas // \"3\""                    # Default replica count
+keySelector: ".spec.ports[0].port // \"8080\""           # Default port
+keySelector: ".spec.rules[0].host // \"localhost\""      # Default host
 
-# Update ingress host
-keySelector: ".spec.rules[0].host"
+# Secrets with alternatives
+keySelector: ".data.[\"database-password\"] // \"default-password\""
+keySelector: ".metadata.annotations[\"backup.policy\"] // \"daily\""
 
-# Modify secret data
-keySelector: ".data.[\"database-password\"]"
-
-# Update volume mount for specific container
-keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .volumeMounts[0].mountPath"
+# Volume mounts with defaults  
+keySelector: ".spec.template.spec.containers[] | select(.name == \"app\") | .volumeMounts[0].mountPath // \"/data\""
 ```
 
 ### Common Errors
@@ -195,11 +221,13 @@ keySelector: ".spec.replicas[0]"         # Can't index scalar value
 - **Array iteration**: `[]` for processing all elements
 - **Quoted key access**: `["key"]`, `['key']`, handling special characters
 - **Pipeline operations**: `|` chaining multiple operations
+- **Alternative operator**: `//` for fallback values when paths don't exist
 - **Filtering with select()**: `select(.name == "value")` for conditional filtering
 - **Comparison operators**: `==`, `!=` for equality/inequality tests
 - **Complex nested paths**: mixing all above operations
 - **Grammar-based parsing**: robust expression handling
 - **Parse-time validation**: syntax checking before execution
+- **Smart bracket parsing**: correctly distinguishes numeric indices from quoted string keys
 
 ### ❌ Not Supported (by design)
 
@@ -217,12 +245,16 @@ keySelector: ".spec.replicas[0]"         # Can't index scalar value
 
 ### Clarity and Maintainability
 ```yaml
-# ✅ Good: Clear, specific selectors
-keySelector: ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image"
-keySelector: ".data.[\"application.yaml\"]"
+# ✅ Good: Clear, specific selectors with reasonable defaults
+keySelector: ".spec.template.spec.containers[] | select(.name == \"frontend\") | .image // \"nginx:latest\""
+keySelector: ".data.[\"application.yaml\"] // \"default-config\""
 
 # ✅ Good: Modern approach using names instead of indices
 keySelector: ".spec.containers[] | select(.name == \"app\") | .image"
+
+# ✅ Good: Provide sensible fallbacks for optional configuration
+keySelector: ".spec.replicas // \"3\""
+keySelector: ".metadata.annotations[\"backup.policy\"] // \"daily\""
 
 # ⚠️ Acceptable but less maintainable: Index-based access
 keySelector: ".spec.template.spec.containers[0].image"
@@ -250,8 +282,15 @@ keySelector: ".spec.containers[] | select(.name == \"app\") | .volumeMounts[] | 
 keySelector: ".labels.[\"app.kubernetes.io/name\"]"
 keySelector: ".data.[\"nginx.conf\"]"
 
+# ✅ Good: Use quoted keys for strings starting with numbers
+keySelector: ".data.[\"1password.json\"]"        # String key, not index 1
+keySelector: ".config.[\"2fa-settings\"]"        # String key, not index 2
+
 # ❌ Risky: Special characters without quotes (may fail)
 keySelector: ".labels.app.kubernetes.io/name"     # Fails: dots in key
+
+# ❌ Wrong: Unquoted strings that start with numbers (parsed as indices)
+keySelector: ".data.[1password.json]"             # Tries to use index 1, then fails
 ```
 
 ### Performance Considerations

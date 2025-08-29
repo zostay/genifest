@@ -441,15 +441,11 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 			name: "valid metadata",
 			meta: MetaConfig{
 				CloudHome: "/home/user/project",
-				Scripts: PathContexts{
-					{Path: "scripts"},
-					{Path: "tools"},
-				},
-				Manifests: PathContexts{
-					{Path: "manifests"},
-				},
-				Files: PathContexts{
-					{Path: "files"},
+				Paths: PathConfigs{
+					{Path: "scripts", Scripts: true},
+					{Path: "tools", Scripts: true},
+					{Path: "manifests", Files: true},
+					{Path: "files", Files: true},
 				},
 			},
 			expectError: false,
@@ -458,8 +454,8 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 			name: "empty cloudHome (allowed)",
 			meta: MetaConfig{
 				CloudHome: "",
-				Scripts: PathContexts{
-					{Path: "scripts"},
+				Paths: PathConfigs{
+					{Path: "scripts", Scripts: true},
 				},
 			},
 			expectError: false,
@@ -468,34 +464,34 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 			name: "invalid script path",
 			meta: MetaConfig{
 				CloudHome: "/home/user/project",
-				Scripts: PathContexts{
-					{Path: "../../../etc/passwd"},
+				Paths: PathConfigs{
+					{Path: "../../../etc/passwd", Scripts: true},
 				},
 			},
 			expectError: true,
-			errorMsg:    "script path '../../../etc/passwd' attempts to reference parent directories outside of cloudHome",
+			errorMsg:    "path '../../../etc/passwd' attempts to reference parent directories outside of cloudHome",
 		},
 		{
 			name: "invalid manifest path",
 			meta: MetaConfig{
 				CloudHome: "/home/user/project",
-				Manifests: PathContexts{
-					{Path: "/etc/passwd"},
+				Paths: PathConfigs{
+					{Path: "/etc/passwd", Files: true},
 				},
 			},
 			expectError: true,
-			errorMsg:    "manifest path '/etc/passwd' must be relative, not absolute",
+			errorMsg:    "path '/etc/passwd' must be relative, not absolute",
 		},
 		{
 			name: "invalid file path",
 			meta: MetaConfig{
 				CloudHome: "/home/user/project",
-				Files: PathContexts{
-					{Path: ".."},
+				Paths: PathConfigs{
+					{Path: "..", Files: true},
 				},
 			},
 			expectError: true,
-			errorMsg:    "file path '..' attempts to reference parent directories outside of cloudHome",
+			errorMsg:    "path '..' attempts to reference parent directories outside of cloudHome",
 		},
 	}
 
