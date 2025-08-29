@@ -48,6 +48,9 @@ functions:
 changes:
   - tag: "optional-tag"
     fileSelector: "*.yaml"
+    documentSelector:              # Optional: target specific documents
+      kind: "ConfigMap"            # Match by resource kind
+      metadata.name: "app-config"  # Match by name (supports dot notation)
     keySelector: ".path.to.field"
     valueFrom:
       # ValueFrom expression

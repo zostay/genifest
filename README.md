@@ -84,6 +84,7 @@ keySelector: ".items[-1]"              # Last array element (negative indexing)
 ```yaml
 keySelector: ".data.config"            # Simple key access
 keySelector: ".data.[\"app.yaml\"]"    # Quoted keys (for keys with special characters)
+keySelector: ".data.[\"1password.json\"]"  # Quoted string keys (prevents numeric parsing)
 keySelector: ".labels.[\"app.kubernetes.io/name\"]"  # Complex key names
 ```
 
@@ -127,6 +128,7 @@ keySelector: ".spec.template.spec.containers[] | select(.name == \"backend\") | 
 - **Comparison operators**: Support for `==` and `!=` in filter conditions
 - **Negative indexing**: Array access with negative indices (e.g., `[-1]` for last element)
 - **Quoted keys**: Supports both single and double quotes for keys containing special characters
+- **Smart bracket parsing**: Correctly distinguishes between numeric indices (`[1]`) and quoted string keys (`["1password.json"]`)
 - **Path scoping**: Changes only apply to files within their configuration directory
 
 ### Differences from yq/jq
@@ -153,6 +155,40 @@ This implementation supports a **subset** of yq/jq syntax, focusing on the most 
 - Recursive descent (`..`)
 - Variable assignment
 - Step slicing (`[start:end:step]`)
+
+## Document Selection
+
+For multi-document YAML files (documents separated by `---`), you can target specific documents using `documentSelector`:
+
+```yaml
+changes:
+  - tag: config
+    fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-config  # Target specific document by name
+    keySelector: ".data.[\"app.yaml\"]"
+    valueFrom:
+      file:
+        source: app.yaml
+  
+  - tag: config  
+    fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: guestbook-quotes  # Target different document in same file
+    keySelector: ".data.quote"
+    valueFrom:
+      default:
+        value: "updated quote"
+```
+
+### DocumentSelector Features
+
+- **Simple key-value matching**: Uses dot notation for nested field access (`metadata.name`, `spec.type`)
+- **Multi-document support**: Apply different changes to different documents in the same file
+- **Precise targeting**: Only documents matching all selector criteria will have changes applied
+- **Optional**: If omitted, changes apply to all documents in the file
 
 ## Value Generation System
 

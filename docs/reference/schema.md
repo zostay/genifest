@@ -31,6 +31,8 @@ files:                           # Optional: managed files
 changes:                         # Optional: change definitions
   - tag: string                  # Optional: filter tag
     fileSelector: string         # Required: file pattern
+    documentSelector:            # Optional: document selector for multi-document files
+      field: string              # YAML field to match (supports dot notation)
     keySelector: string          # Required: YAML path
     valueFrom: ValueFrom         # Required: value generation
 ```
@@ -134,6 +136,68 @@ This implementation focuses on **path navigation** and supports a subset of yq/j
 
 !!! info "Complete KeySelector Reference"
     For comprehensive documentation of keySelector syntax, grammar details, and examples, see the [KeySelector Reference](keyselectors.md).
+
+## DocumentSelector Schema
+
+For files containing multiple YAML documents (separated by `---`), `documentSelector` allows targeting specific documents:
+
+```yaml
+documentSelector:
+  field.name: "value"        # Simple field matching
+  metadata.name: "config"    # Nested field matching  
+  kind: "ConfigMap"          # Resource type matching
+```
+
+### Features
+
+- **Simple field matching**: Match documents by any YAML field value
+- **Dot notation**: Access nested fields using `field.subfield` syntax
+- **Multiple criteria**: All specified fields must match for document selection
+- **Optional**: If omitted, changes apply to all documents in the file
+- **Case sensitive**: Exact string matching for all values
+
+### Examples
+
+```yaml
+# Target ConfigMap with specific name
+changes:
+  - fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: "app-config"
+    keySelector: ".data.config"
+    valueFrom:
+      default:
+        value: "updated-value"
+
+# Target different ConfigMap in same file
+  - fileSelector: "configmap.yaml"
+    documentSelector:
+      kind: ConfigMap
+      metadata.name: "app-secrets"
+    keySelector: ".data.password"
+    valueFrom:
+      default:
+        value: "encrypted-password"
+
+# Target by multiple criteria
+  - fileSelector: "resources.yaml"
+    documentSelector:
+      kind: Deployment
+      metadata.name: "frontend"
+      metadata.namespace: "production"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      default:
+        value: "5"
+```
+
+### Best Practices
+
+- **Use specific criteria**: Target documents precisely to avoid unintended changes
+- **Combine with fileSelector**: Use both selectors for maximum precision
+- **Consistent naming**: Use clear, descriptive document names for easier targeting
+- **Validate selectors**: Test document selection with `genifest validate` command
 
 ## ValueFrom Schema
 

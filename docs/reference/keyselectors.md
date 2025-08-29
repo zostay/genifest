@@ -53,7 +53,14 @@ keySelector: ".annotations.[\"deployment.kubernetes.io/revision\"]"
 keySelector: ".data.['config-file']"
 keySelector: ".labels.['custom-key']"
 keySelector: ".annotations.['build-timestamp']"
+
+# Important: Quoted strings starting with numbers
+keySelector: ".data.[\"1password.json\"]"     # String key (not numeric index 1)
+keySelector: ".config.[\"2fa-settings\"]"     # String key (not numeric index 2) 
+keySelector: ".secrets.[\"3rd-party-key\"]"   # String key (not numeric index 3)
 ```
+
+**Key Point**: The parser correctly distinguishes between numeric indices (`[1]`) and quoted string keys (`["1password.json"]`). Always use quotes for string keys that start with numbers to prevent them from being interpreted as array indices.
 
 ### Array Slicing
 
@@ -220,6 +227,7 @@ keySelector: ".spec.replicas[0]"         # Can't index scalar value
 - **Complex nested paths**: mixing all above operations
 - **Grammar-based parsing**: robust expression handling
 - **Parse-time validation**: syntax checking before execution
+- **Smart bracket parsing**: correctly distinguishes numeric indices from quoted string keys
 
 ### ❌ Not Supported (by design)
 
@@ -274,8 +282,15 @@ keySelector: ".spec.containers[] | select(.name == \"app\") | .volumeMounts[] | 
 keySelector: ".labels.[\"app.kubernetes.io/name\"]"
 keySelector: ".data.[\"nginx.conf\"]"
 
+# ✅ Good: Use quoted keys for strings starting with numbers
+keySelector: ".data.[\"1password.json\"]"        # String key, not index 1
+keySelector: ".config.[\"2fa-settings\"]"        # String key, not index 2
+
 # ❌ Risky: Special characters without quotes (may fail)
 keySelector: ".labels.app.kubernetes.io/name"     # Fails: dots in key
+
+# ❌ Wrong: Unquoted strings that start with numbers (parsed as indices)
+keySelector: ".data.[1password.json]"             # Tries to use index 1, then fails
 ```
 
 ### Performance Considerations
