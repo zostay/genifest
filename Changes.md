@@ -1,4 +1,4 @@
-## WIP  TBD
+## v1.0.0-rc4  2025-08-29
 
 _DocumentSelector for multi-document YAML targeting and smart bracket parsing enhancements._
 
