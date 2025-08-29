@@ -1,3 +1,31 @@
+## WIP  TBD
+
+_DocumentSelector for multi-document YAML targeting and smart bracket parsing enhancements._
+
+* **DocumentSelector Feature**: Multi-document YAML file targeting capability
+
+    * **Document targeting** using simple key-value matching with dot notation (`metadata.name`, `kind`)
+    * **Multi-document support** for YAML files with resources separated by `---`
+    * **Precise selection** allowing different changes to different documents in the same file
+    * **Optional usage** - when omitted, changes apply to all documents in the file
+    * **Real-world usage** for ConfigMaps, Secrets, and Deployments in consolidated files
+
+* **Smart Bracket Parsing**: Enhanced keySelector expression parsing for complex keys
+
+    * **Quote-aware parsing** correctly distinguishes numeric indices from quoted string keys
+    * **String key support** for keys starting with numbers like `["1password.json"]`
+    * **Prevents numeric parsing** of quoted strings that happen to start with digits
+    * **Backward compatibility** maintaining existing numeric index functionality `[0]`, `[-1]`
+    * **Special character support** for keys with dots, dashes, and complex names
+
+* **README Documentation Enhancements**:
+
+    * **Document Selection section** with comprehensive multi-document YAML examples
+    * **Smart bracket parsing** examples showing `["1password.json"]` vs numeric `[1]`
+    * **Alternative operator documentation** with `//` fallback value examples
+    * **Enhanced key features** highlighting quote handling and parsing improvements
+    * **DocumentSelector features** explaining targeting capabilities and use cases
+
 ## v1.0.0-rc3  2025-08-22
 
 _Enhanced keySelector syntax with advanced pipeline operations and comprehensive documentation updates._
