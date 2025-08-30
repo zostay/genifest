@@ -207,7 +207,14 @@ func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, 
 		var err error
 		current, err = evaluator.evaluatePipelineStepWithIteration(current, step, p.Steps[i+1:])
 		if err != nil {
-			return nil, fmt.Errorf("pipeline step %d failed: %w", i, err)
+			// Provide more detailed error context
+			stepDesc := "unknown"
+			if step.Path != nil {
+				stepDesc = "path expression"
+			} else if step.Function != nil {
+				stepDesc = fmt.Sprintf("function '%s'", step.Function.Name)
+			}
+			return nil, fmt.Errorf("pipeline step %d (%s) failed: %w", i, stepDesc, err)
 		}
 
 		// If we processed iteration, we're done
@@ -694,7 +701,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 		}
 
 		// Apply remaining pipeline steps
-		for _, step := range remainingSteps {
+		for j, step := range remainingSteps {
 			if step == nil {
 				return nil, fmt.Errorf("remaining pipeline step is nil")
 			}
@@ -703,12 +710,18 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 			}
 			
 			var err error
-			elementResult, err = e.evaluatePipelineStep(elementResult, step)
+			// Use the iteration-aware evaluation for remaining steps too
+			elementResult, err = e.evaluatePipelineStepWithIteration(elementResult, step, remainingSteps[j+1:])
 			if err != nil {
 				continue // Skip elements that don't match
 			}
 			if elementResult == nil {
 				continue // Element was filtered out
+			}
+			
+			// If this step involved iteration, the remaining steps were already processed
+			if e.hasArrayIteration(step) {
+				break
 			}
 		}
 

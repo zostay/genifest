@@ -33,7 +33,7 @@ spec:
                   name: guestbook-config
                   key: api-url
             - name: NODE_ENV
-              value: "production"
+              value: "development"
           resources:
             requests:
               memory: "128Mi"
