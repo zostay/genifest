@@ -1,3 +1,63 @@
+## v1.0.0-rc5  TBD
+
+_Complete revamp of tag system with groups-based selection and improved CLI argument handling._
+
+* **Groups-Based Tag System**: Revolutionary new approach to tag selection and organization
+
+    * **Groups configuration** with customizable tag expression patterns for organizing changes
+    * **Default "all" group** containing `["*"]` for backward compatibility with existing workflows  
+    * **Tag expressions** supporting wildcards (`*`), negations (`!tag-name`), and directory scoping (`dir:tag`)
+    * **Expression evaluation** with sequential processing where later expressions override earlier ones
+    * **Flexible matching** allowing complex combinations like `["*", "!secret-*", "secret-foo"]`
+
+* **Enhanced CLI Argument Structure**: Modernized command-line interface with intuitive argument handling
+
+    * **Zero arguments**: Uses "all" group in current directory (`genifest run`)
+    * **One argument**: Group name in current directory OR directory path with "all" group
+    * **Two arguments**: Specified group name in specified directory (`genifest run dev examples/guestbook`)
+    * **Intelligent parsing** that distinguishes between group names and directory paths
+    * **--tag option** for adding additional tag expressions to any group selection
+
+* **Directory-Scoped Tag Expressions**: Advanced scoping system for complex project structures
+
+    * **Scoped expressions** using `<directory>:<tag-expression>` syntax for targeted rule application
+    * **Automatic directory prefixing** when merging subordinate configurations  
+    * **Nested rule application** where child directory rules are applied after parent rules
+    * **Path-aware matching** ensuring expressions only apply to appropriate directory contexts
+
+* **Configuration Merging Improvements**: Enhanced configuration loading with groups support
+
+    * **Groups merging** with proper directory scoping and inheritance
+    * **Default groups** automatically provided when not specified in configuration
+    * **Hierarchical merging** preserving parent-child relationships in nested configurations
+    * **Context preservation** maintaining directory information throughout the merge process
+
+* **Breaking Changes** (no backward compatibility for RC software):
+
+    * **Removed --include-tags/--exclude-tags** in favor of groups-based selection
+    * **New argument structure** requires explicit group names for non-default selections
+    * **Groups section** now required for custom tag selection (defaults provided automatically)
+
+* **Real-World Examples**:
+
+    ```yaml
+    groups:
+      all: ["*"]                           # All tags (default behavior)
+      config-only: ["config"]              # Only configuration changes
+      no-secrets: ["*", "!secret-*"]       # Everything except secrets
+      dev: ["config", "image", "!production"] # Development environment
+      prod: ["*", "!dev-*", "!test-*"]     # Production with exclusions
+    ```
+
+* **Advanced Usage Patterns**:
+
+    ```bash
+    genifest run                          # All changes (default group)
+    genifest run config-only             # Only config changes
+    genifest run dev examples/app        # Dev group in specific directory  
+    genifest run --tag "!secret" prod    # Add negation to prod group
+    ```
+
 ## v1.0.0-rc4  2025-08-29
 
 _DocumentSelector for multi-document YAML targeting and smart bracket parsing enhancements._

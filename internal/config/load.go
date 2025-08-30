@@ -287,6 +287,7 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 
 	result := &Config{
 		Metadata: MetaConfig{CloudHome: primaryHome},
+		Groups:   GetDefaultGroups(), // Start with default groups
 	}
 
 	// Merge metadata (outer folders override inner folders for CloudHome)
@@ -331,6 +332,25 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 		for _, fn := range c.config.Functions {
 			fn.path = c.path
 			result.Functions = append(result.Functions, fn)
+		}
+
+		// Merge Groups - subordinate groups get directory prefixes applied
+		if c.config.Groups != nil {
+			configDir := filepath.Dir(c.path)
+			if c.path == "." || c.path == "" {
+				configDir = "."
+			}
+
+			// For root config, merge directly. For nested configs, apply directory scoping
+			if c.depth == 0 {
+				// Root config - merge groups directly
+				for name, expressions := range c.config.Groups {
+					result.Groups[name] = expressions
+				}
+			} else {
+				// Nested config - apply directory prefixes
+				result.Groups = result.Groups.MergeGroups(c.config.Groups, configDir)
+			}
 		}
 	}
 

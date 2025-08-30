@@ -18,17 +18,10 @@ manifests from templates for GitOps workflows. It processes configuration files
 to generate Kubernetes resources with dynamic value substitution.`,
 		Args: cobra.NoArgs,
 	}
-
-	includeTags, excludeTags []string
 )
 
 func init() {
-	// Legacy flags for backward compatibility - these are not used anymore
-	// as the functionality has moved to the 'run' subcommand
-	rootCmd.Flags().StringSliceVarP(&includeTags, "include-tags", "i", []string{}, "include only changes with these tags (supports glob patterns)")
-	rootCmd.Flags().StringSliceVarP(&excludeTags, "exclude-tags", "x", []string{}, "exclude changes with these tags (supports glob patterns)")
-	_ = rootCmd.Flags().MarkHidden("include-tags")
-	_ = rootCmd.Flags().MarkHidden("exclude-tags")
+	// No global flags needed anymore
 }
 
 // Execute runs the root command.
