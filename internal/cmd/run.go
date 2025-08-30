@@ -15,25 +15,26 @@ import (
 )
 
 var (
-	runIncludeTags, runExcludeTags []string
+	runAdditionalTags []string
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run [directory]",
+	Use:   "run [group] [directory]",
 	Short: "Generate Kubernetes manifests from templates",
 	Long: `Generate Kubernetes manifests from templates by applying changes from configuration files.
 This command processes the genifest.yaml configuration and applies dynamic value 
 substitution to your Kubernetes resources.
 
-If a directory is specified, the command will operate from that directory instead 
-of the current working directory.`,
-	Args: cobra.MaximumNArgs(1),
+Arguments:
+- No arguments: Uses the "all" group in the current directory
+- One argument: Uses the specified group name in the current directory, OR if it's a path, uses the "all" group in that directory
+- Two arguments: Uses the specified group name in the specified directory
+
+The --tag option allows adding additional tag expressions to the selected group.`,
+	Args: cobra.MaximumNArgs(2),
 	Run: func(_ *cobra.Command, args []string) {
-		var projectDir string
-		if len(args) > 0 {
-			projectDir = args[0]
-		}
-		err := GenerateManifests(nil, []string{projectDir})
+		groupName, projectDir := parseRunArguments(args)
+		err := GenerateManifests(groupName, projectDir, runAdditionalTags)
 		if err != nil {
 			printError(err)
 		}
@@ -41,27 +42,43 @@ of the current working directory.`,
 }
 
 func init() {
-	runCmd.Flags().StringSliceVarP(&runIncludeTags, "include-tags", "i", []string{}, "include only changes with these tags (supports glob patterns)")
-	runCmd.Flags().StringSliceVarP(&runExcludeTags, "exclude-tags", "x", []string{}, "exclude changes with these tags (supports glob patterns)")
+	runCmd.Flags().StringSliceVar(&runAdditionalTags, "tag", []string{}, "additional tag expressions to include (supports wildcards, negations, and directory scoping)")
 	rootCmd.AddCommand(runCmd)
 }
 
-func GenerateManifests(_ *cobra.Command, args []string) error {
-	// Use the run command's tag flags if they exist, otherwise use root flags
-	var currentIncludeTags, currentExcludeTags []string
-	if len(runIncludeTags) > 0 || len(runExcludeTags) > 0 {
-		currentIncludeTags = runIncludeTags
-		currentExcludeTags = runExcludeTags
-	} else {
-		currentIncludeTags = includeTags
-		currentExcludeTags = excludeTags
-	}
+// parseRunArguments parses the command line arguments to determine the group name and project directory.
+func parseRunArguments(args []string) (groupName, projectDir string) {
+	switch len(args) {
+	case 0:
+		// No arguments: use "all" group in current directory
+		return "all", ""
+	case 1:
+		// One argument: could be either group name or directory
+		arg := args[0]
 
-	// Load project configuration
-	var projectDir string
-	if len(args) > 0 {
-		projectDir = args[0]
+		// If it looks like a directory (contains path separators or exists as a directory), treat as directory
+		if strings.Contains(arg, "/") || strings.Contains(arg, "\\") {
+			return "all", arg
+		}
+
+		// Check if it exists as a directory
+		if info, err := os.Stat(arg); err == nil && info.IsDir() {
+			return "all", arg
+		}
+
+		// Otherwise treat as group name
+		return arg, ""
+	case 2:
+		// Two arguments: group name and directory
+		return args[0], args[1]
+	default:
+		// This should not happen due to cobra.MaximumNArgs(2)
+		return "all", ""
 	}
+}
+
+func GenerateManifests(groupName, projectDir string, additionalTags []string) error {
+	// Load project configuration
 	projectInfo, err := loadProjectConfiguration(projectDir)
 	if err != nil {
 		return err
@@ -70,8 +87,24 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	workDir := projectInfo.WorkDir
 	cfg := projectInfo.Config
 
-	// Determine tags to process
-	tagsToProcess := determineTagsWithFlags(cfg, currentIncludeTags, currentExcludeTags)
+	// Ensure we have groups configuration, use defaults if not specified
+	if cfg.Groups == nil {
+		cfg.Groups = config.GetDefaultGroups()
+	}
+
+	// Get the tag expressions for the specified group
+	groupExpressions, exists := cfg.Groups[groupName]
+	if !exists {
+		return fmt.Errorf("group '%s' is not defined in configuration", groupName)
+	}
+
+	// Add any additional tag expressions from --tag flags
+	if len(additionalTags) > 0 {
+		groupExpressions = append(groupExpressions, additionalTags...)
+	}
+
+	// Determine which tags should be processed based on the group expressions
+	tagsToProcess := determineTagsFromGroup(cfg, groupExpressions, workDir)
 
 	// Count total changes and changes that will be processed
 	totalChanges := len(cfg.Changes)
@@ -80,14 +113,11 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	// Display initial summary
 	fmt.Printf("🔍 \033[1;34mConfiguration loaded:\033[0m\n")
 	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m total change definition(s) found\n", totalChanges)
-	if len(currentIncludeTags) > 0 || len(currentExcludeTags) > 0 {
-		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) match tag filter\n", changesToRun)
-		if len(tagsToProcess) > 0 {
-			fmt.Printf("  \033[36m•\033[0m Tags to process: \033[35m%v\033[0m\n", tagsToProcess)
-		}
-	} else {
-		fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) will be processed (all changes)\n", changesToRun)
+	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) match group '%s'\n", changesToRun, groupName)
+	if len(tagsToProcess) > 0 {
+		fmt.Printf("  \033[36m•\033[0m Tags to process: \033[35m%v\033[0m\n", tagsToProcess)
 	}
+
 	// Get resolved files count for display
 	resolvedFiles, err := cfg.Files.ResolveFiles(workDir)
 	if err != nil {
@@ -97,7 +127,7 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	fmt.Printf("\n")
 
 	if changesToRun == 0 {
-		fmt.Printf("✅ \033[33mNo changes to apply based on current tag filters\033[0m\n")
+		fmt.Printf("✅ \033[33mNo changes to apply for group '%s'\033[0m\n", groupName)
 		return nil
 	}
 
@@ -118,8 +148,8 @@ func GenerateManifests(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-// determineTagsWithFlags determines which tags should be processed based on specific include/exclude flags.
-func determineTagsWithFlags(cfg *config.Config, includeTagFlags, excludeTagFlags []string) []string {
+// determineTagsFromGroup determines which tags should be processed based on group expressions.
+func determineTagsFromGroup(cfg *config.Config, groupExpressions config.TagExpressions, workDir string) []string {
 	// Collect all unique tags from changes
 	allTags := make(map[string]bool)
 	for _, change := range cfg.Changes {
@@ -128,68 +158,17 @@ func determineTagsWithFlags(cfg *config.Config, includeTagFlags, excludeTagFlags
 		}
 	}
 
-	// Convert to slice
-	availableTags := make([]string, 0, len(allTags))
-	for tag := range allTags {
-		availableTags = append(availableTags, tag)
-	}
-
-	// If no include/exclude tags specified, return all tags plus empty tag
-	if len(includeTagFlags) == 0 && len(excludeTagFlags) == 0 {
-		return append(availableTags, "") // Include untagged changes
-	}
+	// Add empty tag for untagged changes
+	allTags[""] = true
 
 	var result []string
+	for tag := range allTags {
+		// Determine the directory for this change (for directory-scoped expressions)
+		// For now, use workDir as the base directory
+		// TODO: In actual implementation, we might need to track the directory per change
+		changeDir := workDir
 
-	// Add untagged changes unless specifically excluded
-	includeUntagged := true
-	if len(excludeTagFlags) > 0 {
-		for _, excludePattern := range excludeTagFlags {
-			if matchesGlob(excludePattern, "") {
-				includeUntagged = false
-				break
-			}
-		}
-	}
-	if len(includeTagFlags) > 0 {
-		includeUntagged = false
-		for _, includePattern := range includeTagFlags {
-			if matchesGlob(includePattern, "") {
-				includeUntagged = true
-				break
-			}
-		}
-	}
-	if includeUntagged {
-		result = append(result, "")
-	}
-
-	// Process each available tag
-	for _, tag := range availableTags {
-		include := true
-
-		// Check include patterns
-		if len(includeTagFlags) > 0 {
-			include = false
-			for _, includePattern := range includeTagFlags {
-				if matchesGlob(includePattern, tag) {
-					include = true
-					break
-				}
-			}
-		}
-
-		// Check exclude patterns
-		if include && len(excludeTagFlags) > 0 {
-			for _, excludePattern := range excludeTagFlags {
-				if matchesGlob(excludePattern, tag) {
-					include = false
-					break
-				}
-			}
-		}
-
-		if include {
+		if groupExpressions.MatchesTag(tag, changeDir) {
 			result = append(result, tag)
 		}
 	}

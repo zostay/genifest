@@ -156,7 +156,7 @@ func (e *Expression) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node
 	if e.Left == nil {
 		return nil, fmt.Errorf("cannot evaluate expression: pipeline is nil")
 	}
-	
+
 	// Try to evaluate the main pipeline first
 	result, err := e.Left.Evaluate(node, evaluator)
 	if err == nil {
@@ -186,7 +186,7 @@ func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, 
 	if p == nil {
 		return nil, fmt.Errorf("cannot evaluate pipeline: pipeline is nil")
 	}
-	
+
 	// Start with the input node
 	current := node
 
@@ -203,7 +203,7 @@ func (p *Pipeline) Evaluate(node *yaml.Node, evaluator *Evaluator) (*yaml.Node, 
 		if current == nil {
 			return nil, fmt.Errorf("pipeline step %d: current node is nil", i)
 		}
-		
+
 		var err error
 		current, err = evaluator.evaluatePipelineStepWithIteration(current, step, p.Steps[i+1:])
 		if err != nil {
@@ -239,7 +239,7 @@ func (e *Evaluator) evaluatePipelineStep(node *yaml.Node, step *PipelineStep) (*
 	if step == nil {
 		return nil, fmt.Errorf("cannot evaluate pipeline step: step is nil")
 	}
-	
+
 	switch {
 	case step.Path != nil:
 		return e.evaluatePath(node, step.Path)
@@ -258,7 +258,7 @@ func (e *Evaluator) evaluatePath(node *yaml.Node, path *Path) (*yaml.Node, error
 	if path == nil {
 		return nil, fmt.Errorf("cannot evaluate path: path is nil")
 	}
-	
+
 	current := node
 
 	// Handle empty path (root access)
@@ -274,7 +274,7 @@ func (e *Evaluator) evaluatePath(node *yaml.Node, path *Path) (*yaml.Node, error
 		if current == nil {
 			return nil, fmt.Errorf("current node is nil at path component %d", i)
 		}
-		
+
 		var err error
 		current, err = e.evaluateComponent(current, component)
 		if err != nil {
@@ -293,7 +293,7 @@ func (e *Evaluator) evaluateComponent(node *yaml.Node, component *Component) (*y
 	if component == nil {
 		return nil, fmt.Errorf("cannot evaluate component: component is nil")
 	}
-	
+
 	switch {
 	case component.Field != nil:
 		return e.evaluateField(node, component.Field)
@@ -339,7 +339,7 @@ func (e *Evaluator) evaluateBracket(node *yaml.Node, bracket *Bracket) (*yaml.No
 	if bracket == nil {
 		return nil, fmt.Errorf("cannot evaluate bracket: bracket is nil")
 	}
-	
+
 	content := bracket.Content
 
 	// Check if it contains a colon (slice operation)
@@ -500,7 +500,7 @@ func (e *Evaluator) evaluateFunction(node *yaml.Node, function *Function) (*yaml
 	if function == nil {
 		return nil, fmt.Errorf("cannot evaluate function: function is nil")
 	}
-	
+
 	switch function.Name {
 	case "select":
 		return e.evaluateSelect(node, function)
@@ -560,7 +560,7 @@ func (e *Evaluator) evaluateComparison(node *yaml.Node, comparison *Comparison) 
 	if comparison.Right == nil {
 		return false, fmt.Errorf("cannot evaluate comparison: right side is nil")
 	}
-	
+
 	// Evaluate the left side (path) against the current node
 	leftNode, err := e.evaluatePath(node, comparison.Left)
 	if err != nil {
@@ -629,7 +629,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 	if path.Components == nil {
 		return nil, fmt.Errorf("cannot evaluate array iteration: path components are nil")
 	}
-	
+
 	// Find the array iteration component
 	var beforeIter []*Component
 	var afterIter []*Component
@@ -659,7 +659,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 		if current == nil {
 			return nil, fmt.Errorf("current node is nil while navigating to array")
 		}
-		
+
 		var err error
 		current, err = e.evaluateComponent(current, component)
 		if err != nil {
@@ -692,7 +692,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 			if elementResult == nil {
 				break // Can't continue with nil element
 			}
-			
+
 			var err error
 			elementResult, err = e.evaluateComponent(elementResult, component)
 			if err != nil {
@@ -708,7 +708,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 			if elementResult == nil {
 				break // Can't continue with nil element
 			}
-			
+
 			var err error
 			// Use the iteration-aware evaluation for remaining steps too
 			elementResult, err = e.evaluatePipelineStepWithIteration(elementResult, step, remainingSteps[j+1:])
@@ -718,7 +718,7 @@ func (e *Evaluator) evaluateWithArrayIteration(node *yaml.Node, path *Path, rema
 			if elementResult == nil {
 				continue // Element was filtered out
 			}
-			
+
 			// If this step involved iteration, the remaining steps were already processed
 			if e.hasArrayIteration(step) {
 				break
@@ -742,7 +742,7 @@ func (e *Expression) GetSimplePath() ([]*Component, error) {
 	if e.Left == nil {
 		return nil, fmt.Errorf("cannot get simple path: pipeline is nil")
 	}
-	
+
 	// Alternative expressions are not supported for write operations
 	if e.Alternative != nil {
 		return nil, fmt.Errorf("write operations don't support alternative expressions")

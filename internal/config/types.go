@@ -24,6 +24,10 @@ type Config struct {
 	// Metadata is metadata about genifest configuration.
 	Metadata MetaConfig `yaml:"metadata,omitempty"`
 
+	// Groups defines tag groups for organizing and selecting which changes to run.
+	// Each group contains a list of tag expressions that determine which tags match.
+	Groups Groups `yaml:"groups,omitempty"`
+
 	// Files defines which files genifest manages and has access to using
 	// include/exclude patterns with wildcard support.
 	Files FilesConfig `yaml:"files,omitempty"`
@@ -123,6 +127,129 @@ func (fc FilesConfig) ResolveFiles(baseDir string) ([]string, error) {
 	}
 
 	return filtered, nil
+}
+
+// Groups is a map of group names to tag expressions. Each group defines
+// which tags should be included when that group is selected for execution.
+type Groups map[string]TagExpressions
+
+// TagExpressions is a list of tag expression patterns that can include
+// wildcards, negations, and directory-scoped expressions.
+type TagExpressions []string
+
+// MatchesTag evaluates whether a given tag matches the tag expressions in this list.
+// Expressions are evaluated in order, with later expressions overriding earlier ones.
+// Supports wildcards (*), negations (!tag), and directory-scoped expressions (dir:tag).
+func (te TagExpressions) MatchesTag(tag, directory string) bool {
+	result := false // Default to not matching
+
+	for _, expr := range te {
+		// Handle directory-scoped expressions
+		if colonIndex := strings.Index(expr, ":"); colonIndex > 0 {
+			exprDir := expr[:colonIndex]
+			exprTag := expr[colonIndex+1:]
+
+			// Only apply this expression if we're in the matching directory or subdirectory
+			if !isDirectoryMatch(directory, exprDir) {
+				continue
+			}
+			expr = exprTag // Use the tag part for matching
+		}
+
+		// Handle negation
+		if strings.HasPrefix(expr, "!") {
+			negatedExpr := expr[1:]
+			if matchesPattern(tag, negatedExpr) {
+				result = false
+			}
+			continue
+		}
+
+		// Handle positive matching
+		if matchesPattern(tag, expr) {
+			result = true
+		}
+	}
+
+	return result
+}
+
+// matchesPattern checks if a tag matches a pattern (supports wildcards).
+func matchesPattern(tag, pattern string) bool {
+	// Handle exact match
+	if tag == pattern {
+		return true
+	}
+
+	// Handle wildcard patterns
+	if strings.Contains(pattern, "*") {
+		matched, _ := filepath.Match(pattern, tag)
+		return matched
+	}
+
+	return false
+}
+
+// isDirectoryMatch checks if a directory path matches or is a subdirectory of the pattern.
+func isDirectoryMatch(currentDir, patternDir string) bool {
+	// Normalize paths
+	currentDir = filepath.Clean(currentDir)
+	patternDir = filepath.Clean(patternDir)
+
+	// Exact match
+	if currentDir == patternDir {
+		return true
+	}
+
+	// Check if currentDir is a subdirectory of patternDir
+	rel, err := filepath.Rel(patternDir, currentDir)
+	if err != nil {
+		return false
+	}
+
+	// If the relative path doesn't start with "..", then patternDir is a parent
+	return !strings.HasPrefix(rel, "..")
+}
+
+// GetDefaultGroups returns the default groups configuration with "all" group set to ["*"].
+func GetDefaultGroups() Groups {
+	return Groups{
+		"all": TagExpressions{"*"},
+	}
+}
+
+// MergeGroups merges subordinate groups into the parent groups, applying directory prefixes
+// to nested group expressions as needed.
+func (g Groups) MergeGroups(subordinate Groups, directory string) Groups {
+	result := make(Groups)
+
+	// Copy parent groups
+	for name, expressions := range g {
+		result[name] = make(TagExpressions, len(expressions))
+		copy(result[name], expressions)
+	}
+
+	// Merge subordinate groups with directory prefixes
+	for name, expressions := range subordinate {
+		prefixedExpressions := make(TagExpressions, len(expressions))
+		for i, expr := range expressions {
+			// Add directory prefix to expressions that don't already have one
+			if !strings.Contains(expr, ":") {
+				prefixedExpressions[i] = directory + ":" + expr
+			} else {
+				prefixedExpressions[i] = expr
+			}
+		}
+
+		// If group already exists, append expressions (nested rules applied after parent)
+		if existing, exists := result[name]; exists {
+			result[name] = append(existing, prefixedExpressions...)
+		} else {
+			result[name] = prefixedExpressions
+		}
+	}
+
+	return result
 }
 
 // PathContext represents a path with context about where it was defined.
@@ -619,7 +746,92 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 
 // Validate methods
 
-// Validate validates the entire configuration including metadata, changes, and functions.
+// Validate validates groups configuration without context.
+func (g Groups) Validate() error {
+	return g.ValidateWithContext(nil)
+}
+
+// ValidateWithContext validates groups configuration ensuring all group names are valid tags
+// and all tag expressions within each group are valid.
+func (g Groups) ValidateWithContext(ctx *ValidationContext) error {
+	for groupName, expressions := range g {
+		if !isValidTag(groupName) {
+			return safeErrorWithValue(ctx, "group name", "is not a valid kebab-case tag", groupName)
+		}
+
+		groupCtx := ctx.WithField(groupName)
+		if err := expressions.ValidateWithContext(groupCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate validates tag expressions without context.
+func (te TagExpressions) Validate() error {
+	return te.ValidateWithContext(nil)
+}
+
+// ValidateWithContext validates tag expressions ensuring all expressions are valid patterns.
+func (te TagExpressions) ValidateWithContext(ctx *ValidationContext) error {
+	for i, expr := range te {
+		if err := validateTagExpression(expr); err != nil {
+			if ctx == nil {
+				return fmt.Errorf("tag expression %d: %w", i, err)
+			}
+			return safeErrorWithValue(ctx.WithIndex(i), "tag expression", err.Error(), expr)
+		}
+	}
+	return nil
+}
+
+// validateTagExpression validates a single tag expression pattern.
+func validateTagExpression(expr string) error {
+	if expr == "" {
+		return fmt.Errorf("tag expression cannot be empty")
+	}
+
+	// Handle directory-scoped expressions (dir:tag)
+	if colonIndex := strings.Index(expr, ":"); colonIndex > 0 {
+		dir := expr[:colonIndex]
+		tag := expr[colonIndex+1:]
+
+		// Validate directory part (should be a valid path component)
+		if dir == "" {
+			return fmt.Errorf("directory part cannot be empty in scoped expression")
+		}
+
+		// Validate tag part
+		return validateTagExpression(tag)
+	}
+
+	// Handle negation (!tag)
+	if strings.HasPrefix(expr, "!") {
+		negatedExpr := expr[1:]
+		if negatedExpr == "" {
+			return fmt.Errorf("negated expression cannot be empty after '!'")
+		}
+		return validateTagExpression(negatedExpr)
+	}
+
+	// Handle wildcards
+	if strings.Contains(expr, "*") {
+		// Basic wildcard validation - ensure it's a valid filepath pattern
+		if _, err := filepath.Match(expr, "test-tag"); err != nil {
+			return fmt.Errorf("invalid wildcard pattern: %w", err)
+		}
+		return nil
+	}
+
+	// Regular tag validation
+	if !isValidTag(expr) {
+		return fmt.Errorf("is not a valid kebab-case tag")
+	}
+
+	return nil
+}
+
+// Validate validates the entire configuration including metadata, groups, changes, and functions.
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
 	ctx := &ValidationContext{
@@ -629,6 +841,10 @@ func (c *Config) Validate() error {
 	}
 
 	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
+		return err
+	}
+
+	if err := c.Groups.ValidateWithContext(ctx.WithField("groups")); err != nil {
 		return err
 	}
 
