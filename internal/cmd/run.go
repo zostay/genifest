@@ -11,6 +11,7 @@ import (
 
 	"github.com/zostay/genifest/internal/changes"
 	"github.com/zostay/genifest/internal/config"
+	"github.com/zostay/genifest/internal/fileformat"
 	"github.com/zostay/genifest/internal/keysel"
 )
 
@@ -535,24 +536,27 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 		return stats, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Parse YAML documents
-	var documents []yaml.Node
-	decoder := yaml.NewDecoder(strings.NewReader(string(content)))
+	// Detect file format
+	format := fileformat.DetectFormat(filePath)
+	if format == fileformat.FormatUnknown {
+		fmt.Printf("⚠️  \033[33mWarning:\033[0m unknown file format for %s, skipping\n", filePath)
+		return stats, nil
+	}
 
-	for {
-		var doc yaml.Node
-		err := decoder.Decode(&doc)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return stats, fmt.Errorf("failed to parse YAML: %w", err)
-		}
-		documents = append(documents, doc)
+	// Get parser for the format
+	parser, err := fileformat.GetParser(format)
+	if err != nil {
+		return stats, fmt.Errorf("failed to get parser for format %s: %w", format, err)
+	}
+
+	// Parse documents
+	documents, err := parser.Parse(content)
+	if err != nil {
+		return stats, fmt.Errorf("failed to parse %s file: %w", format, err)
 	}
 
 	if len(documents) == 0 {
-		fmt.Printf("⚠️  \033[33mWarning:\033[0m no YAML documents found in %s, skipping\n", filePath)
+		fmt.Printf("⚠️  \033[33mWarning:\033[0m no documents found in %s, skipping\n", filePath)
 		return stats, nil
 	}
 
@@ -560,11 +564,9 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	fileModified := false
 
 	// Process each document
-	for docIndex := range documents {
-		doc := &documents[docIndex]
-
-		// Apply changes to this document
-		docStats, err := applyChangesToDocumentWithCounting(applier, filePath, doc, tagsToProcess, docIndex)
+	for docIndex, doc := range documents {
+		// Apply changes to this document using generic format
+		docStats, err := applyChangesToGenericDocumentWithCounting(applier, filePath, doc, tagsToProcess, docIndex)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply changes to document %d: %w", docIndex, err)
 		}
@@ -578,7 +580,12 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 
 	// Write back if modified
 	if fileModified {
-		err := writeYAMLFile(fullPath, documents, fi.Mode())
+		serializedContent, err := parser.Serialize(documents)
+		if err != nil {
+			return stats, fmt.Errorf("failed to serialize modified file: %w", err)
+		}
+
+		err = os.WriteFile(fullPath, serializedContent, fi.Mode())
 		if err != nil {
 			return stats, fmt.Errorf("failed to write modified file: %w", err)
 		}
@@ -808,4 +815,50 @@ func getValueInDocument(doc *yaml.Node, keySelector string) (string, error) {
 
 	// Return the value
 	return current.Value, nil
+}
+
+// applyChangesToGenericDocumentWithCounting applies changes to a generic document and tracks statistics.
+func applyChangesToGenericDocumentWithCounting(applier *changes.Applier, filePath string, doc *fileformat.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
+	stats := &ProcessingStats{}
+
+	// For now, convert the generic document to YAML for compatibility with the existing applier
+	// TODO: In the future, update the entire changes system to work with generic AST
+	yamlParser := &fileformat.YAMLParser{}
+	yamlNodes, err := yamlParser.Serialize([]*fileformat.Node{doc})
+	if err != nil {
+		return stats, fmt.Errorf("failed to convert document to YAML for processing: %w", err)
+	}
+
+	// Parse back to yaml.Node
+	var yamlDoc yaml.Node
+	err = yaml.Unmarshal(yamlNodes, &yamlDoc)
+	if err != nil {
+		return stats, fmt.Errorf("failed to parse converted YAML: %w", err)
+	}
+
+	// Apply changes using existing YAML-based applier
+	yamlStats, err := applyChangesToDocumentWithCounting(applier, filePath, &yamlDoc, tagsToProcess, docIndex)
+	if err != nil {
+		return stats, err
+	}
+
+	// Convert the modified YAML back to generic format and update the original document
+	if yamlStats.Modified > 0 {
+		yamlBytes, err := yaml.Marshal(&yamlDoc)
+		if err != nil {
+			return stats, fmt.Errorf("failed to marshal modified YAML: %w", err)
+		}
+
+		modifiedNodes, err := yamlParser.Parse(yamlBytes)
+		if err != nil {
+			return stats, fmt.Errorf("failed to parse modified YAML: %w", err)
+		}
+
+		if len(modifiedNodes) > 0 {
+			// Copy the modified node's structure back to the original
+			*doc = *modifiedNodes[0]
+		}
+	}
+
+	return yamlStats, nil
 }

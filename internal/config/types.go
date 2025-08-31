@@ -655,6 +655,10 @@ type DocumentRef struct {
 	// KeySelector identifies the specific field to select. This is in the form
 	// of a yq expression that will identify a specific field.
 	KeySelector string `yaml:"keySelector"`
+
+	// Format specifies the file format to use for parsing. If omitted, format
+	// is auto-detected from the file extension. Supported values: "yaml", "toml"
+	Format string `yaml:"format,omitempty"`
 }
 
 // Validation patterns.
