@@ -9,17 +9,25 @@ import (
 
 // ValidationError represents a validation error with a path to the problematic field.
 type ValidationError struct {
-	Path    string
-	Message string
-	Value   interface{}
+	Path     string
+	Message  string
+	Value    interface{}
+	Filename string // The filename where the error occurred
 }
 
 // Error implements the error interface.
 func (ve *ValidationError) Error() string {
-	if ve.Value != nil {
-		return fmt.Sprintf("❌ %s is %q which %s", ve.Path, ve.Value, ve.Message)
+	var prefix string
+	if ve.Filename != "" {
+		prefix = fmt.Sprintf("❌ %s: ", ve.Filename)
+	} else {
+		prefix = "❌ "
 	}
-	return fmt.Sprintf("❌ %s %s", ve.Path, ve.Message)
+	
+	if ve.Value != nil {
+		return fmt.Sprintf("%s%s is %q which %s", prefix, ve.Path, ve.Value, ve.Message)
+	}
+	return fmt.Sprintf("%s%s %s", prefix, ve.Path, ve.Message)
 }
 
 // NewValidationError creates a new validation error with the given path and message.
@@ -91,9 +99,27 @@ func (pb *PathBuilder) Error(message string) *ValidationError {
 	return NewValidationError(pb.String(), message)
 }
 
+// ErrorWithContext creates a validation error with the current path, message, and context filename.
+func (pb *PathBuilder) ErrorWithContext(message string, ctx *ValidationContext) *ValidationError {
+	ve := NewValidationError(pb.String(), message)
+	if ctx != nil {
+		ve.Filename = ctx.Filename
+	}
+	return ve
+}
+
 // ErrorWithValue creates a validation error with the current path, message, and value.
 func (pb *PathBuilder) ErrorWithValue(message string, value interface{}) *ValidationError {
 	return NewValidationErrorWithValue(pb.String(), message, value)
+}
+
+// ErrorWithValueAndContext creates a validation error with the current path, message, value, and context filename.
+func (pb *PathBuilder) ErrorWithValueAndContext(message string, value interface{}, ctx *ValidationContext) *ValidationError {
+	ve := NewValidationErrorWithValue(pb.String(), message, value)
+	if ctx != nil {
+		ve.Filename = ctx.Filename
+	}
+	return ve
 }
 
 // WrapError wraps an existing error with the current path context.
@@ -121,34 +147,28 @@ func (pb *PathBuilder) WrapError(err error) error {
 }
 
 // ValidationContext provides context for validation including available functions,
-// the current path for function scope resolution, and path building.
+// the current path for function scope resolution, path building, and filename information.
 type ValidationContext struct {
 	CloudHome   string
 	Functions   []FunctionDefinition
 	CurrentPath string
 	PathBuilder *PathBuilder
+	Filename    string // The filename where the configuration being validated was loaded from
 }
 
 // WithPath creates a new validation context with the given path builder.
 func (ctx *ValidationContext) WithPath(pb *PathBuilder) *ValidationContext {
-	if ctx == nil {
-		return &ValidationContext{PathBuilder: pb}
-	}
-
 	return &ValidationContext{
 		CloudHome:   ctx.CloudHome,
 		Functions:   ctx.Functions,
 		CurrentPath: ctx.CurrentPath,
 		PathBuilder: pb,
+		Filename:    ctx.Filename,
 	}
 }
 
 // WithField creates a new validation context with the given field added to the path.
 func (ctx *ValidationContext) WithField(name string) *ValidationContext {
-	// If ctx is nil, preserve nil for backward compatibility with tests
-	if ctx == nil {
-		return nil
-	}
 	var pb *PathBuilder
 	if ctx.PathBuilder != nil {
 		pb = ctx.PathBuilder.Field(name)
@@ -160,10 +180,6 @@ func (ctx *ValidationContext) WithField(name string) *ValidationContext {
 
 // WithIndex creates a new validation context with the given index added to the path.
 func (ctx *ValidationContext) WithIndex(index int) *ValidationContext {
-	// If ctx is nil, preserve nil for backward compatibility with tests
-	if ctx == nil {
-		return nil
-	}
 	var pb *PathBuilder
 	if ctx.PathBuilder != nil {
 		pb = ctx.PathBuilder.Index(index)
@@ -173,28 +189,26 @@ func (ctx *ValidationContext) WithIndex(index int) *ValidationContext {
 	return ctx.WithPath(pb)
 }
 
-// safeError returns a ValidationError if context is available, otherwise a regular error.
+// safeError returns a ValidationError using the context's path builder.
 func safeError(ctx *ValidationContext, message string) error {
-	if ctx != nil && ctx.PathBuilder != nil {
-		return ctx.PathBuilder.Error(message)
+	if ctx.PathBuilder != nil {
+		return ctx.PathBuilder.ErrorWithContext(message, ctx)
 	}
 	return fmt.Errorf("%s", message)
 }
 
-// safeErrorWithValue returns a ValidationError with value if context is available, otherwise a regular error.
+// safeErrorWithValue returns a ValidationError with value using the context's path builder.
 func safeErrorWithValue(ctx *ValidationContext, fieldName string, message string, value interface{}) error {
-	if ctx != nil && ctx.PathBuilder != nil {
-		return ctx.PathBuilder.ErrorWithValue(message, value)
+	if ctx.PathBuilder != nil {
+		return ctx.PathBuilder.ErrorWithValueAndContext(message, value, ctx)
 	}
-	// For backward compatibility with tests when ctx is nil, return the original format
 	return fmt.Errorf("%s '%v' %s", fieldName, value, message)
 }
 
-// safeError returns a ValidationError if context is available, otherwise a regular error with field prefix.
+// safeErrorWithField returns a ValidationError using the context's path builder.
 func safeErrorWithField(ctx *ValidationContext, fieldName string, message string) error {
-	if ctx != nil && ctx.PathBuilder != nil {
-		return ctx.PathBuilder.Error(message)
+	if ctx.PathBuilder != nil {
+		return ctx.PathBuilder.ErrorWithContext(message, ctx)
 	}
-	// For backward compatibility with tests when ctx is nil, return the original format
 	return fmt.Errorf("%s validation failed: %s", fieldName, message)
 }

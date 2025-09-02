@@ -111,7 +111,6 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 
 			fmt.Printf("❌ \033[1;31mConfiguration validation failed with 1 error:\033[0m\n\n")
 			fmt.Printf("  \033[31m•\033[0m %s\n", msg)
-			fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
 			return &ValidationSummaryError{ErrorCount: 1}
 		}
 		return err
@@ -192,7 +191,6 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 		for _, err := range validationErrors {
 			fmt.Printf("  \033[31m•\033[0m %s\n", err)
 		}
-		fmt.Printf("\n💡 \033[1;33mTip:\033[0m Fix these issues and run 'genifest validate' again\n")
 		return &ValidationSummaryError{ErrorCount: len(validationErrors)}
 	}
 

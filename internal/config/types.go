@@ -778,7 +778,11 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 
 // Validate validates groups configuration without context.
 func (g Groups) Validate() error {
-	return g.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return g.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates groups configuration ensuring all group names are valid tags
@@ -799,16 +803,17 @@ func (g Groups) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates tag expressions without context.
 func (te TagExpressions) Validate() error {
-	return te.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return te.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates tag expressions ensuring all expressions are valid patterns.
 func (te TagExpressions) ValidateWithContext(ctx *ValidationContext) error {
 	for i, expr := range te {
 		if err := validateTagExpression(expr); err != nil {
-			if ctx == nil {
-				return fmt.Errorf("tag expression %d: %w", i, err)
-			}
 			return safeErrorWithValue(ctx.WithIndex(i), "tag expression", err.Error(), expr)
 		}
 	}
@@ -864,11 +869,23 @@ func validateTagExpression(expr string) error {
 // Validate validates the entire configuration including metadata, groups, changes, and functions.
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
+	return c.ValidateWithFilename("")
+}
+
+// ValidateWithFilename validates the configuration with filename context for better error messages.
+func (c *Config) ValidateWithFilename(filename string) error {
 	ctx := &ValidationContext{
 		CloudHome:   c.Metadata.CloudHome,
 		Functions:   c.Functions,
 		PathBuilder: NewPathBuilder(""),
+		Filename:    filename,
 	}
+	return c.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates the configuration using the provided validation context.
+// This allows for custom function contexts while preserving filename information.
+func (c *Config) ValidateWithContext(ctx *ValidationContext) error {
 
 	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
 		return err
@@ -897,7 +914,11 @@ func (c *Config) Validate() error {
 
 // Validate validates the metadata configuration without context.
 func (m *MetaConfig) Validate() error {
-	return m.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return m.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates the metadata configuration, ensuring all paths
@@ -983,7 +1004,11 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 
 // Validate validates a change order without context.
 func (c *ChangeOrder) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a change order including its document reference,
@@ -998,9 +1023,6 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	}
 
 	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
-		if ctx == nil {
-			return fmt.Errorf("valueFrom validation failed: %s", err.Error())
-		}
 		return err
 	}
 
@@ -1009,7 +1031,11 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a function definition without context.
 func (f *FunctionDefinition) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a function definition including its name,
@@ -1034,22 +1060,20 @@ func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a parameter without context.
 func (p *Parameter) Validate() error {
-	return p.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return p.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a parameter ensuring the name is a valid identifier
 // and that required parameters don't have default values.
 func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
-		if ctx == nil {
-			return fmt.Errorf("parameter name '%v' is not a valid identifier", p.Name)
-		}
 		return safeErrorWithValue(ctx, "name", "is not a valid identifier", p.Name)
 	}
 	if p.Required && p.Default != "" {
-		if ctx == nil {
-			return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
-		}
 		return safeErrorWithField(ctx, "parameter "+p.Name, "is required and cannot have a default")
 	}
 	return nil
@@ -1057,7 +1081,11 @@ func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a ValueFrom expression without context.
 func (v *ValueFrom) Validate() error {
-	return v.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return v.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a ValueFrom expression ensuring exactly one field is set
@@ -1074,9 +1102,6 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	if v.CallPipeline != nil {
 		count++
 		if err := v.CallPipeline.ValidateWithContext(ctx.WithField("pipeline")); err != nil {
-			if ctx == nil {
-				return fmt.Errorf("call pipeline validation failed: %s", err.Error())
-			}
 			return err
 		}
 	}
@@ -1126,16 +1151,17 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a function call without context.
 func (f *FunctionCall) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a function call including checking that the
 // referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		if ctx == nil {
-			return fmt.Errorf("function call validation failed: function name '%v' is not a valid identifier", f.Name)
-		}
 		return safeErrorWithValue(ctx, "function", "is not a valid identifier", f.Name)
 	}
 
@@ -1155,7 +1181,11 @@ func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates an argument without context.
 func (a *Argument) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates an argument ensuring the name is a valid identifier
@@ -1174,7 +1204,11 @@ func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a list of arguments without context.
 func (a Arguments) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates all arguments in the list using the provided context.
@@ -1189,16 +1223,17 @@ func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a call pipeline without context.
 func (c CallPipeline) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a call pipeline ensuring it's not empty and that
 // subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
-		if ctx == nil {
-			return fmt.Errorf("call pipeline cannot be empty")
-		}
 		return safeErrorWithField(ctx, "call pipeline", "call pipeline cannot be empty")
 	}
 
@@ -1206,18 +1241,12 @@ func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 		pipeCtx := ctx.WithIndex(i)
 		isFinal := i == len(c)-1
 		if err := pipe.validateWithContextAndFinalFlag(pipeCtx, isFinal); err != nil {
-			if ctx == nil {
-				return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
-			}
 			return err
 		}
 
 		// Subsequent pipes must be FunctionCall or ScriptExec
 		if i > 0 {
 			if err := pipe.validateSubsequentPipe(pipeCtx); err != nil {
-				if ctx == nil {
-					return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
-				}
 				return err
 			}
 		}
@@ -1227,7 +1256,11 @@ func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a file inclusion without context.
 func (f *FileInclusion) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a file inclusion ensuring the source field is provided.
@@ -1250,7 +1283,11 @@ func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a transient change without context.
 func (t *TransientChange) Validate() error {
-	return t.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return t.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a transient change ensuring required fields are provided.
@@ -1271,7 +1308,11 @@ func (t *TransientChange) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a basic template without context.
 func (b *BasicTemplate) Validate() error {
-	return b.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return b.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a basic template ensuring the string field is provided
@@ -1290,7 +1331,11 @@ func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a script execution without context.
 func (s *ScriptExec) Validate() error {
-	return s.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return s.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a script execution ensuring the exec field is provided
@@ -1319,15 +1364,16 @@ func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates an argument reference without context.
 func (a *ArgumentRef) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
 func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		if ctx == nil {
-			return fmt.Errorf("argument ref validation failed: argument ref name '%v' is not a valid identifier", a.Name)
-		}
 		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 	return nil
@@ -1335,7 +1381,11 @@ func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a default value without context.
 func (d *DefaultValue) Validate() error {
-	return d.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return d.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a default value ensuring the value field is provided.
@@ -1348,7 +1398,11 @@ func (d *DefaultValue) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a document reference without context.
 func (d *DocumentRef) Validate() error {
-	return d.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return d.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a document reference ensuring the keySelector is provided.
@@ -1363,7 +1417,11 @@ func (d *DocumentRef) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a call pipe without context.
 func (c *CallPipe) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a call pipe ensuring the valueFrom expression
@@ -1382,17 +1440,11 @@ func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFin
 	// Only validate output if it's provided OR if this is not the final pipe
 	// Final pipes don't require an output since there's no next pipe to consume it
 	if c.Output != "" && !isValidIdentifier(c.Output) {
-		if ctx == nil {
-			return fmt.Errorf("output name '%v' is not a valid identifier", c.Output)
-		}
 		return safeErrorWithValue(ctx, "output", "is not a valid identifier", c.Output)
 	}
 
 	// Non-final pipes must have an output
 	if !isFinal && c.Output == "" {
-		if ctx == nil {
-			return fmt.Errorf("output is required for non-final pipes")
-		}
 		return safeErrorWithField(ctx, "output", "is required for non-final pipes")
 	}
 
@@ -1403,9 +1455,6 @@ func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFin
 // This enforces the constraint that only the first pipe can use any ValueFrom type.
 func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
-		if ctx == nil {
-			return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
-		}
 		return safeError(ctx.WithField("valueFrom"), "must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
 	return nil

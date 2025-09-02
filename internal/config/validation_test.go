@@ -174,7 +174,11 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.valueFrom.ValidateWithContext(nil)
+			ctx := &ValidationContext{
+				PathBuilder: NewPathBuilder("test"),
+				Filename:    "test.yaml",
+			}
+			err := tt.valueFrom.ValidateWithContext(ctx)
 
 			if tt.expectError {
 				if err == nil {
@@ -270,7 +274,11 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.param.ValidateWithContext(nil)
+			ctx := &ValidationContext{
+				PathBuilder: NewPathBuilder("test"),
+				Filename:    "test.yaml",
+			}
+			err := tt.param.ValidateWithContext(ctx)
 
 			if tt.expectError {
 				if err == nil {
@@ -371,7 +379,11 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.change.ValidateWithContext(nil)
+			ctx := &ValidationContext{
+				PathBuilder: NewPathBuilder("test"),
+				Filename:    "test.yaml",
+			}
+			err := tt.change.ValidateWithContext(ctx)
 
 			if tt.expectError {
 				if err == nil {
@@ -431,7 +443,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 			name:        "empty pipeline",
 			pipeline:    CallPipeline{},
 			expectError: true,
-			errorMsg:    "call pipeline cannot be empty",
+			errorMsg:    "❌ .test call pipeline cannot be empty",
 		},
 		{
 			name: "invalid output name",
@@ -493,7 +505,11 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.pipeline.ValidateWithContext(nil)
+			ctx := &ValidationContext{
+				PathBuilder: NewPathBuilder("test"),
+				Filename:    "test.yaml",
+			}
+			err := tt.pipeline.ValidateWithContext(ctx)
 
 			if tt.expectError {
 				if err == nil {
