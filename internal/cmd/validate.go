@@ -79,7 +79,7 @@ of the current working directory.`,
 				os.Exit(1)
 			} else {
 				// Other errors need normal handling
-				printErrorWithContext(err, "validate")
+				printError(err)
 			}
 		}
 	},
