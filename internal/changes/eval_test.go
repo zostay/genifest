@@ -652,3 +652,210 @@ func TestContextImmutability(t *testing.T) {
 		t.Error("New context doesn't have new variable")
 	}
 }
+
+// TestFileInclusionWithTransientChanges tests file inclusion with transient changes applied.
+func TestFileInclusionWithTransientChanges(t *testing.T) {
+	t.Parallel()
+	ctx, tempDir := setupTestContext(t)
+
+	// Create a test YAML file
+	testYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  replicas: "1"
+  environment: "dev"`
+
+	filePath := filepath.Join(tempDir, "files", "config.yaml")
+	err := os.WriteFile(filePath, []byte(testYAML), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test FileInclusion with transient changes
+	valueFrom := config.ValueFrom{
+		FileInclusion: &config.FileInclusion{
+			Source: "config.yaml",
+			Changes: []config.TransientChange{
+				{
+					KeySelector: ".data.replicas",
+					ValueFrom: config.ValueFrom{
+						DefaultValue: &config.DefaultValue{Value: "3"},
+					},
+				},
+				{
+					KeySelector: ".data.environment",
+					ValueFrom: config.ValueFrom{
+						DefaultValue: &config.DefaultValue{Value: "production"},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := ctx.Evaluate(valueFrom)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// Parse the result to verify changes were applied
+	var resultDoc yaml.Node
+	err = yaml.Unmarshal([]byte(result), &resultDoc)
+	if err != nil {
+		t.Fatalf("Failed to parse result YAML: %v", err)
+	}
+
+	// Check that replicas was changed from "1" to "3"
+	replicasValueFrom := config.ValueFrom{
+		DocumentRef: &config.DocumentRef{KeySelector: ".data.replicas"},
+	}
+	replicasResult, err := ctx.WithDocument(&resultDoc).Evaluate(replicasValueFrom)
+	if err != nil {
+		t.Fatalf("Failed to get replicas value: %v", err)
+	}
+	if replicasResult != "3" {
+		t.Errorf("Expected replicas to be '3', got '%s'", replicasResult)
+	}
+
+	// Check that environment was changed from "dev" to "production"
+	envValueFrom := config.ValueFrom{
+		DocumentRef: &config.DocumentRef{KeySelector: ".data.environment"},
+	}
+	envResult, err := ctx.WithDocument(&resultDoc).Evaluate(envValueFrom)
+	if err != nil {
+		t.Fatalf("Failed to get environment value: %v", err)
+	}
+	if envResult != "production" {
+		t.Errorf("Expected environment to be 'production', got '%s'", envResult)
+	}
+
+	// Verify original file was not modified
+	originalContent, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read original file: %v", err)
+	}
+	if !strings.Contains(string(originalContent), `replicas: "1"`) {
+		t.Error("Original file was modified - replicas should still be '1'")
+	}
+	if !strings.Contains(string(originalContent), `environment: "dev"`) {
+		t.Error("Original file was modified - environment should still be 'dev'")
+	}
+}
+
+// TestFileInclusionWithDocumentSelector tests transient changes with document selector.
+func TestFileInclusionWithDocumentSelector(t *testing.T) {
+	t.Parallel()
+	ctx, tempDir := setupTestContext(t)
+
+	// Create a multi-document YAML file
+	testYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  value: "original"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret
+data:
+  value: "secret"`
+
+	filePath := filepath.Join(tempDir, "files", "multi.yaml")
+	err := os.WriteFile(filePath, []byte(testYAML), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test FileInclusion with document selector - should only affect the Secret
+	valueFrom := config.ValueFrom{
+		FileInclusion: &config.FileInclusion{
+			Source: "multi.yaml",
+			Changes: []config.TransientChange{
+				{
+					DocumentSelector: config.DocumentSelector{
+						"kind": "Secret",
+					},
+					KeySelector: ".data.value",
+					ValueFrom: config.ValueFrom{
+						DefaultValue: &config.DefaultValue{Value: "modified"},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := ctx.Evaluate(valueFrom)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// The result should contain both documents
+	if !strings.Contains(result, "kind: ConfigMap") {
+		t.Error("Result should contain ConfigMap")
+	}
+	if !strings.Contains(result, "kind: Secret") {
+		t.Error("Result should contain Secret")
+	}
+
+	// ConfigMap should still have original value
+	if !strings.Contains(result, "value: original") {
+		t.Error("ConfigMap value should still be 'original'")
+	}
+
+	// Secret should have modified value
+	if !strings.Contains(result, "value: modified") {
+		t.Error("Secret value should be 'modified'")
+	}
+
+	// Verify the Secret no longer has the original secret value
+	if strings.Contains(result, "value: secret") {
+		t.Error("Secret should not contain original 'secret' value")
+	}
+}
+
+// TestFileInclusionWithTransientChangesError tests error handling in transient changes.
+func TestFileInclusionWithTransientChangesError(t *testing.T) {
+	t.Parallel()
+	ctx, tempDir := setupTestContext(t)
+
+	// Create a test YAML file
+	testYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  value: "original"`
+
+	filePath := filepath.Join(tempDir, "files", "config.yaml")
+	err := os.WriteFile(filePath, []byte(testYAML), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test with invalid key selector
+	valueFrom := config.ValueFrom{
+		FileInclusion: &config.FileInclusion{
+			Source: "config.yaml",
+			Changes: []config.TransientChange{
+				{
+					KeySelector: ".data.missing.nested",
+					ValueFrom: config.ValueFrom{
+						DefaultValue: &config.DefaultValue{Value: "value"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = ctx.Evaluate(valueFrom)
+	if err == nil {
+		t.Fatal("Expected error for invalid key selector, got none")
+	}
+
+	if !strings.Contains(err.Error(), "failed to apply transient changes") {
+		t.Errorf("Expected error about transient changes, got: %v", err)
+	}
+}

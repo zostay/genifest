@@ -107,19 +107,41 @@ valueFrom:
 
 ## FileInclusion
 
-Includes content from external files.
+Includes content from external files with optional transient modifications.
 
 ```yaml
 valueFrom:
   file:
     app: "subdirectory"    # Optional
     source: "file.yaml"    # Required
+    changes:               # Optional transient changes
+      - keySelector: ".spec.replicas"
+        valueFrom:
+          default:
+            value: "3"
+      - documentSelector:  # Optional document filtering
+          kind: "Secret"
+        keySelector: ".data.password"
+        valueFrom:
+          default:
+            value: "temp-password"
 ```
 
 **Features:**
 - File content inclusion
 - Subdirectory support
 - Path security validation
+- **Transient changes** - Apply modifications to file content in memory without persisting to disk
+- **Document selection** - Target specific documents in multi-document files
+- **Key selector support** - Modify specific fields using path expressions
+
+**Transient Changes:**
+Transient changes allow you to modify file content dynamically without altering the original files. This is useful for scenarios like:
+- Injecting secrets that will be encrypted by external tools (e.g., kubeseal)
+- Environment-specific modifications during pipeline execution
+- Testing configurations without affecting source files
+
+Changes are applied in memory only and are never written back to the source files.
 
 ## CallPipeline
 

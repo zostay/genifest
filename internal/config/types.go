@@ -589,6 +589,32 @@ type FileInclusion struct {
 
 	// Source is the name of the file to read.
 	Source string `yaml:"source"`
+
+	// Changes is a list of transient modifications to apply to the included file
+	// content. These changes exist only in memory and are not persisted to disk.
+	// The fileSelector is always the source file being included.
+	Changes []TransientChange `yaml:"changes,omitempty"`
+}
+
+// TransientChange represents a modification to be applied to an included file
+// in memory without persisting the changes to disk.
+type TransientChange struct {
+	// DocumentSelector may be omitted. When omitted, the KeySelector will be
+	// applied to all documents in the file.
+	DocumentSelector DocumentSelector `yaml:"documentSelector,omitempty"`
+
+	// KeySelector identifies the specific field to modify using yq syntax.
+	KeySelector string `yaml:"keySelector"`
+
+	// Tag is used to select which transient changes to run.
+	Tag string `yaml:"tag,omitempty"`
+
+	// Format specifies the file format to use for parsing. If omitted, format
+	// is auto-detected from the file extension. Supported values: "yaml", "toml"
+	Format string `yaml:"format,omitempty"`
+
+	// ValueFrom is the value to apply to the KeySelector
+	ValueFrom ValueFrom `yaml:"valueFrom"`
 }
 
 // BasicTemplate turns a string with $style variables into a string value.
@@ -1210,6 +1236,36 @@ func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 	if f.Source == "" {
 		return safeErrorWithField(ctx, "file inclusion", "source field is required")
 	}
+
+	// Validate transient changes
+	for i, change := range f.Changes {
+		changeCtx := ctx.WithIndex(i)
+		if err := change.ValidateWithContext(changeCtx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Validate validates a transient change without context.
+func (t *TransientChange) Validate() error {
+	return t.ValidateWithContext(nil)
+}
+
+// ValidateWithContext validates a transient change ensuring required fields are provided.
+func (t *TransientChange) ValidateWithContext(ctx *ValidationContext) error {
+	if t.KeySelector == "" {
+		return safeErrorWithField(ctx, "transient change", "keySelector field is required")
+	}
+
+	// Validate the ValueFrom
+	if err := t.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
+	}
+
+	// DocumentSelector is a simple map, no additional validation needed
+
 	return nil
 }
 
