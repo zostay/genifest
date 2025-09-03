@@ -393,8 +393,27 @@ func (ctx *EvalContext) applyTransientChanges(content []byte, changes []config.T
 				}
 			}
 
-			// Evaluate the new value
-			newValue, err := ctx.Evaluate(change.ValueFrom)
+			// Create a new context with the target file and document for evaluation
+			// This ensures documentRef operations work on the file being modified
+			changeCtx := ctx.WithFile(filename)
+			
+			// Convert generic document to YAML node for document context
+			yamlParser := &fileformat.YAMLParser{}
+			yamlContent, err := yamlParser.Serialize([]*fileformat.Node{doc})
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert document to YAML for context: %w", err)
+			}
+			
+			var yamlDoc yaml.Node
+			err = yaml.Unmarshal(yamlContent, &yamlDoc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse document for context: %w", err)
+			}
+			
+			changeCtx = changeCtx.WithDocument(&yamlDoc)
+
+			// Evaluate the new value using the updated context
+			newValue, err := changeCtx.Evaluate(change.ValueFrom)
 			if err != nil {
 				return nil, fmt.Errorf("failed to evaluate value for transient change %d: %w", docIndex, err)
 			}
