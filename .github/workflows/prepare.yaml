@@ -45,19 +45,19 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+        run: go build -ldflags="-s -w" -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
       - name: Linux Arm 64-bit Build
         env:
           GOOS: linux
           GOARCH: arm64
-        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+        run: go build -ldflags="-s -w" -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
       - name: Apple Silicon Build
         env:
           GOOS: darwin
           GOARCH: arm64
-        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+        run: go build -ldflags="-s -w" -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
       - name: Apple Intel Build
         env:
           GOOS: darwin
           GOARCH: amd64
-        run: go build -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
+        run: go build -ldflags="-s -w" -o genifest-$RELEASE_VERSION-$GOOS-$GOARCH ./
