@@ -1,11 +1,11 @@
 ## v1.0.0-rc5  TBD
 
-_Complete revamp of tag system with groups-based selection and improved CLI argument handling._
+_Complete revamp of tag system with groups-based selection, multi-format support, enhanced value generation, and improved developer experience._
 
 * **Groups-Based Tag System**: Revolutionary new approach to tag selection and organization
 
     * **Groups configuration** with customizable tag expression patterns for organizing changes
-    * **Default "all" group** containing `["*"]` for backward compatibility with existing workflows  
+    * **Default "all" group** containing `["*"]` for backward compatibility with existing workflows
     * **Tag expressions** supporting wildcards (`*`), negations (`!tag-name`), and directory scoping (`dir:tag`)
     * **Expression evaluation** with sequential processing where later expressions override earlier ones
     * **Flexible matching** allowing complex combinations like `["*", "!secret-*", "secret-foo"]`
@@ -18,12 +18,43 @@ _Complete revamp of tag system with groups-based selection and improved CLI argu
     * **Intelligent parsing** that distinguishes between group names and directory paths
     * **--tag option** for adding additional tag expressions to any group selection
 
+* **Multi-Format Configuration Support**: Extended beyond YAML to support additional configuration formats
+
+    * **TOML support** with complete read/write capabilities for `.toml` configuration files
+    * **Format detection** automatically identifies file format from extension (`.yaml`, `.yml`, `.toml`)
+    * **Universal processing** allows changes to be applied to any supported format
+    * **Extensible architecture** in `internal/fileformat/` for future format additions
+    * **Format-agnostic operations** with unified AST representation for all formats
+
+* **Enhanced Value Generation System**: Expanded ValueFrom types with new capabilities
+
+    * **Environment variable support** with new `envRef` type for reading environment variables
+    * **Default value handling** for environment variables when not set or empty
+    * **Transient changes in file inclusion** allowing temporary modifications during file embedding
+    * **Document context preservation** for `documentRef` operations within included files
+    * **Validation improvements** with filename context in error messages for better debugging
+
+* **File Inclusion Enhancements**: Advanced file embedding with on-the-fly modifications
+
+    * **Transient changes** apply modifications to included files without persisting changes to disk
+    * **DocumentSelector support** for targeting specific documents in multi-document included files
+    * **Tag-based filtering** allowing conditional application of transient changes
+    * **Context-aware operations** preserving document references and variable scoping
+    * **Non-destructive processing** ensuring original files remain unmodified
+
 * **Directory-Scoped Tag Expressions**: Advanced scoping system for complex project structures
 
     * **Scoped expressions** using `<directory>:<tag-expression>` syntax for targeted rule application
-    * **Automatic directory prefixing** when merging subordinate configurations  
+    * **Automatic directory prefixing** when merging subordinate configurations
     * **Nested rule application** where child directory rules are applied after parent rules
     * **Path-aware matching** ensuring expressions only apply to appropriate directory contexts
+
+* **Developer Experience Improvements**: Enhanced tooling and validation feedback
+
+    * **Contextual error messages** with filename and path information for configuration validation
+    * **Improved validation feedback** making debugging configuration issues significantly easier
+    * **Enhanced documentation structure** with comprehensive guidance for contributors
+    * **Cleaner CLI validation** with removal of redundant validation tips and warnings
 
 * **Configuration Merging Improvements**: Enhanced configuration loading with groups support
 
@@ -47,6 +78,23 @@ _Complete revamp of tag system with groups-based selection and improved CLI argu
       no-secrets: ["*", "!secret-*"]       # Everything except secrets
       dev: ["config", "image", "!production"] # Development environment
       prod: ["*", "!dev-*", "!test-*"]     # Production with exclusions
+
+    changes:
+      - keySelector: ".database.host"
+        valueFrom:
+          envRef:                          # Read from environment variable
+            name: "DB_HOST"
+            default: "localhost"           # Fallback if not set
+
+      - keySelector: ".spec.template"
+        valueFrom:
+          fileInclusion:                   # Include file with modifications
+            source: "templates/base.yaml"
+            changes:                       # Transient changes (not persisted)
+              - keySelector: ".metadata.name"
+                valueFrom:
+                  default:
+                    value: "custom-name"
     ```
 
 * **Advanced Usage Patterns**:
@@ -54,8 +102,11 @@ _Complete revamp of tag system with groups-based selection and improved CLI argu
     ```bash
     genifest run                          # All changes (default group)
     genifest run config-only             # Only config changes
-    genifest run dev examples/app        # Dev group in specific directory  
+    genifest run dev examples/app        # Dev group in specific directory
     genifest run --tag "!secret" prod    # Add negation to prod group
+
+    # Multi-format support
+    genifest run --include-tags toml     # Process TOML configuration files
     ```
 
 ## v1.0.0-rc4  2025-08-29
