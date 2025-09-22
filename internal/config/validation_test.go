@@ -94,7 +94,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 			name:        "empty ValueFrom",
 			valueFrom:   ValueFrom{},
 			expectError: true,
-			errorMsg:    "exactly one field must be set in ValueFrom, but 0 fields are set",
+			errorMsg:    "❌ test.yaml: .test exactly one field must be set in ValueFrom, but 0 fields are set",
 		},
 		{
 			name: "multiple fields set",
@@ -103,7 +103,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				FileInclusion: &FileInclusion{Source: "test.yaml"},
 			},
 			expectError: true,
-			errorMsg:    "exactly one field must be set in ValueFrom, but 2 fields are set",
+			errorMsg:    "❌ test.yaml: .test exactly one field must be set in ValueFrom, but 2 fields are set",
 		},
 		{
 			name: "invalid function call - bad name",
@@ -111,7 +111,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				FunctionCall: &FunctionCall{Name: "1invalid"},
 			},
 			expectError: true,
-			errorMsg:    "function call validation failed: function name '1invalid' is not a valid identifier",
+			errorMsg:    "❌ test.yaml: .test.call is \"1invalid\" which is not a valid identifier",
 		},
 		{
 			name: "invalid default value - empty",
@@ -119,7 +119,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				DefaultValue: &DefaultValue{Value: ""},
 			},
 			expectError: true,
-			errorMsg:    "default value validation failed: value field is required",
+			errorMsg:    "❌ test.yaml: .test.default value field is required",
 		},
 		{
 			name: "invalid file inclusion - no source",
@@ -127,7 +127,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				FileInclusion: &FileInclusion{App: "myapp"},
 			},
 			expectError: true,
-			errorMsg:    "file inclusion validation failed: source field is required",
+			errorMsg:    "❌ test.yaml: .test.file source field is required",
 		},
 		{
 			name: "invalid basic template - no string",
@@ -135,7 +135,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				BasicTemplate: &BasicTemplate{},
 			},
 			expectError: true,
-			errorMsg:    "basic template validation failed: string field is required",
+			errorMsg:    "❌ test.yaml: .test.template string field is required",
 		},
 		{
 			name: "invalid script exec - no command",
@@ -143,7 +143,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				ScriptExec: &ScriptExec{},
 			},
 			expectError: true,
-			errorMsg:    "script exec validation failed: exec field is required",
+			errorMsg:    "❌ test.yaml: .test.script exec field is required",
 		},
 		{
 			name: "invalid argument ref - bad name",
@@ -151,7 +151,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				ArgumentRef: &ArgumentRef{Name: "-invalid"},
 			},
 			expectError: true,
-			errorMsg:    "argument ref validation failed: argument ref name '-invalid' is not a valid identifier",
+			errorMsg:    "❌ test.yaml: .test.argRef is \"-invalid\" which is not a valid identifier",
 		},
 		{
 			name: "invalid document ref - no key selector",
@@ -159,7 +159,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				DocumentRef: &DocumentRef{FileSelector: "*.yaml"},
 			},
 			expectError: true,
-			errorMsg:    "document ref validation failed: keySelector is required",
+			errorMsg:    "❌ test.yaml: .test.documentRef keySelector is required",
 		},
 		{
 			name: "invalid call pipeline - empty",
@@ -167,7 +167,7 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 				CallPipeline: &CallPipeline{},
 			},
 			expectError: true,
-			errorMsg:    "call pipeline validation failed: call pipeline cannot be empty",
+			errorMsg:    "❌ test.yaml: .test.pipeline call pipeline cannot be empty",
 		},
 	}
 
@@ -177,6 +177,10 @@ func TestValueFrom_ValidateWithContext(t *testing.T) {
 			ctx := &ValidationContext{
 				PathBuilder: NewPathBuilder("test"),
 				Filename:    "test.yaml",
+				Functions: []FunctionDefinition{
+					{Name: "my-func", ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "test"}}},
+					{Name: "process", ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "processed"}}},
+				},
 			}
 			err := tt.valueFrom.ValidateWithContext(ctx)
 
@@ -239,7 +243,7 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 				Required: false,
 			},
 			expectError: true,
-			errorMsg:    "parameter name '' is not a valid identifier",
+			errorMsg:    "❌ test.yaml: .test is \"\" which is not a valid identifier",
 		},
 		{
 			name: "invalid name - starts with number",
@@ -248,7 +252,7 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 				Required: false,
 			},
 			expectError: true,
-			errorMsg:    "parameter name '1param' is not a valid identifier",
+			errorMsg:    "❌ test.yaml: .test is \"1param\" which is not a valid identifier",
 		},
 		{
 			name: "valid name - uppercase",
@@ -267,7 +271,7 @@ func TestParameter_ValidateWithContext(t *testing.T) {
 				Default:  "not-allowed",
 			},
 			expectError: true,
-			errorMsg:    "parameter bad-param is required and cannot have a default",
+			errorMsg:    "❌ test.yaml: .test is required and cannot have a default",
 		},
 	}
 
@@ -344,7 +348,7 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "document ref validation failed: keySelector is required",
+			errorMsg:    "❌ test.yaml: .test keySelector is required",
 		},
 		{
 			name: "invalid tag",
@@ -358,7 +362,7 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "tag 'Deploy' is not a valid kebab-case tag",
+			errorMsg:    "❌ test.yaml: .test is \"Deploy\" which is not a valid kebab-case tag",
 		},
 		{
 			name: "invalid valueFrom",
@@ -372,7 +376,7 @@ func TestChangeOrder_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "valueFrom validation failed: exactly one field must be set in ValueFrom, but 0 fields are set",
+			errorMsg:    "❌ test.yaml: .test.valueFrom exactly one field must be set in ValueFrom, but 0 fields are set",
 		},
 	}
 
@@ -443,7 +447,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 			name:        "empty pipeline",
 			pipeline:    CallPipeline{},
 			expectError: true,
-			errorMsg:    "❌ .test call pipeline cannot be empty",
+			errorMsg:    "❌ test.yaml: .test call pipeline cannot be empty",
 		},
 		{
 			name: "invalid output name",
@@ -454,7 +458,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "pipe 0 validation failed: output name '1invalid' is not a valid identifier",
+			errorMsg:    "❌ test.yaml: .test[0] is \"1invalid\" which is not a valid identifier",
 		},
 		{
 			name: "subsequent pipe not function or script",
@@ -469,7 +473,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "pipe 1 validation failed: subsequent pipes must be either FunctionCall or ScriptExec",
+			errorMsg:    "❌ test.yaml: .test[1].valueFrom must be either FunctionCall or ScriptExec for subsequent pipes",
 		},
 		{
 			name: "valid pipeline with no output on final pipe",
@@ -498,7 +502,7 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "pipe 0 validation failed: output is required for non-final pipes",
+			errorMsg:    "❌ test.yaml: .test[0] is required for non-final pipes",
 		},
 	}
 
@@ -508,6 +512,10 @@ func TestCallPipeline_ValidateWithContext(t *testing.T) {
 			ctx := &ValidationContext{
 				PathBuilder: NewPathBuilder("test"),
 				Filename:    "test.yaml",
+				Functions: []FunctionDefinition{
+					{Name: "my-func", ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "test"}}},
+					{Name: "process", ValueFrom: ValueFrom{DefaultValue: &DefaultValue{Value: "processed"}}},
+				},
 			}
 			err := tt.pipeline.ValidateWithContext(ctx)
 

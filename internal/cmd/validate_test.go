@@ -293,8 +293,6 @@ changes:
 		"Configuration validation failed with 2 error(s):",
 		"referenced file does not exist: missing1.yaml",
 		"referenced file does not exist: missing2.yaml",
-		"💡",
-		"Fix these issues and run 'genifest validate' again",
 	}
 
 	cleanOutput := stripANSI(outputStr)
@@ -387,8 +385,6 @@ changes:
 				"❌",
 				"Configuration validation failed with 1 error:",
 				tt.expectedError,
-				"💡",
-				"Fix these issues and run 'genifest validate' again",
 			}
 
 			cleanOutput := stripANSI(outputStr)
@@ -512,8 +508,6 @@ changes: []`,
 				"Summary:",
 				"❌",
 				fmt.Sprintf("Configuration validation failed with %d error(s):", len(tt.expectedErrors)),
-				"💡",
-				"Fix these issues and run 'genifest validate' again",
 			}
 
 			for _, element := range expectedStructure {
