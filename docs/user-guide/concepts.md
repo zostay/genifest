@@ -67,6 +67,25 @@ The heart of Genifest is its flexible value generation system using **ValueFrom*
         value: "literal-string"
     ```
 
+=== "EnvironmentRef"
+
+    Reads values from environment variables with optional defaults:
+    ```yaml
+    valueFrom:
+      envRef:
+        name: "DATABASE_URL"
+        default: "postgresql://localhost:5432/myapp"  # Optional
+    ```
+
+=== "DocumentRef"
+
+    References values from other locations within the current YAML document (or other files or documents when combined with fileSelector and documentSelector):
+    ```yaml
+    valueFrom:
+      documentRef:
+        keySelector: ".metadata.name"
+    ```
+
 === "ArgumentRef"
 
     References variables from the current evaluation context:
@@ -249,34 +268,90 @@ keySelector: ".metadata.annotations.[\"deployment.kubernetes.io/revision\"]"
 
 The parser uses a formal grammar for robust expression handling and validates selectors at parse time.
 
-## Tag System
+## Groups-Based Tag System
 
-Tags provide a way to selectively apply changes based on environment, change type, or any other criteria.
+Genifest uses a **groups-based tag system** that organizes changes using glob expression patterns.
 
-### Tag Usage
+### Groups Configuration
+
+Groups are defined in your `genifest.yaml` configuration:
+
+```yaml
+groups:
+  all: ["*"]                           # All changes (default)
+  config-only: ["config"]              # Only configuration changes
+  no-secrets: ["*", "!secret-*"]       # Everything except secrets
+  dev: ["config", "image", "!production"] # Development environment
+  prod: ["*", "!dev-*", "!test-*"]     # Production with exclusions
+```
+
+### Tag Expression Syntax
+
+Tag expressions support powerful pattern matching:
+
+- **Wildcards**: `"*"` matches all tags
+- **Literal tags**: `"config"` matches exactly "config"
+- **Negations**: `"!secret-*"` excludes tags matching "secret-*"
+- **Glob patterns**: `"prod-*"` matches tags starting with "prod-"
+- **Directory scoping**: `"manifests:prod-*"` matches "prod-*" only in manifests directory
+
+### Expression Evaluation
+
+Tag expressions are evaluated sequentially, with later expressions overriding earlier ones:
+
+```yaml
+groups:
+  flexible: ["*", "!secret-*", "secret-dev"]  # All except secrets, but include secret-dev
+  staged: ["dev-*", "test-*", "!test-broken"] # Dev and test, but exclude test-broken
+```
+
+### Using Groups
+
+The CLI uses intelligent argument parsing:
+
+```bash
+# Zero arguments: Uses "all" group in current directory
+genifest run
+
+# One argument: Group name OR directory path
+genifest run config-only           # Group "config-only" in current directory
+genifest run examples/guestbook    # Group "all" in specified directory
+
+# Two arguments: Group name in specified directory
+genifest run dev examples/guestbook    # Group "dev" in examples/guestbook directory
+
+# Additional tag expressions
+genifest run --tag "!secret" prod     # Add "!secret" to "prod" group selection
+```
+
+### Tag Usage in Changes
+
+Tags are applied to individual changes:
 
 ```yaml
 changes:
   - tag: "production"
-    # Change definition...
-    
-  - tag: "staging"  
-    # Different change definition...
-    
-  - # No tag = always applied
-    # Change definition...
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      default:
+        value: "5"
+
+  - tag: "config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template.spec.containers[0].image"
+    valueFrom:
+      envRef:
+        name: "IMAGE_TAG"
+        default: "latest"
+
+  - # No tag = included in all groups
+    fileSelector: "*-service.yaml"
+    keySelector: ".spec.selector.app"
+    valueFrom:
+      documentRef:
+        keySelector: ".metadata.name"
 ```
-
-### Tag Filtering
-
-Control which changes to apply:
-
-```bash
-# Apply all changes
-genifest run
-
-# Apply only production changes
-genifest run --include-tags production
 
 # Apply all except staging
 genifest run --exclude-tags staging
