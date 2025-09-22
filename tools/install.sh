@@ -25,6 +25,6 @@ echo "Download URL: $DOWNLOAD_URL"
 # Download and install the binary
 # Note: sudo is required to write to /usr/local/bin (system directory)
 echo "Downloading and installing genifest (sudo required for system directory access)..."
-sudo sh -c 'curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/genifest" && chmod +x "$INSTALL_DIR/genifest"'
+sudo sh -c "curl -L \"$DOWNLOAD_URL\" -o \"$INSTALL_DIR/genifest\" && chmod +x \"$INSTALL_DIR/genifest\""
 
 echo "Installation complete! You can now run 'genifest' from anywhere."
