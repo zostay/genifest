@@ -124,6 +124,8 @@ func (ctx *EvalContext) Evaluate(valueFrom config.ValueFrom) (string, error) {
 		return ctx.evaluateDocumentRef(*valueFrom.DocumentRef)
 	case valueFrom.CallPipeline != nil:
 		return ctx.evaluateCallPipeline(*valueFrom.CallPipeline)
+	case valueFrom.EnvironmentRef != nil:
+		return ctx.evaluateEnvironmentRef(*valueFrom.EnvironmentRef)
 	default:
 		return "", fmt.Errorf("no ValueFrom type specified")
 	}
@@ -384,10 +386,7 @@ func (ctx *EvalContext) applyTransientChanges(content []byte, changes []config.T
 		for docIndex, doc := range documents {
 			// Check if document selector matches this document (if specified)
 			if len(change.DocumentSelector) > 0 {
-				matches, err := ctx.matchesDocumentSelector(doc, change.DocumentSelector, parser)
-				if err != nil {
-					return nil, fmt.Errorf("failed to check document selector: %w", err)
-				}
+				matches := ctx.matchesDocumentSelector(doc, change.DocumentSelector)
 				if !matches {
 					continue
 				}
@@ -396,20 +395,20 @@ func (ctx *EvalContext) applyTransientChanges(content []byte, changes []config.T
 			// Create a new context with the target file and document for evaluation
 			// This ensures documentRef operations work on the file being modified
 			changeCtx := ctx.WithFile(filename)
-			
+
 			// Convert generic document to YAML node for document context
 			yamlParser := &fileformat.YAMLParser{}
 			yamlContent, err := yamlParser.Serialize([]*fileformat.Node{doc})
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert document to YAML for context: %w", err)
 			}
-			
+
 			var yamlDoc yaml.Node
 			err = yaml.Unmarshal(yamlContent, &yamlDoc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse document for context: %w", err)
 			}
-			
+
 			changeCtx = changeCtx.WithDocument(&yamlDoc)
 
 			// Evaluate the new value using the updated context
@@ -419,6 +418,7 @@ func (ctx *EvalContext) applyTransientChanges(content []byte, changes []config.T
 			}
 
 			// Apply the change to the document
+			//nolint:staticcheck // SA4006 false positive - changed is used on line 429
 			changed, err := ctx.setValueInGenericDocument(doc, change.KeySelector, newValue)
 			if err != nil {
 				return nil, fmt.Errorf("failed to set value in document %d: %w", docIndex, err)
@@ -436,9 +436,9 @@ func (ctx *EvalContext) applyTransientChanges(content []byte, changes []config.T
 }
 
 // matchesDocumentSelector checks if a document matches the given selector using the generic AST.
-func (ctx *EvalContext) matchesDocumentSelector(doc *fileformat.Node, selector config.DocumentSelector, parser fileformat.Parser) (bool, error) {
+func (ctx *EvalContext) matchesDocumentSelector(doc *fileformat.Node, selector config.DocumentSelector) bool {
 	if doc.Type != fileformat.NodeMap {
-		return false, nil
+		return false
 	}
 
 	// Check each selector key-value pair
@@ -447,42 +447,42 @@ func (ctx *EvalContext) matchesDocumentSelector(doc *fileformat.Node, selector c
 		case "kind":
 			kindNode, found := doc.GetMapValue("kind")
 			if !found {
-				return false, nil
+				return false
 			}
 			kind, err := kindNode.StringValue()
 			if err != nil || kind != expectedValue {
-				return false, nil
+				return false
 			}
 		case "metadata.name":
 			metadataNode, found := doc.GetMapValue("metadata")
 			if !found {
-				return false, nil
+				return false
 			}
 			if metadataNode.Type != fileformat.NodeMap {
-				return false, nil
+				return false
 			}
 			nameNode, found := metadataNode.GetMapValue("name")
 			if !found {
-				return false, nil
+				return false
 			}
 			name, err := nameNode.StringValue()
 			if err != nil || name != expectedValue {
-				return false, nil
+				return false
 			}
 		default:
 			// Handle other keys like metadata.namespace, spec.template.spec.name, etc.
 			// Use the key selector parsing logic to navigate to the field
 			actualValue, err := ctx.getValueFromGenericDocument(doc, key)
 			if err != nil {
-				return false, nil // Field not found or error accessing
+				return false // Field not found or error accessing
 			}
 			if actualValue != expectedValue {
-				return false, nil
+				return false
 			}
 		}
 	}
 
-	return true, nil
+	return true
 }
 
 // setValueInGenericDocument sets a value in a generic document using keySelector.
@@ -858,4 +858,19 @@ func (ctx *EvalContext) evaluateCallPipeline(cp config.CallPipeline) (string, er
 	}
 
 	return result, nil
+}
+
+// evaluateEnvironmentRef reads a value from an environment variable.
+func (ctx *EvalContext) evaluateEnvironmentRef(er config.EnvironmentRef) (string, error) {
+	value := os.Getenv(er.Name)
+
+	// If the environment variable is not set or empty, use the default if provided
+	if value == "" {
+		if er.Default != "" {
+			return er.Default, nil
+		}
+		return "", fmt.Errorf("environment variable %q is not set and no default value provided", er.Name)
+	}
+
+	return value, nil
 }

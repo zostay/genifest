@@ -80,7 +80,7 @@ func validateConfigsWithMergedContext(configs []configWithPath, mergedConfig *Co
 			PathBuilder: NewPathBuilder(""),
 			Filename:    configWP.filename, // Preserve original filename for errors
 		}
-		
+
 		// Validate this individual config with the merged context
 		if err := configWP.config.ValidateWithContext(ctx); err != nil {
 			return fmt.Errorf("validation failed for %s: %w", configWP.filename, err)
@@ -174,7 +174,7 @@ func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string, 
 		config = createSyntheticConfig(dirPath)
 		filename = filepath.Join(dirPath, "<synthetic>")
 	}
-	
+
 	// Note: Full validation including function scoping happens after merging
 	// Individual configs only contain basic syntax validation during loading
 

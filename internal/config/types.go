@@ -537,6 +537,9 @@ type ValueFrom struct {
 
 	// DocumentRef looks up a key in the YAML document that is being changed.
 	DocumentRef *DocumentRef `yaml:"documentRef,omitempty"`
+
+	// EnvironmentRef reads a value from an environment variable.
+	EnvironmentRef *EnvironmentRef `yaml:"envRef,omitempty"`
 }
 
 // FunctionCall looks up a function in the functions list and executes the
@@ -685,6 +688,16 @@ type DocumentRef struct {
 	// Format specifies the file format to use for parsing. If omitted, format
 	// is auto-detected from the file extension. Supported values: "yaml", "toml"
 	Format string `yaml:"format,omitempty"`
+}
+
+// EnvironmentRef reads a value from an environment variable.
+type EnvironmentRef struct {
+	// Name is the name of the environment variable to read.
+	Name string `yaml:"name"`
+
+	// Default is the value to use if the environment variable is not set or is empty.
+	// If not specified and the environment variable is not set, an error will be returned.
+	Default string `yaml:"default,omitempty"`
 }
 
 // Validation patterns.
@@ -886,7 +899,6 @@ func (c *Config) ValidateWithFilename(filename string) error {
 // ValidateWithContext validates the configuration using the provided validation context.
 // This allows for custom function contexts while preserving filename information.
 func (c *Config) ValidateWithContext(ctx *ValidationContext) error {
-
 	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
 		return err
 	}
@@ -1138,6 +1150,12 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	if v.DocumentRef != nil {
 		count++
 		if err := v.DocumentRef.ValidateWithContext(ctx.WithField("documentRef")); err != nil {
+			return err
+		}
+	}
+	if v.EnvironmentRef != nil {
+		count++
+		if err := v.EnvironmentRef.ValidateWithContext(ctx.WithField("envRef")); err != nil {
 			return err
 		}
 	}
@@ -1457,5 +1475,23 @@ func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
 		return safeError(ctx.WithField("valueFrom"), "must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
+	return nil
+}
+
+// Validate validates an environment reference without context.
+func (e *EnvironmentRef) Validate() error {
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return e.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates an environment reference ensuring the name field is provided.
+func (e *EnvironmentRef) ValidateWithContext(ctx *ValidationContext) error {
+	if e.Name == "" {
+		return safeErrorWithField(ctx, "environment ref", "name field is required")
+	}
+	// Default is optional, no additional validation needed
 	return nil
 }

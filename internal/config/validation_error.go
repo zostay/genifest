@@ -23,7 +23,7 @@ func (ve *ValidationError) Error() string {
 	} else {
 		prefix = "❌ "
 	}
-	
+
 	if ve.Value != nil {
 		return fmt.Sprintf("%s%s is %q which %s", prefix, ve.Path, ve.Value, ve.Message)
 	}
