@@ -1,4 +1,4 @@
-## v1.0.0-rc5  TBD
+## v1.0.0-rc5  2025-09-21
 
 _Complete revamp of tag system with groups-based selection, multi-format support, enhanced value generation, and improved developer experience._
 
