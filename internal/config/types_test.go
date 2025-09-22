@@ -498,7 +498,11 @@ func TestMetaConfig_ValidateWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.meta.ValidateWithContext(nil)
+			ctx := &ValidationContext{
+				PathBuilder: NewPathBuilder("test"),
+				Filename:    "test.yaml",
+			}
+			err := tt.meta.ValidateWithContext(ctx)
 
 			if tt.expectError {
 				if err == nil {

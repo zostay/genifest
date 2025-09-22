@@ -1,61 +1,210 @@
 # Tag Filtering
 
-Advanced techniques for using tags to control which changes are applied.
-
-!!! note "Work in Progress"
-    This documentation page is being developed. Please check back soon for complete content.
+Advanced techniques for organizing and controlling which changes are applied using the groups-based tag selection system.
 
 ## Overview
 
-Tags provide a powerful way to selectively apply changes based on environment, change type, or any other criteria you define.
+Genifest uses a **groups-based tag system** that revolutionizes how you organize and select changes. Instead of using simple include/exclude flags, you define named groups with sophisticated tag expression patterns.
 
-## Basic Tag Usage
+## Groups-Based Tag Selection
+
+### Basic Groups Configuration
+
+Groups are defined in your `genifest.yaml` configuration:
 
 ```yaml
-changes:
-  - tag: "production"
-    fileSelector: "*.yaml"
-    keySelector: ".spec.replicas"
-    valueFrom:
-      default:
-        value: "5"
-        
-  - tag: "development"
-    fileSelector: "*.yaml"
-    keySelector: ".spec.replicas"
-    valueFrom:
-      default:
-        value: "1"
+groups:
+  all: ["*"]                           # All changes (default)
+  config-only: ["config"]              # Only configuration changes
+  no-secrets: ["*", "!secret-*"]       # Everything except secrets
+  dev: ["config", "image", "!production"] # Development environment
+  prod: ["*", "!dev-*", "!test-*"]     # Production with exclusions
 ```
 
-## Tag Filtering Commands
+### Tag Expression Syntax
+
+Tag expressions support powerful pattern matching:
+
+- **Wildcards**: `"*"` matches all tags
+- **Literal tags**: `"config"` matches exactly "config"
+- **Negations**: `"!secret-*"` excludes tags matching "secret-*"
+- **Glob patterns**: `"prod-*"` matches tags starting with "prod-"
+- **Directory scoping**: `"manifests:prod-*"` matches "prod-*" only in manifests directory
+
+### Expression Evaluation
+
+Tag expressions are evaluated sequentially, with later expressions overriding earlier ones:
+
+```yaml
+groups:
+  flexible: ["*", "!secret-*", "secret-dev"]  # All except secrets, but include secret-dev
+  staged: ["dev-*", "test-*", "!test-broken"] # Dev and test, but exclude test-broken
+```
+
+## Using Groups
+
+### Command-Line Usage
+
+The CLI uses intelligent argument parsing:
 
 ```bash
-# Apply only production changes
-genifest run --include-tags production
+# Zero arguments: Uses "all" group in current directory
+genifest run
 
-# Apply all except development changes
-genifest run --exclude-tags development
+# One argument: Group name OR directory path
+genifest run config-only           # Group "config-only" in current directory
+genifest run examples/guestbook    # Group "all" in specified directory
 
-# Complex filtering with globs
-genifest run --include-tags "prod*" --exclude-tags "test-*"
+# Two arguments: Group name in specified directory
+genifest run dev examples/guestbook    # Group "dev" in examples/guestbook directory
+
+# Additional tag expressions
+genifest run --tag "!secret" prod     # Add "!secret" to "prod" group selection
 ```
 
-## Tag Logic
+### Automatic Defaults
 
-- **No flags**: All changes applied (tagged and untagged)
-- **Include only**: Only changes matching include patterns
-- **Exclude only**: All changes except those matching exclude patterns
-- **Both flags**: Changes matching include but not exclude patterns
+If no groups are defined in your configuration, Genifest automatically provides:
 
-## Glob Patterns
+```yaml
+groups:
+  all: ["*"]  # Default group for backward compatibility
+```
 
-Tags support glob pattern matching:
-- `*` - Matches any characters
-- `prod*` - Matches tags starting with "prod"
-- `*-test` - Matches tags ending with "-test"
+## Directory-Scoped Expressions
+
+Advanced scoping allows different rules for different directories:
+
+```yaml
+groups:
+  production:
+    - "*"                    # All changes
+    - "!dev-*"              # Except development changes
+    - "!test-*"             # Except test changes
+    - "manifests:secret-*"  # But include secrets only in manifests directory
+```
+
+When configurations are merged from subdirectories, directory prefixes are automatically added to maintain proper scoping.
+
+## Real-World Examples
+
+### Environment-Based Groups
+
+```yaml
+groups:
+  development:
+    - "config"
+    - "dev-*"
+    - "!production"
+
+  staging:
+    - "config"
+    - "staging-*"
+    - "!dev-*"
+    - "!production"
+
+  production:
+    - "*"
+    - "!dev-*"
+    - "!staging-*"
+    - "!test-*"
+```
+
+### Feature-Based Groups
+
+```yaml
+groups:
+  database-only: ["db-*", "migration-*"]
+  frontend-only: ["web-*", "ui-*", "!backend-*"]
+  security: ["auth-*", "cert-*", "secret-*"]
+  monitoring: ["metrics-*", "logging-*", "alerts-*"]
+```
+
+### Complex Multi-Environment
+
+```yaml
+groups:
+  qa-testing:
+    - "test-*"
+    - "staging-*"
+    - "mock-*"
+    - "!production"
+    - "!real-secrets"
+
+  prod-deployment:
+    - "*"
+    - "!test-*"
+    - "!mock-*"
+    - "!dev-*"
+    - "manifests:real-secrets"  # Real secrets only in manifests
+```
+
+## Best Practices
+
+### Group Naming
+
+- Use descriptive names that indicate purpose: `prod-deploy`, `dev-testing`
+- Include environment context: `staging-with-mocks`, `prod-no-secrets`
+- Use hyphens for readability: `database-migration` rather than `databasemigration`
+
+### Expression Design
+
+- Start broad, then exclude: `["*", "!unwanted-*"]`
+- Use positive inclusion for critical changes: `["essential", "security-*"]`
+- Leverage directory scoping for complex projects: `["*", "scripts:dev-*"]`
+
+### Configuration Organization
+
+```yaml
+# Clear, purpose-driven groups
+groups:
+  # Standard environments
+  dev: ["*", "!production", "!real-secrets"]
+  prod: ["*", "!dev-*", "!test-*", "!mock-*"]
+
+  # Specific purposes
+  config-only: ["config", "settings"]
+  secrets-update: ["secret-*", "cert-*"]
+  database-migrate: ["db-*", "migration-*"]
+```
+
+## Troubleshooting
+
+### Group Not Found
+
+If you specify a group that doesn't exist, Genifest will show available groups:
+
+```bash
+$ genifest run invalid-group
+Error: Group "invalid-group" not found. Available groups: all, dev, prod, config-only
+```
+
+### No Changes Selected
+
+If your group expressions don't match any changes:
+
+```bash
+$ genifest run empty-group
+No changes selected by group "empty-group" - check your tag expressions
+```
+
+### Debugging Group Selection
+
+Use the `tags` command to see what tags are available:
+
+```bash
+genifest tags                    # Show all tags
+genifest tags examples/app       # Show tags in specific directory
+```
+
+Use the `config` command to verify your groups configuration:
+
+```bash
+genifest config | grep -A 10 groups:
+```
 
 ## See Also
 
-- [CLI Reference](cli-reference.md) - Command syntax
-- [Core Concepts](concepts.md) - Understanding tags
+- [CLI Reference](cli-reference.md) - Complete command syntax
+- [Core Concepts](concepts.md) - Understanding the tag system
+- [Configuration](configuration.md) - Groups configuration reference

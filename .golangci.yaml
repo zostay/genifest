@@ -31,6 +31,7 @@ linters:
             - gopkg.in/yaml.v3
             - github.com/spf13/cobra
             - github.com/xeipuuv/gojsonschema
+            - github.com/pelletier/go-toml/v2
         tests:
           files:
             - $test

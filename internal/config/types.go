@@ -24,6 +24,10 @@ type Config struct {
 	// Metadata is metadata about genifest configuration.
 	Metadata MetaConfig `yaml:"metadata,omitempty"`
 
+	// Groups defines tag groups for organizing and selecting which changes to run.
+	// Each group contains a list of tag expressions that determine which tags match.
+	Groups Groups `yaml:"groups,omitempty"`
+
 	// Files defines which files genifest manages and has access to using
 	// include/exclude patterns with wildcard support.
 	Files FilesConfig `yaml:"files,omitempty"`
@@ -123,6 +127,129 @@ func (fc FilesConfig) ResolveFiles(baseDir string) ([]string, error) {
 	}
 
 	return filtered, nil
+}
+
+// Groups is a map of group names to tag expressions. Each group defines
+// which tags should be included when that group is selected for execution.
+type Groups map[string]TagExpressions
+
+// TagExpressions is a list of tag expression patterns that can include
+// wildcards, negations, and directory-scoped expressions.
+type TagExpressions []string
+
+// MatchesTag evaluates whether a given tag matches the tag expressions in this list.
+// Expressions are evaluated in order, with later expressions overriding earlier ones.
+// Supports wildcards (*), negations (!tag), and directory-scoped expressions (dir:tag).
+func (te TagExpressions) MatchesTag(tag, directory string) bool {
+	result := false // Default to not matching
+
+	for _, expr := range te {
+		// Handle directory-scoped expressions
+		if colonIndex := strings.Index(expr, ":"); colonIndex > 0 {
+			exprDir := expr[:colonIndex]
+			exprTag := expr[colonIndex+1:]
+
+			// Only apply this expression if we're in the matching directory or subdirectory
+			if !isDirectoryMatch(directory, exprDir) {
+				continue
+			}
+			expr = exprTag // Use the tag part for matching
+		}
+
+		// Handle negation
+		if strings.HasPrefix(expr, "!") {
+			negatedExpr := expr[1:]
+			if matchesPattern(tag, negatedExpr) {
+				result = false
+			}
+			continue
+		}
+
+		// Handle positive matching
+		if matchesPattern(tag, expr) {
+			result = true
+		}
+	}
+
+	return result
+}
+
+// matchesPattern checks if a tag matches a pattern (supports wildcards).
+func matchesPattern(tag, pattern string) bool {
+	// Handle exact match
+	if tag == pattern {
+		return true
+	}
+
+	// Handle wildcard patterns
+	if strings.Contains(pattern, "*") {
+		matched, _ := filepath.Match(pattern, tag)
+		return matched
+	}
+
+	return false
+}
+
+// isDirectoryMatch checks if a directory path matches or is a subdirectory of the pattern.
+func isDirectoryMatch(currentDir, patternDir string) bool {
+	// Normalize paths
+	currentDir = filepath.Clean(currentDir)
+	patternDir = filepath.Clean(patternDir)
+
+	// Exact match
+	if currentDir == patternDir {
+		return true
+	}
+
+	// Check if currentDir is a subdirectory of patternDir
+	rel, err := filepath.Rel(patternDir, currentDir)
+	if err != nil {
+		return false
+	}
+
+	// If the relative path doesn't start with "..", then patternDir is a parent
+	return !strings.HasPrefix(rel, "..")
+}
+
+// GetDefaultGroups returns the default groups configuration with "all" group set to ["*"].
+func GetDefaultGroups() Groups {
+	return Groups{
+		"all": TagExpressions{"*"},
+	}
+}
+
+// MergeGroups merges subordinate groups into the parent groups, applying directory prefixes
+// to nested group expressions as needed.
+func (g Groups) MergeGroups(subordinate Groups, directory string) Groups {
+	result := make(Groups)
+
+	// Copy parent groups
+	for name, expressions := range g {
+		result[name] = make(TagExpressions, len(expressions))
+		copy(result[name], expressions)
+	}
+
+	// Merge subordinate groups with directory prefixes
+	for name, expressions := range subordinate {
+		prefixedExpressions := make(TagExpressions, len(expressions))
+		for i, expr := range expressions {
+			// Add directory prefix to expressions that don't already have one
+			if !strings.Contains(expr, ":") {
+				prefixedExpressions[i] = directory + ":" + expr
+			} else {
+				prefixedExpressions[i] = expr
+			}
+		}
+
+		// If group already exists, append expressions (nested rules applied after parent)
+		if existing, exists := result[name]; exists {
+			result[name] = append(existing, prefixedExpressions...)
+		} else {
+			result[name] = prefixedExpressions
+		}
+	}
+
+	return result
 }
 
 // PathContext represents a path with context about where it was defined.
@@ -410,6 +537,9 @@ type ValueFrom struct {
 
 	// DocumentRef looks up a key in the YAML document that is being changed.
 	DocumentRef *DocumentRef `yaml:"documentRef,omitempty"`
+
+	// EnvironmentRef reads a value from an environment variable.
+	EnvironmentRef *EnvironmentRef `yaml:"envRef,omitempty"`
 }
 
 // FunctionCall looks up a function in the functions list and executes the
@@ -462,6 +592,32 @@ type FileInclusion struct {
 
 	// Source is the name of the file to read.
 	Source string `yaml:"source"`
+
+	// Changes is a list of transient modifications to apply to the included file
+	// content. These changes exist only in memory and are not persisted to disk.
+	// The fileSelector is always the source file being included.
+	Changes []TransientChange `yaml:"changes,omitempty"`
+}
+
+// TransientChange represents a modification to be applied to an included file
+// in memory without persisting the changes to disk.
+type TransientChange struct {
+	// DocumentSelector may be omitted. When omitted, the KeySelector will be
+	// applied to all documents in the file.
+	DocumentSelector DocumentSelector `yaml:"documentSelector,omitempty"`
+
+	// KeySelector identifies the specific field to modify using yq syntax.
+	KeySelector string `yaml:"keySelector"`
+
+	// Tag is used to select which transient changes to run.
+	Tag string `yaml:"tag,omitempty"`
+
+	// Format specifies the file format to use for parsing. If omitted, format
+	// is auto-detected from the file extension. Supported values: "yaml", "toml"
+	Format string `yaml:"format,omitempty"`
+
+	// ValueFrom is the value to apply to the KeySelector
+	ValueFrom ValueFrom `yaml:"valueFrom"`
 }
 
 // BasicTemplate turns a string with $style variables into a string value.
@@ -528,6 +684,20 @@ type DocumentRef struct {
 	// KeySelector identifies the specific field to select. This is in the form
 	// of a yq expression that will identify a specific field.
 	KeySelector string `yaml:"keySelector"`
+
+	// Format specifies the file format to use for parsing. If omitted, format
+	// is auto-detected from the file extension. Supported values: "yaml", "toml"
+	Format string `yaml:"format,omitempty"`
+}
+
+// EnvironmentRef reads a value from an environment variable.
+type EnvironmentRef struct {
+	// Name is the name of the environment variable to read.
+	Name string `yaml:"name"`
+
+	// Default is the value to use if the environment variable is not set or is empty.
+	// If not specified and the environment variable is not set, an error will be returned.
+	Default string `yaml:"default,omitempty"`
 }
 
 // Validation patterns.
@@ -619,16 +789,121 @@ func (ctx *ValidationContext) isFunctionAvailable(functionPath string) bool {
 
 // Validate methods
 
-// Validate validates the entire configuration including metadata, changes, and functions.
+// Validate validates groups configuration without context.
+func (g Groups) Validate() error {
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return g.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates groups configuration ensuring all group names are valid tags
+// and all tag expressions within each group are valid.
+func (g Groups) ValidateWithContext(ctx *ValidationContext) error {
+	for groupName, expressions := range g {
+		if !isValidTag(groupName) {
+			return safeErrorWithValue(ctx, "group name", "is not a valid kebab-case tag", groupName)
+		}
+
+		groupCtx := ctx.WithField(groupName)
+		if err := expressions.ValidateWithContext(groupCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate validates tag expressions without context.
+func (te TagExpressions) Validate() error {
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return te.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates tag expressions ensuring all expressions are valid patterns.
+func (te TagExpressions) ValidateWithContext(ctx *ValidationContext) error {
+	for i, expr := range te {
+		if err := validateTagExpression(expr); err != nil {
+			return safeErrorWithValue(ctx.WithIndex(i), "tag expression", err.Error(), expr)
+		}
+	}
+	return nil
+}
+
+// validateTagExpression validates a single tag expression pattern.
+func validateTagExpression(expr string) error {
+	if expr == "" {
+		return fmt.Errorf("tag expression cannot be empty")
+	}
+
+	// Handle directory-scoped expressions (dir:tag)
+	if colonIndex := strings.Index(expr, ":"); colonIndex > 0 {
+		dir := expr[:colonIndex]
+		tag := expr[colonIndex+1:]
+
+		// Validate directory part (should be a valid path component)
+		if dir == "" {
+			return fmt.Errorf("directory part cannot be empty in scoped expression")
+		}
+
+		// Validate tag part
+		return validateTagExpression(tag)
+	}
+
+	// Handle negation (!tag)
+	if strings.HasPrefix(expr, "!") {
+		negatedExpr := expr[1:]
+		if negatedExpr == "" {
+			return fmt.Errorf("negated expression cannot be empty after '!'")
+		}
+		return validateTagExpression(negatedExpr)
+	}
+
+	// Handle wildcards
+	if strings.Contains(expr, "*") {
+		// Basic wildcard validation - ensure it's a valid filepath pattern
+		if _, err := filepath.Match(expr, "test-tag"); err != nil {
+			return fmt.Errorf("invalid wildcard pattern: %w", err)
+		}
+		return nil
+	}
+
+	// Regular tag validation
+	if !isValidTag(expr) {
+		return fmt.Errorf("is not a valid kebab-case tag")
+	}
+
+	return nil
+}
+
+// Validate validates the entire configuration including metadata, groups, changes, and functions.
 // It sets up a validation context with function definitions and validates all components.
 func (c *Config) Validate() error {
+	return c.ValidateWithFilename("")
+}
+
+// ValidateWithFilename validates the configuration with filename context for better error messages.
+func (c *Config) ValidateWithFilename(filename string) error {
 	ctx := &ValidationContext{
 		CloudHome:   c.Metadata.CloudHome,
 		Functions:   c.Functions,
 		PathBuilder: NewPathBuilder(""),
+		Filename:    filename,
+	}
+	return c.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates the configuration using the provided validation context.
+// This allows for custom function contexts while preserving filename information.
+func (c *Config) ValidateWithContext(ctx *ValidationContext) error {
+	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
+		return err
 	}
 
-	if err := c.Metadata.ValidateWithContext(ctx.WithField("metadata")); err != nil {
+	if err := c.Groups.ValidateWithContext(ctx.WithField("groups")); err != nil {
 		return err
 	}
 
@@ -651,7 +926,11 @@ func (c *Config) Validate() error {
 
 // Validate validates the metadata configuration without context.
 func (m *MetaConfig) Validate() error {
-	return m.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return m.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates the metadata configuration, ensuring all paths
@@ -737,7 +1016,11 @@ func (m *MetaConfig) validatePathWithinHome(rootPath, relativePath, pathType str
 
 // Validate validates a change order without context.
 func (c *ChangeOrder) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a change order including its document reference,
@@ -752,9 +1035,6 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 	}
 
 	if err := c.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
-		if ctx == nil {
-			return fmt.Errorf("valueFrom validation failed: %s", err.Error())
-		}
 		return err
 	}
 
@@ -763,7 +1043,11 @@ func (c *ChangeOrder) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a function definition without context.
 func (f *FunctionDefinition) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a function definition including its name,
@@ -788,22 +1072,20 @@ func (f *FunctionDefinition) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a parameter without context.
 func (p *Parameter) Validate() error {
-	return p.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return p.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a parameter ensuring the name is a valid identifier
 // and that required parameters don't have default values.
 func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(p.Name) {
-		if ctx == nil {
-			return fmt.Errorf("parameter name '%v' is not a valid identifier", p.Name)
-		}
 		return safeErrorWithValue(ctx, "name", "is not a valid identifier", p.Name)
 	}
 	if p.Required && p.Default != "" {
-		if ctx == nil {
-			return fmt.Errorf("parameter %s is required and cannot have a default", p.Name)
-		}
 		return safeErrorWithField(ctx, "parameter "+p.Name, "is required and cannot have a default")
 	}
 	return nil
@@ -811,7 +1093,11 @@ func (p *Parameter) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a ValueFrom expression without context.
 func (v *ValueFrom) Validate() error {
-	return v.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return v.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a ValueFrom expression ensuring exactly one field is set
@@ -828,9 +1114,6 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 	if v.CallPipeline != nil {
 		count++
 		if err := v.CallPipeline.ValidateWithContext(ctx.WithField("pipeline")); err != nil {
-			if ctx == nil {
-				return fmt.Errorf("call pipeline validation failed: %s", err.Error())
-			}
 			return err
 		}
 	}
@@ -870,6 +1153,12 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 			return err
 		}
 	}
+	if v.EnvironmentRef != nil {
+		count++
+		if err := v.EnvironmentRef.ValidateWithContext(ctx.WithField("envRef")); err != nil {
+			return err
+		}
+	}
 
 	if count != 1 {
 		return safeError(ctx, fmt.Sprintf("exactly one field must be set in ValueFrom, but %d fields are set", count))
@@ -880,16 +1169,17 @@ func (v *ValueFrom) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a function call without context.
 func (f *FunctionCall) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a function call including checking that the
 // referenced function exists and is accessible from the current path.
 func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(f.Name) {
-		if ctx == nil {
-			return fmt.Errorf("function call validation failed: function name '%v' is not a valid identifier", f.Name)
-		}
 		return safeErrorWithValue(ctx, "function", "is not a valid identifier", f.Name)
 	}
 
@@ -909,7 +1199,11 @@ func (f *FunctionCall) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates an argument without context.
 func (a *Argument) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates an argument ensuring the name is a valid identifier
@@ -928,7 +1222,11 @@ func (a *Argument) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a list of arguments without context.
 func (a Arguments) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates all arguments in the list using the provided context.
@@ -943,16 +1241,17 @@ func (a Arguments) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a call pipeline without context.
 func (c CallPipeline) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a call pipeline ensuring it's not empty and that
 // subsequent pipes after the first are limited to FunctionCall or ScriptExec.
 func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 	if len(c) == 0 {
-		if ctx == nil {
-			return fmt.Errorf("call pipeline cannot be empty")
-		}
 		return safeErrorWithField(ctx, "call pipeline", "call pipeline cannot be empty")
 	}
 
@@ -960,18 +1259,12 @@ func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 		pipeCtx := ctx.WithIndex(i)
 		isFinal := i == len(c)-1
 		if err := pipe.validateWithContextAndFinalFlag(pipeCtx, isFinal); err != nil {
-			if ctx == nil {
-				return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
-			}
 			return err
 		}
 
 		// Subsequent pipes must be FunctionCall or ScriptExec
 		if i > 0 {
 			if err := pipe.validateSubsequentPipe(pipeCtx); err != nil {
-				if ctx == nil {
-					return fmt.Errorf("pipe %d validation failed: %s", i, err.Error())
-				}
 				return err
 			}
 		}
@@ -981,7 +1274,11 @@ func (c CallPipeline) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a file inclusion without context.
 func (f *FileInclusion) Validate() error {
-	return f.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return f.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a file inclusion ensuring the source field is provided.
@@ -990,12 +1287,50 @@ func (f *FileInclusion) ValidateWithContext(ctx *ValidationContext) error {
 	if f.Source == "" {
 		return safeErrorWithField(ctx, "file inclusion", "source field is required")
 	}
+
+	// Validate transient changes
+	for i, change := range f.Changes {
+		changeCtx := ctx.WithIndex(i)
+		if err := change.ValidateWithContext(changeCtx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Validate validates a transient change without context.
+func (t *TransientChange) Validate() error {
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return t.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates a transient change ensuring required fields are provided.
+func (t *TransientChange) ValidateWithContext(ctx *ValidationContext) error {
+	if t.KeySelector == "" {
+		return safeErrorWithField(ctx, "transient change", "keySelector field is required")
+	}
+
+	// Validate the ValueFrom
+	if err := t.ValueFrom.ValidateWithContext(ctx.WithField("valueFrom")); err != nil {
+		return err
+	}
+
+	// DocumentSelector is a simple map, no additional validation needed
+
 	return nil
 }
 
 // Validate validates a basic template without context.
 func (b *BasicTemplate) Validate() error {
-	return b.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return b.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a basic template ensuring the string field is provided
@@ -1014,7 +1349,11 @@ func (b *BasicTemplate) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a script execution without context.
 func (s *ScriptExec) Validate() error {
-	return s.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return s.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a script execution ensuring the exec field is provided
@@ -1043,15 +1382,16 @@ func (s *ScriptExec) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates an argument reference without context.
 func (a *ArgumentRef) Validate() error {
-	return a.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return a.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates an argument reference ensuring the name is a valid identifier.
 func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 	if !isValidIdentifier(a.Name) {
-		if ctx == nil {
-			return fmt.Errorf("argument ref validation failed: argument ref name '%v' is not a valid identifier", a.Name)
-		}
 		return safeErrorWithValue(ctx, "name", "is not a valid identifier", a.Name)
 	}
 	return nil
@@ -1059,7 +1399,11 @@ func (a *ArgumentRef) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a default value without context.
 func (d *DefaultValue) Validate() error {
-	return d.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return d.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a default value ensuring the value field is provided.
@@ -1072,7 +1416,11 @@ func (d *DefaultValue) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a document reference without context.
 func (d *DocumentRef) Validate() error {
-	return d.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return d.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a document reference ensuring the keySelector is provided.
@@ -1087,7 +1435,11 @@ func (d *DocumentRef) ValidateWithContext(ctx *ValidationContext) error {
 
 // Validate validates a call pipe without context.
 func (c *CallPipe) Validate() error {
-	return c.ValidateWithContext(nil)
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return c.ValidateWithContext(ctx)
 }
 
 // ValidateWithContext validates a call pipe ensuring the valueFrom expression
@@ -1106,17 +1458,11 @@ func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFin
 	// Only validate output if it's provided OR if this is not the final pipe
 	// Final pipes don't require an output since there's no next pipe to consume it
 	if c.Output != "" && !isValidIdentifier(c.Output) {
-		if ctx == nil {
-			return fmt.Errorf("output name '%v' is not a valid identifier", c.Output)
-		}
 		return safeErrorWithValue(ctx, "output", "is not a valid identifier", c.Output)
 	}
 
 	// Non-final pipes must have an output
 	if !isFinal && c.Output == "" {
-		if ctx == nil {
-			return fmt.Errorf("output is required for non-final pipes")
-		}
 		return safeErrorWithField(ctx, "output", "is required for non-final pipes")
 	}
 
@@ -1127,10 +1473,25 @@ func (c *CallPipe) validateWithContextAndFinalFlag(ctx *ValidationContext, isFin
 // This enforces the constraint that only the first pipe can use any ValueFrom type.
 func (c *CallPipe) validateSubsequentPipe(ctx *ValidationContext) error {
 	if c.ValueFrom.FunctionCall == nil && c.ValueFrom.ScriptExec == nil {
-		if ctx == nil {
-			return fmt.Errorf("subsequent pipes must be either FunctionCall or ScriptExec")
-		}
 		return safeError(ctx.WithField("valueFrom"), "must be either FunctionCall or ScriptExec for subsequent pipes")
 	}
+	return nil
+}
+
+// Validate validates an environment reference without context.
+func (e *EnvironmentRef) Validate() error {
+	ctx := &ValidationContext{
+		PathBuilder: NewPathBuilder(""),
+		Filename:    "",
+	}
+	return e.ValidateWithContext(ctx)
+}
+
+// ValidateWithContext validates an environment reference ensuring the name field is provided.
+func (e *EnvironmentRef) ValidateWithContext(ctx *ValidationContext) error {
+	if e.Name == "" {
+		return safeErrorWithField(ctx, "environment ref", "name field is required")
+	}
+	// Default is optional, no additional validation needed
 	return nil
 }

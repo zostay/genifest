@@ -39,90 +39,6 @@ func TestMatchesGlob(t *testing.T) {
 	}
 }
 
-// TestDetermineTags tests the tag determination logic.
-func TestDetermineTags(t *testing.T) { //nolint:tparallel // Subtests cannot run in parallel due to global variable modification
-	t.Parallel()
-	cfg := &config.Config{
-		Changes: []config.ChangeOrder{
-			{Tag: "production"},
-			{Tag: "staging"},
-			{Tag: ""}, // untagged
-			{Tag: "test"},
-		},
-	}
-
-	tests := []struct {
-		name        string
-		includeTags []string
-		excludeTags []string
-		want        []string
-	}{
-		{
-			name:        "no filters",
-			includeTags: nil,
-			excludeTags: nil,
-			want:        []string{"production", "staging", "test", ""},
-		},
-		{
-			name:        "include production only",
-			includeTags: []string{"production"},
-			excludeTags: nil,
-			want:        []string{"production"},
-		},
-		{
-			name:        "exclude production",
-			includeTags: nil,
-			excludeTags: []string{"production"},
-			want:        []string{"staging", "test", ""},
-		},
-		{
-			name:        "include prod* exclude staging",
-			includeTags: []string{"prod*", "test"},
-			excludeTags: []string{"staging"},
-			want:        []string{"production", "test"},
-		},
-	}
-
-	for _, tt := range tests { //nolint:paralleltest // Cannot use t.Parallel due to global variable modification
-		t.Run(tt.name, func(t *testing.T) {
-			// Note: Cannot use t.Parallel() here because we modify global variables
-			// Set global variables for test
-			oldInclude := includeTags
-			oldExclude := excludeTags
-			defer func() {
-				includeTags = oldInclude
-				excludeTags = oldExclude
-			}()
-
-			includeTags = tt.includeTags
-			excludeTags = tt.excludeTags
-
-			got := determineTagsWithFlags(cfg, tt.includeTags, tt.excludeTags)
-
-			// Sort both slices for comparison since order doesn't matter
-			gotMap := make(map[string]bool)
-			for _, tag := range got {
-				gotMap[tag] = true
-			}
-			wantMap := make(map[string]bool)
-			for _, tag := range tt.want {
-				wantMap[tag] = true
-			}
-
-			if len(gotMap) != len(wantMap) {
-				t.Errorf("determineTags() = %v, want %v", got, tt.want)
-				return
-			}
-
-			for tag := range wantMap {
-				if !gotMap[tag] {
-					t.Errorf("determineTags() missing tag %q, got %v, want %v", tag, got, tt.want)
-				}
-			}
-		})
-	}
-}
-
 // TestSetValueInDocument tests YAML document value setting.
 func TestSetValueInDocument(t *testing.T) {
 	t.Parallel()
@@ -294,29 +210,6 @@ func TestCLIBasicFunctionality(t *testing.T) {
 	// Verify we have functions defined
 	if len(cfg.Functions) == 0 {
 		t.Error("Expected guestbook config to have functions defined")
-	}
-
-	// Test tag determination
-	oldInclude := includeTags
-	oldExclude := excludeTags
-	defer func() {
-		includeTags = oldInclude
-		excludeTags = oldExclude
-	}()
-
-	includeTags = []string{"production"}
-	excludeTags = nil
-
-	tags := determineTagsWithFlags(cfg, nil, nil)
-	found := false
-	for _, tag := range tags {
-		if tag == "production" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Expected 'production' tag to be included when using --include-tags production")
 	}
 }
 

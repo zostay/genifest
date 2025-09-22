@@ -8,6 +8,44 @@ Genifest is a Kubernetes manifest generation tool that creates deployment manife
 
 IMPORTANT NOTE: The project is currently in the process of rewrite.
 
+## Documentation Structure
+
+The project maintains comprehensive documentation in the `docs/` directory, built with Material for MkDocs:
+
+### Getting Started Documentation (`docs/getting-started/`)
+- **Installation** (`installation.md`) - Installation methods and requirements
+- **Quick Start** (`quickstart.md`) - Basic tutorial to get users running quickly
+- **Configuration** (`configuration.md`) - Overview of configuration concepts
+
+### User Guide (`docs/user-guide/`)
+- **Core Concepts** (`concepts.md`) - Fundamental concepts and terminology
+- **CLI Reference** (`cli-reference.md`) - Complete command-line interface documentation
+- **Configuration Files** (`configuration.md`) - Detailed configuration file structure
+- **Value Generation** (`value-generation.md`) - How ValueFrom expressions work
+- **Tag Filtering** (`tag-filtering.md`) - Tag-based change filtering system
+
+### Examples (`docs/examples/`)
+- **Guestbook Tutorial** (`guestbook.md`) - Step-by-step tutorial using the guestbook example
+- **Common Patterns** (`patterns.md`) - Typical usage patterns and best practices
+- **GitOps Workflows** (`gitops.md`) - Integration with GitOps practices
+
+### Reference Documentation (`docs/reference/`)
+- **Configuration Schema** (`schema.md`) - Complete YAML configuration schema
+- **KeySelector Syntax** (`keyselectors.md`) - YAML path selection syntax
+- **ValueFrom Types** (`valuefrom.md`) - All supported value generation types
+- **Functions** (`functions.md`) - Function definition and usage
+- **Troubleshooting** (`troubleshooting.md`) - Common issues and solutions
+
+### Development Documentation (`docs/development/`)
+- **Contributing** (`contributing.md`) - How to contribute to the project
+- **Architecture** (`architecture.md`) - Technical architecture overview
+- **Testing** (`testing.md`) - Testing strategies and practices
+- **Release Process** (`releases.md`) - How releases are created and managed
+
+### Additional Files
+- **Changelog** (`changelog.md`) - Version history and changes
+- **Home Page** (`index.md`) - Documentation site landing page
+
 ## Architecture
 
 The codebase follows a typical Go CLI structure:
@@ -265,6 +303,31 @@ The command-line interface implements a subcommand-based architecture:
 - **Linting**: Address critical linting issues (errcheck, staticcheck) while allowing style preferences
 - **Documentation**: Ensure all public APIs and complex functions have proper documentation
 - **Test Coverage**: Focus on integration tests and critical path validation over 100% unit test coverage
-- Always run genifeest by passing the diretory to the command: genifest run examples/guestbook, genifest valiadate examples/guestbook, genifest tag examples/genifest, etc. Do not change directories to run genifest.
+- Always run genifest by passing the directory to the command: genifest run examples/guestbook, genifest validate examples/guestbook, genifest tags examples/guestbook, etc. Do not change directories to run genifest.
 - Never avoid installing a library or using one because it fails depguard. Add the dependency and if there's a problem, it will be caught in review.
 - When testing, do not compile and run. If you forget to compile, then you can run old code by accident. Always use "go run ./ <cli-args...>" to test the code to ensure that you're always running the latest code.
+
+## Documentation Guidelines
+
+When working with documentation:
+
+### Documentation Site (`docs/`)
+- Use Material for MkDocs features like admonitions, code blocks with syntax highlighting, and tabbed content
+- Follow the established navigation structure in `mkdocs.yml`
+- Include cross-references between related documentation pages
+- Use the `--8<-- "includes/mkdocs.md"` snippet inclusion for common content
+- Test documentation builds locally with `make docs-serve` before committing
+
+### Documentation Content Strategy
+- **Getting Started**: Focus on user onboarding and quick wins
+- **User Guide**: Comprehensive how-to information for daily usage
+- **Examples**: Practical tutorials and real-world scenarios
+- **Reference**: Complete technical specifications and API documentation
+- **Development**: Contributor-focused technical documentation
+
+### Writing Style
+- Use clear, concise language appropriate for technical audiences
+- Include code examples with proper syntax highlighting
+- Provide both conceptual explanations and practical examples
+- Cross-reference related concepts and link to other documentation sections
+- Use consistent terminology throughout all documentation

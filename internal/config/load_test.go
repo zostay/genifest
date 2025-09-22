@@ -208,6 +208,7 @@ func TestLoadFromDirectory_GuestbookFunctionScoping(t *testing.T) {
 		CloudHome:   config.Metadata.CloudHome,
 		Functions:   config.Functions,
 		CurrentPath: "manifests/guestbook",
+		Filename:    "test.yaml",
 	}
 
 	// Functions defined in the root should be accessible from subdirectories

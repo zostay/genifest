@@ -11,6 +11,12 @@ metadata:
       files: true
       depth: 1
 
+groups:
+  all: ["*"]
+  config-only: ["config"]
+  no-secrets: ["*", "!secret-*"]
+  dev: ["config", "image", "!production"]
+
 functions:
   - name: get-replicas
     params:

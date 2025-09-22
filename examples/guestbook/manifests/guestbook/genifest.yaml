@@ -99,3 +99,10 @@ changes:
                   valueFrom:
                     argRef:
                       name: quotation
+  - tag: environment
+    fileSelector: frontend-deployment.yaml
+    keySelector: .spec.template.spec.containers[] | select(.name == "frontend") | .env[] | select(.name == "NODE_ENV") | .value
+    valueFrom:
+      default:
+        value: development
+

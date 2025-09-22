@@ -55,11 +55,38 @@ func LoadFromDirectoryWithValidation(rootDir string, mode ValidationMode) (*Conf
 
 	result := mergeConfigs(lc.configs, lc.primaryHome)
 
+	// Validate individual configs with merged function context to preserve filename info
+	if err := validateConfigsWithMergedContext(lc.configs, result); err != nil {
+		return nil, err
+	}
+
+	// Also validate the merged result for any cross-config consistency issues
 	if err := result.Validate(); err != nil {
-		return nil, fmt.Errorf("configuration validation failed: %w", err)
+		return nil, fmt.Errorf("merged configuration validation failed: %w", err)
 	}
 
 	return result, nil
+}
+
+// validateConfigsWithMergedContext validates each individual config using the merged function context
+// to provide accurate filename information in error messages while allowing proper function scoping.
+func validateConfigsWithMergedContext(configs []configWithPath, mergedConfig *Config) error {
+	for _, configWP := range configs {
+		// Create a validation context with merged functions but individual config's metadata
+		ctx := &ValidationContext{
+			CloudHome:   mergedConfig.Metadata.CloudHome,
+			Functions:   mergedConfig.Functions, // Use merged functions for proper scoping
+			CurrentPath: configWP.path,
+			PathBuilder: NewPathBuilder(""),
+			Filename:    configWP.filename, // Preserve original filename for errors
+		}
+
+		// Validate this individual config with the merged context
+		if err := configWP.config.ValidateWithContext(ctx); err != nil {
+			return fmt.Errorf("validation failed for %s: %w", configWP.filename, err)
+		}
+	}
+	return nil
 }
 
 // configWithPath holds a configuration along with metadata about where it was loaded from.
@@ -68,6 +95,7 @@ type configWithPath struct {
 	path      string
 	depth     int
 	cloudHome string // The effective cloudHome for this config
+	filename  string // The actual filename where this config was loaded from
 }
 
 // loadingContext tracks the state during recursive config loading.
@@ -133,22 +161,29 @@ func loadDirectoryConfig(dirPath string, relativePath string, cloudHome string, 
 	var config *Config
 	var err error
 
+	var filename string
 	if _, statErr := os.Stat(genifestPath); statErr == nil {
 		// genifest.yaml exists, load it normally with validation
 		config, err = loadConfigFileWithValidation(genifestPath, mode)
 		if err != nil {
 			return configWithPath{}, fmt.Errorf("failed to load %s: %w", genifestPath, err)
 		}
+		filename = genifestPath
 	} else {
 		// No genifest.yaml, create synthetic config
 		config = createSyntheticConfig(dirPath)
+		filename = filepath.Join(dirPath, "<synthetic>")
 	}
+
+	// Note: Full validation including function scoping happens after merging
+	// Individual configs only contain basic syntax validation during loading
 
 	return configWithPath{
 		config:    config,
 		path:      relativePath,
 		depth:     strings.Count(relativePath, string(filepath.Separator)),
 		cloudHome: cloudHome,
+		filename:  filename,
 	}, nil
 }
 
@@ -287,6 +322,7 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 
 	result := &Config{
 		Metadata: MetaConfig{CloudHome: primaryHome},
+		Groups:   GetDefaultGroups(), // Start with default groups
 	}
 
 	// Merge metadata (outer folders override inner folders for CloudHome)
@@ -331,6 +367,25 @@ func mergeConfigs(configs []configWithPath, primaryHome string) *Config {
 		for _, fn := range c.config.Functions {
 			fn.path = c.path
 			result.Functions = append(result.Functions, fn)
+		}
+
+		// Merge Groups - subordinate groups get directory prefixes applied
+		if c.config.Groups != nil {
+			configDir := filepath.Dir(c.path)
+			if c.path == "." || c.path == "" {
+				configDir = "."
+			}
+
+			// For root config, merge directly. For nested configs, apply directory scoping
+			if c.depth == 0 {
+				// Root config - merge groups directly
+				for name, expressions := range c.config.Groups {
+					result.Groups[name] = expressions
+				}
+			} else {
+				// Nested config - apply directory prefixes
+				result.Groups = result.Groups.MergeGroups(c.config.Groups, configDir)
+			}
 		}
 	}
 

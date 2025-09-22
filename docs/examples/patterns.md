@@ -2,40 +2,181 @@
 
 Collection of common patterns and best practices for using Genifest.
 
-!!! note "Work in Progress"
-    This documentation page is being developed. Please check back soon for complete content.
+## Groups-Based Tag Selection
 
-## Environment-Specific Values
-
-Pattern for managing different values across environments:
+Organizing changes using the groups system:
 
 ```yaml
-functions:
-  - name: get-replicas
-    params:
-      - name: environment
-        required: true
-    valueFrom:
-      script:
-        exec: get-replicas
-        args:
-          - name: environment
-            valueFrom:
-              argRef:
-                name: environment
+groups:
+  # Environment-based groups
+  development:
+    - "config"
+    - "dev-*"
+    - "!production"
+    - "!real-secrets"
+
+  staging:
+    - "config"
+    - "staging-*"
+    - "!dev-*"
+    - "!production"
+
+  production:
+    - "*"
+    - "!dev-*"
+    - "!staging-*"
+    - "!test-*"
+
+  # Feature-based groups
+  database-only: ["db-*", "migration-*"]
+  secrets-update: ["secret-*", "cert-*"]
+  config-only: ["config", "settings"]
 
 changes:
-  - tag: production
+  - tag: "config"
     fileSelector: "*-deployment.yaml"
-    keySelector: .spec.replicas
+    keySelector: ".spec.replicas"
     valueFrom:
-      call:
-        function: get-replicas
-        args:
-          - name: environment
+      envRef:
+        name: "REPLICAS"
+        default: "3"
+
+  - tag: "production"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      default:
+        value: "5"
+
+  - tag: "dev-config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.replicas"
+    valueFrom:
+      default:
+        value: "1"
+```
+
+**Usage examples:**
+```bash
+# Apply all changes (uses "all" group automatically)
+genifest run
+
+# Apply only development changes
+genifest run development
+
+# Apply only database changes
+genifest run database-only
+
+# Apply staging changes without secrets
+genifest run --tag "!secret-*" staging
+```
+
+## Environment Variable Integration
+
+Using the new `envRef` ValueFrom type for environment-aware configuration:
+
+```yaml
+changes:
+  # Database configuration from environment
+  - tag: "config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template.spec.containers[0].env[0].value"
+    valueFrom:
+      envRef:
+        name: "DATABASE_URL"
+        default: "postgresql://localhost:5432/myapp"
+
+  # Image registry with fallback
+  - tag: "image"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template.spec.containers[0].image"
+    valueFrom:
+      template:
+        string: "${registry}/${app}:${tag}"
+        variables:
+          - name: "registry"
             valueFrom:
-              default:
-                value: production
+              envRef:
+                name: "REGISTRY_URL"
+                default: "docker.io"
+          - name: "app"
+            valueFrom:
+              documentRef:
+                keySelector: ".metadata.name"
+          - name: "tag"
+            valueFrom:
+              envRef:
+                name: "BUILD_TAG"
+                default: "latest"
+
+  # API endpoints based on environment
+  - tag: "config"
+    fileSelector: "*-configmap.yaml"
+    keySelector: ".data.api_endpoint"
+    valueFrom:
+      template:
+        string: "https://api.${env}.example.com"
+        variables:
+          - name: "env"
+            valueFrom:
+              envRef:
+                name: "ENVIRONMENT"
+                default: "dev"
+```
+
+## Document Cross-References
+
+Using `documentRef` to create consistent references within documents. This allows
+an external document in YAML or TOML to be used to hold configuration or to use
+existing documents to tweak or modify configuration.
+
+```yaml
+changes:
+  # Use deployment name as app selector
+  - tag: "config"
+    fileSelector: "*-service.yaml"
+    keySelector: ".spec.selector.app"
+    valueFrom:
+      documentRef:
+        keySelector: ".metadata.name"
+
+  # Reference namespace in service account name
+  - tag: "config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template.spec.serviceAccountName"
+    valueFrom:
+      template:
+        string: "${name}-${namespace}"
+        variables:
+          - name: "name"
+            valueFrom:
+              documentRef:
+                keySelector: ".metadata.name"
+          - name: "namespace"
+            valueFrom:
+              documentRef:
+                keySelector: ".metadata.namespace"
+
+  # Consistent labeling across resources
+  - tag: "config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template.metadata.labels.app"
+    valueFrom:
+      documentRef:
+        keySelector: ".metadata.labels.app"
+
+  # Reference deployment name in ingress backend
+  - tag: "config"
+    fileSelector: "*-ingress.yaml"
+    keySelector: ".spec.rules[0].http.paths[0].backend.service.name"
+    valueFrom:
+      template:
+        string: "${name}-service"
+        variables:
+          - name: "name"
+            valueFrom:
+              documentRef:
+                keySelector: ".metadata.labels.app"
 ```
 
 ## Image Tag Management
@@ -62,18 +203,125 @@ changes:
         function: get-image-tag
 ```
 
-## Secret Management
+## Transient File Modifications
 
-Including secrets from external files:
+Advanced file inclusion with on-the-fly modifications that don't persist to disk.
+This can be used to make transient changes you don't want to store (e.g., 
+embedding secrets).
 
 ```yaml
 changes:
-  - fileSelector: "*-secret.yaml"
+  # Include base template with environment-specific modifications
+  - tag: "config"
+    fileSelector: "*-deployment.yaml"
+    keySelector: ".spec.template"
+    valueFrom:
+      file:
+        app: "templates"
+        source: "base-deployment.yaml"
+        changes:  # Transient changes - not written to source file
+          - keySelector: ".metadata.name"
+            valueFrom:
+              template:
+                string: "${app}-${env}"
+                variables:
+                  - name: "app"
+                    valueFrom:
+                      documentRef:
+                        keySelector: ".metadata.name"
+                  - name: "env"
+                    valueFrom:
+                      envRef:
+                        name: "ENVIRONMENT"
+                        default: "dev"
+
+          - keySelector: ".spec.containers[0].image"
+            valueFrom:
+              envRef:
+                name: "IMAGE_TAG"
+                default: "latest"
+
+  # Include secret template with temporary modifications for testing
+  - tag: "test-secrets"
+    fileSelector: "*-secret.yaml"
+    keySelector: ".data"
+    valueFrom:
+      file:
+        app: "secrets"
+        source: "production-secrets.yaml"
+        changes:  # Temporary test values
+          - keySelector: ".password"
+            valueFrom:
+              default:
+                value: "test-password"
+          - keySelector: ".api-key"
+            valueFrom:
+              default:
+                value: "test-api-key"
+
+  # Multi-document file with targeted modifications
+  - tag: "config"
+    fileSelector: "*-configmap.yaml"
+    keySelector: ".data"
+    valueFrom:
+      file:
+        source: "multi-config.yaml"
+        changes:
+          - documentSelector:
+              kind: "ConfigMap"
+              metadata.name: "app-config"
+            keySelector: ".data.environment"
+            valueFrom:
+              envRef:
+                name: "ENVIRONMENT"
+                default: "development"
+
+          - documentSelector:
+              kind: "ConfigMap"
+              metadata.name: "db-config"
+            keySelector: ".data.host"
+            valueFrom:
+              envRef:
+                name: "DB_HOST"
+                default: "localhost"
+```
+
+## Secret Management
+
+Including secrets from external files with environment-specific handling:
+
+```yaml
+groups:
+  # Separate groups for different secret handling
+  dev-secrets: ["secret-*", "!real-secrets"]
+  prod-secrets: ["real-secrets", "!test-*"]
+
+changes:
+  # Development secrets with mock values
+  - tag: "secret-dev"
+    fileSelector: "*-secret.yaml"
     keySelector: ".data.config"
     valueFrom:
       file:
         app: "secrets"
-        source: "config.yaml"
+        source: "dev-secrets.yaml"
+
+  # Production secrets (no transient changes)
+  - tag: "real-secrets"
+    fileSelector: "*-secret.yaml"
+    keySelector: ".data.config"
+    valueFrom:
+      file:
+        app: "secrets"
+        source: "prod-secrets.yaml"
+
+  # Secrets with environment variable injection
+  - tag: "secret-env"
+    fileSelector: "*-secret.yaml"
+    keySelector: ".data.database_url"
+    valueFrom:
+      envRef:
+        name: "DATABASE_URL"  # No default for security
 ```
 
 ## Advanced KeySelector Patterns

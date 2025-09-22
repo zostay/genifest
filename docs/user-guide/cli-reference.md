@@ -14,30 +14,56 @@ genifest <command> [options] [directory]
 
 ### `genifest run`
 
-Apply configuration changes to manifest files.
+Apply configuration changes to manifest files using the groups-based tag selection system.
 
 ```bash
-genifest run [directory] [flags]
+genifest run [group] [directory] [flags]
 ```
+
+**Argument Structure:**
+
+Genifest uses intelligent argument parsing to determine your intent:
+
+- **Zero arguments**: `genifest run`
+  - Uses "all" group in current directory
+
+- **One argument**: `genifest run <arg>`
+  - If `<arg>` is a defined group name: Uses that group in current directory
+  - If `<arg>` is a directory path: Uses "all" group in that directory
+
+- **Two arguments**: `genifest run <group> <directory>`
+  - Uses specified group in specified directory
 
 **Flags:**
 
-- `-i, --include-tags strings` - Include only changes with these tags (supports glob patterns)
-- `-x, --exclude-tags strings` - Exclude changes with these tags (supports glob patterns)
+- `--tag string` - Add additional tag expression to the selected group
 
-**Tag Filtering Logic:**
+**Groups-Based Selection:**
 
-- **No flags**: All changes applied (tagged and untagged)  
-- **Include only**: Only changes matching include patterns applied
-- **Exclude only**: All changes except those matching exclude patterns applied
-- **Both flags**: Changes matching include but not exclude patterns applied
-- **Glob patterns**: Supports patterns like `prod*`, `test-*`, `*-staging`
+Genifest uses named groups defined in your configuration:
+
+```yaml
+groups:
+  all: ["*"]                           # Default group (all changes)
+  config-only: ["config"]              # Only configuration changes
+  no-secrets: ["*", "!secret-*"]       # Everything except secrets
+  dev: ["config", "image", "!production"] # Development environment
+  prod: ["*", "!dev-*", "!test-*"]     # Production with exclusions
+```
+
+**Tag Expression Syntax:**
+
+- `"*"` - All tags (wildcard)
+- `"config"` - Literal tag match
+- `"!secret-*"` - Negation with glob pattern
+- `"prod-*"` - Glob pattern matching
+- `"manifests:secret-*"` - Directory-scoped expression
 
 **Enhanced Output:**
 
 The run command provides detailed progress reporting:
 
-- Configuration summary with total change definitions and tag filtering results
+- Configuration summary with group selection and total changes
 - Individual change tracking: `file -> document[index] -> keySelector: old → new`
 - Clear distinction between changes applied vs actual file modifications
 - Final summary with file modification counts and emoji indicators
@@ -45,23 +71,23 @@ The run command provides detailed progress reporting:
 **Examples:**
 
 ```bash
-# Apply all changes in current directory
+# Apply all changes in current directory (uses "all" group)
 genifest run
 
-# Apply changes from specific directory
-genifest run path/to/project
+# Apply specific group in current directory
+genifest run config-only
 
-# Apply only production-tagged changes
-genifest run --include-tags production
+# Apply all changes in specific directory
+genifest run examples/guestbook
 
-# Apply all changes except staging
-genifest run --exclude-tags staging
+# Apply specific group in specific directory
+genifest run dev examples/guestbook
 
-# Apply changes matching multiple patterns  
-genifest run --include-tags prod*,release-*
+# Add additional tag expression to group selection
+genifest run --tag "!secret" prod
 
-# Apply production changes but exclude secrets
-genifest run --include-tags production --exclude-tags secrets
+# Apply changes without secrets in development environment
+genifest run --tag "!secret-*" dev examples/app
 ```
 
 ### `genifest validate`
