@@ -13,6 +13,7 @@ import (
 	"github.com/zostay/genifest/internal/config"
 	"github.com/zostay/genifest/internal/fileformat"
 	"github.com/zostay/genifest/internal/keysel"
+	"github.com/zostay/genifest/internal/output"
 )
 
 var (
@@ -33,17 +34,37 @@ Arguments:
 
 The --tag option allows adding additional tag expressions to the selected group.`,
 	Args: cobra.MaximumNArgs(2),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
+		// Determine output mode from flags
+		outputModeStr, _ := cmd.Flags().GetString("output")
+		var outputMode output.OutputMode
+		switch outputModeStr {
+		case "color":
+			outputMode = output.ModeColor
+		case "plain":
+			outputMode = output.ModePlain
+		case "markdown":
+			outputMode = output.ModeMarkdown
+		case "auto":
+			outputMode = output.DetectDefaultMode()
+		default:
+			outputMode = output.DetectDefaultMode()
+		}
+
+		// Create output writer
+		writer := output.NewWriter(outputMode, os.Stdout)
+
 		groupName, projectDir := parseRunArguments(args)
-		err := GenerateManifests(groupName, projectDir, runAdditionalTags)
+		err := GenerateManifestsWithOutput(groupName, projectDir, runAdditionalTags, writer)
 		if err != nil {
-			printError(err)
+			printErrorWithOutput(err, writer)
 		}
 	},
 }
 
 func init() {
 	runCmd.Flags().StringSliceVar(&runAdditionalTags, "tag", []string{}, "additional tag expressions to include (supports wildcards, negations, and directory scoping)")
+	runCmd.Flags().String("output", "auto", "Output mode: color, plain, markdown, or auto (auto detects TTY)")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -79,6 +100,12 @@ func parseRunArguments(args []string) (groupName, projectDir string) {
 }
 
 func GenerateManifests(groupName, projectDir string, additionalTags []string) error {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return GenerateManifestsWithOutput(groupName, projectDir, additionalTags, writer)
+}
+
+func GenerateManifestsWithOutput(groupName, projectDir string, additionalTags []string, writer output.Writer) error {
 	// Load project configuration
 	projectInfo, err := loadProjectConfiguration(projectDir)
 	if err != nil {
@@ -112,11 +139,11 @@ func GenerateManifests(groupName, projectDir string, additionalTags []string) er
 	changesToRun := countChangesToRun(cfg, tagsToProcess)
 
 	// Display initial summary
-	fmt.Printf("🔍 \033[1;34mConfiguration loaded:\033[0m\n")
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m total change definition(s) found\n", totalChanges)
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m change definition(s) match group '%s'\n", changesToRun, groupName)
+	writer.Header("Configuration loaded:")
+	writer.Bullet("total change definition(s) found", totalChanges)
+	writer.Bullet(fmt.Sprintf("change definition(s) match group '%s'", groupName), changesToRun)
 	if len(tagsToProcess) > 0 {
-		fmt.Printf("  \033[36m•\033[0m Tags to process: \033[35m%v\033[0m\n", tagsToProcess)
+		writer.Printf("  • Tags to process: %v\n", tagsToProcess)
 	}
 
 	// Get resolved files count for display
@@ -124,11 +151,11 @@ func GenerateManifests(groupName, projectDir string, additionalTags []string) er
 	if err != nil {
 		resolvedFiles = cfg.Files.Include // Fallback to include list
 	}
-	fmt.Printf("  \033[36m•\033[0m \033[1m%d\033[0m file(s) to examine\n", len(resolvedFiles))
-	fmt.Printf("\n")
+	writer.Bullet("file(s) to examine", len(resolvedFiles))
+	writer.Println()
 
 	if changesToRun == 0 {
-		fmt.Printf("✅ \033[33mNo changes to apply for group '%s'\033[0m\n", groupName)
+		writer.Success(fmt.Sprintf("No changes to apply for group '%s'", groupName))
 		return nil
 	}
 
@@ -136,16 +163,17 @@ func GenerateManifests(groupName, projectDir string, additionalTags []string) er
 	applier := changes.NewApplier(cfg)
 
 	// Find and process all managed files
-	processedChanges, err := processAllFilesWithCounting(applier, cfg, tagsToProcess, workDir)
+	processedChanges, err := processAllFilesWithCountingAndOutput(applier, cfg, tagsToProcess, workDir, writer)
 	if err != nil {
 		return fmt.Errorf("failed to process files: %w", err)
 	}
 
 	// Final summary
-	fmt.Printf("\n✅ \033[1;32mSuccessfully completed processing:\033[0m\n")
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change application(s) processed\n", processedChanges.Applied)
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change application(s) resulted in actual modifications\n", processedChanges.Modified)
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) were updated\n", processedChanges.FilesModified)
+	writer.Println()
+	writer.Success("Successfully completed processing:")
+	writer.Bullet("change application(s) processed", processedChanges.Applied)
+	writer.Bullet("change application(s) resulted in actual modifications", processedChanges.Modified)
+	writer.Bullet("file(s) were updated", processedChanges.FilesModified)
 	return nil
 }
 
@@ -490,6 +518,13 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 
 // processAllFilesWithCounting processes files and tracks statistics.
 func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return processAllFilesWithCountingAndOutput(applier, cfg, tagsToProcess, workDir, writer)
+}
+
+// processAllFilesWithCountingAndOutput processes files and tracks statistics with output writer support.
+func processAllFilesWithCountingAndOutput(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string, writer output.Writer) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
 	// Resolve files with wildcard expansion
@@ -500,7 +535,7 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 
 	// Process each file
 	for _, filePath := range filesToProcess {
-		fileStats, err := processFileWithCounting(applier, filePath, tagsToProcess, workDir)
+		fileStats, err := processFileWithCountingAndOutput(applier, filePath, tagsToProcess, workDir, writer)
 		if err != nil {
 			return stats, fmt.Errorf("failed to process file %s: %w", filePath, err)
 		}
@@ -517,6 +552,13 @@ func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, t
 
 // processFileWithCounting processes a file and tracks statistics.
 func processFileWithCounting(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return processFileWithCountingAndOutput(applier, filePath, tagsToProcess, workDir, writer)
+}
+
+// processFileWithCountingAndOutput processes a file and tracks statistics with output writer support.
+func processFileWithCountingAndOutput(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string, writer output.Writer) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
 	// Get absolute path from working directory
@@ -526,7 +568,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	var fi os.FileInfo
 	var err error
 	if fi, err = os.Stat(fullPath); os.IsNotExist(err) {
-		fmt.Printf("⚠️  \033[33mWarning:\033[0m file %s does not exist, skipping\n", filePath)
+		writer.Warning(fmt.Sprintf("file %s does not exist, skipping", filePath))
 		return stats, nil
 	}
 
@@ -539,7 +581,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	// Detect file format
 	format := fileformat.DetectFormat(filePath)
 	if format == fileformat.FormatUnknown {
-		fmt.Printf("⚠️  \033[33mWarning:\033[0m unknown file format for %s, skipping\n", filePath)
+		writer.Warning(fmt.Sprintf("unknown file format for %s, skipping", filePath))
 		return stats, nil
 	}
 
@@ -556,7 +598,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	}
 
 	if len(documents) == 0 {
-		fmt.Printf("⚠️  \033[33mWarning:\033[0m no documents found in %s, skipping\n", filePath)
+		writer.Warning(fmt.Sprintf("no documents found in %s, skipping", filePath))
 		return stats, nil
 	}
 
@@ -566,7 +608,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 	// Process each document
 	for docIndex, doc := range documents {
 		// Apply changes to this document using generic format
-		docStats, err := applyChangesToGenericDocumentWithCounting(applier, filePath, doc, tagsToProcess, docIndex)
+		docStats, err := applyChangesToGenericDocumentWithCountingAndOutput(applier, filePath, doc, tagsToProcess, docIndex, writer)
 		if err != nil {
 			return stats, fmt.Errorf("failed to apply changes to document %d: %w", docIndex, err)
 		}
@@ -589,7 +631,7 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 		if err != nil {
 			return stats, fmt.Errorf("failed to write modified file: %w", err)
 		}
-		fmt.Printf("📝 \033[1;32mUpdated file:\033[0m %s (\033[36m%d\033[0m changes)\n", filePath, stats.Modified)
+		writer.UpdatedFile(filePath, stats.Modified)
 	}
 
 	return stats, nil
@@ -597,6 +639,13 @@ func processFileWithCounting(applier *changes.Applier, filePath string, tagsToPr
 
 // applyChangesToDocumentWithCounting applies changes to a document and tracks statistics.
 func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return applyChangesToDocumentWithCountingAndOutput(applier, filePath, doc, tagsToProcess, docIndex, writer)
+}
+
+// applyChangesToDocumentWithCountingAndOutput applies changes to a document and tracks statistics with output writer support.
+func applyChangesToDocumentWithCountingAndOutput(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string, docIndex int, writer output.Writer) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
 	// Apply all changes that match the tags at once
@@ -621,9 +670,9 @@ func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath strin
 			stats.Applied++
 			if oldValue != result.Value {
 				stats.Modified++
-				fmt.Printf("  ✏️  %s -> document[\033[35m%d\033[0m] -> \033[36m%s\033[0m: \033[31m%s\033[0m → \033[32m%s\033[0m\n", filePath, docIndex, result.KeyPath, oldValue, result.Value)
+				writer.Change(filePath, result.KeyPath, oldValue, result.Value, docIndex)
 			} else {
-				fmt.Printf("  ✓  %s -> document[\033[35m%d\033[0m] -> \033[36m%s\033[0m: \033[37m%s\033[0m (no change)\n", filePath, docIndex, result.KeyPath, result.Value)
+				writer.NoChange(filePath, result.KeyPath, result.Value, docIndex)
 			}
 		}
 	}
@@ -819,6 +868,13 @@ func getValueInDocument(doc *yaml.Node, keySelector string) (string, error) {
 
 // applyChangesToGenericDocumentWithCounting applies changes to a generic document and tracks statistics.
 func applyChangesToGenericDocumentWithCounting(applier *changes.Applier, filePath string, doc *fileformat.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return applyChangesToGenericDocumentWithCountingAndOutput(applier, filePath, doc, tagsToProcess, docIndex, writer)
+}
+
+// applyChangesToGenericDocumentWithCountingAndOutput applies changes to a generic document and tracks statistics with output writer support.
+func applyChangesToGenericDocumentWithCountingAndOutput(applier *changes.Applier, filePath string, doc *fileformat.Node, tagsToProcess []string, docIndex int, writer output.Writer) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
 
 	// For now, convert the generic document to YAML for compatibility with the existing applier
@@ -837,7 +893,7 @@ func applyChangesToGenericDocumentWithCounting(applier *changes.Applier, filePat
 	}
 
 	// Apply changes using existing YAML-based applier
-	yamlStats, err := applyChangesToDocumentWithCounting(applier, filePath, &yamlDoc, tagsToProcess, docIndex)
+	yamlStats, err := applyChangesToDocumentWithCountingAndOutput(applier, filePath, &yamlDoc, tagsToProcess, docIndex, writer)
 	if err != nil {
 		return stats, err
 	}

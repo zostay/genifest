@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/zostay/genifest/internal/config"
+	"github.com/zostay/genifest/internal/output"
 )
 
 // ProjectInfo contains resolved project directory and loaded configuration.
@@ -98,15 +99,26 @@ func printError(err error) {
 		return
 	}
 
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stderr)
+	printErrorWithOutput(err, writer)
+}
+
+// printErrorWithOutput prints a user-friendly error message using the provided output writer.
+func printErrorWithOutput(err error, writer output.Writer) {
+	if err == nil {
+		return
+	}
+
 	// Pretty print validation errors
 	if isValidationError(err) {
-		printValidationError(err)
+		printValidationErrorWithOutput(err, writer)
 		os.Exit(1)
 		return
 	}
 
 	// Print other errors with a simple format
-	fmt.Fprintf(os.Stderr, "❌ Error: %s\n", err.Error())
+	writer.Error(fmt.Sprintf("Error: %s", err.Error()))
 	os.Exit(1)
 }
 
@@ -130,16 +142,24 @@ func isValidationError(err error) bool {
 
 // printValidationError prints a well-formatted validation error.
 func printValidationError(err error) {
+	// Use default output mode for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stderr)
+	printValidationErrorWithOutput(err, writer)
+}
+
+// printValidationErrorWithOutput prints a well-formatted validation error using the provided output writer.
+func printValidationErrorWithOutput(err error, writer output.Writer) {
 	// Check if it's our custom ValidationError type
 	var ve *config.ValidationError
 	if errors.As(err, &ve) {
 		// Use the custom error's nicely formatted output
-		fmt.Fprintf(os.Stderr, "%s\n", ve.Error())
+		writer.Error(ve.Error())
 		return
 	}
 
 	// Handle legacy validation errors
-	fmt.Fprintf(os.Stderr, "❌ Configuration Validation Error\n\n")
+	writer.Error("Configuration Validation Error")
+	writer.Println()
 
 	errStr := err.Error()
 
@@ -155,12 +175,12 @@ func printValidationError(err error) {
 			context := parts[0]
 			message := parts[1]
 
-			fmt.Fprintf(os.Stderr, "Context: %s\n", context)
-			fmt.Fprintf(os.Stderr, "Issue:   %s\n", message)
+			writer.Printf("Context: %s\n", context)
+			writer.Printf("Issue:   %s\n", message)
 		} else {
-			fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+			writer.Printf("Issue: %s\n", errStr)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Issue: %s\n", errStr)
+		writer.Printf("Issue: %s\n", errStr)
 	}
 }
