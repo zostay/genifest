@@ -37,6 +37,7 @@ Genifest uses intelligent argument parsing to determine your intent:
 **Flags:**
 
 - `--tag string` - Add additional tag expression to the selected group
+- `--output string` - Output mode: color, plain, markdown, or auto (default "auto")
 
 **Groups-Based Selection:**
 
@@ -95,8 +96,14 @@ genifest run --tag "!secret-*" dev examples/app
 Validate configuration without applying changes.
 
 ```bash
-genifest validate [directory]
+genifest validate [directory] [flags]
 ```
+
+**Flags:**
+
+- `--strict` - Enable strict schema validation (fail on unknown fields)
+- `--warn` - Enable schema validation warnings (warn on unknown fields)
+- `--output string` - Output mode: color, plain, markdown, or auto (default "auto")
 
 ### `genifest tags`
 
@@ -120,6 +127,56 @@ Show version information.
 
 ```bash
 genifest version
+```
+
+## Output Modes
+
+Both `run` and `validate` commands support flexible output formatting with the `--output` flag:
+
+### Available Output Modes
+
+- **`color`** - ANSI color codes and emojis for terminal display
+- **`plain`** - Clean text without colors, suitable for logging and automation
+- **`markdown`** - Formatted markdown output for documentation workflows
+- **`auto`** - Automatically detects TTY and uses color for terminals, plain for redirected output (default)
+
+### Output Mode Examples
+
+```bash
+# Colored output with emojis (for terminals)
+genifest validate --output=color
+genifest run dev --output=color
+
+# Plain text output (for scripts/logs)
+genifest validate --output=plain
+genifest run prod --output=plain
+
+# Markdown formatted output (for documentation)
+genifest validate --output=markdown
+genifest run staging --output=markdown
+
+# Auto-detect based on TTY (default behavior)
+genifest validate --output=auto
+genifest validate  # same as above
+```
+
+### Use Cases
+
+- **`color`**: Interactive terminal sessions, development work
+- **`plain`**: CI/CD pipelines, log files, automation scripts
+- **`markdown`**: Documentation generation, integration with documentation workflows
+- **`auto`**: General use, automatically adapts to context
+
+### TTY Detection
+
+When using `--output=auto` (the default), genifest automatically:
+- Uses `color` mode when output goes to a terminal (TTY)
+- Uses `plain` mode when output is redirected to files or pipes
+
+```bash
+genifest validate              # Color output in terminal
+genifest validate > log.txt    # Plain output when redirected
+genifest validate | less       # Plain output when piped
 ```
 
 ## Global Options

@@ -313,14 +313,17 @@ Genifest provides several subcommands for different operations. All commands can
 # Apply all changes (run from directory containing genifest.yaml)
 genifest run
 
-# Apply only production changes  
-genifest run --include-tags production
-
-# Apply all except staging changes
-genifest run --exclude-tags staging
+# Apply changes using specific group
+genifest run production
 
 # Apply changes from a different directory
 genifest run path/to/project
+
+# Apply specific group in different directory
+genifest run production path/to/project
+
+# Add additional tag expressions to a group
+genifest run --tag "!secret-*" production
 
 # Show version information
 genifest version
@@ -331,9 +334,34 @@ genifest tags
 # Validate configuration without applying changes
 genifest validate
 
-# Display merged configuration 
+# Display merged configuration
 genifest config
 ```
+
+### Output Mode Options
+
+Both `validate` and `run` commands support flexible output formatting with the `--output` flag:
+
+```bash
+# Colored output with emojis (for terminals)
+genifest validate --output=color
+
+# Plain text output (for scripts/logs)
+genifest validate --output=plain
+
+# Markdown formatted output (for documentation)
+genifest validate --output=markdown
+
+# Auto-detect based on TTY (default)
+genifest validate --output=auto
+genifest validate  # same as above
+```
+
+**Output Modes:**
+- **`color`**: ANSI color codes and emojis for terminal display
+- **`plain`**: Clean text without colors, suitable for logging and automation
+- **`markdown`**: Formatted markdown output for documentation workflows
+- **`auto`**: Automatically detects TTY and uses color for terminals, plain for redirected output
 
 ### Enhanced Output
 
@@ -343,12 +371,14 @@ The run command provides detailed progress reporting:
 - Distinguishes between changes applied vs actual modifications made
 - Summarizes final results with file modification counts
 
-### Tag Filtering
+### Groups-Based Tag Selection
 
-- **No flags**: All changes applied (tagged and untagged)
-- **Include only**: Only changes matching include patterns
-- **Exclude only**: All changes except those matching exclude patterns
-- **Both flags**: Changes matching include but not exclude patterns
+Genifest uses a groups-based system for tag selection and organization:
+
+- **Default "all" group**: Applies all changes when no group specified
+- **Custom groups**: Define tag expressions in configuration with wildcards and negations
+- **Group expressions**: Support patterns like `["*", "!secret-*", "config"]`
+- **Additional tags**: Use `--tag` flag to add expressions to any group
 - **Glob patterns supported**: `prod*`, `test-*`, etc.
 
 ## Contributing

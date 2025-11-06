@@ -197,6 +197,31 @@ genifest tags                    # Show all tags
 genifest tags examples/app       # Show tags in specific directory
 ```
 
+## Output Modes
+
+When working with groups, you can control the output format for different use cases:
+
+```bash
+# Interactive development with colors and emojis
+genifest run dev --output=color
+
+# CI/CD pipelines with clean text output
+genifest run prod --output=plain
+
+# Documentation generation with markdown formatting
+genifest run config-only --output=markdown
+
+# Auto-detect based on terminal context (default)
+genifest run staging --output=auto
+```
+
+The output mode is particularly useful when:
+
+- **Development**: Use `color` mode for rich visual feedback
+- **Automation**: Use `plain` mode for clean logs and scripts
+- **Documentation**: Use `markdown` mode for generating documentation
+- **General use**: Use `auto` mode for adaptive behavior
+
 Use the `config` command to verify your groups configuration:
 
 ```bash

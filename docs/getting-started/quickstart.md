@@ -126,6 +126,16 @@ Before applying changes, validate everything is correct:
 genifest validate
 ```
 
+You can also try different output modes:
+
+```bash
+# Plain text output (good for logs)
+genifest validate --output=plain
+
+# Markdown output (good for documentation)
+genifest validate --output=markdown
+```
+
 Expected output:
 ```
 ✅ Configuration validation successful
@@ -172,15 +182,22 @@ You'll see detailed output like:
   • 1 file(s) were updated
 ```
 
-### Step 6: Try Tag-Based Filtering
+### Step 6: Try Groups-Based Selection
 
-Apply only production-tagged changes:
+The guestbook example includes predefined groups. Try using different groups:
 
 ```bash
-genifest run --include-tags production
+# Apply only production-tagged changes
+genifest run production
+
+# View available tags
+genifest tags
+
+# Try plain output (useful for CI/CD)
+genifest run production --output=plain
 ```
 
-This will only apply changes marked with the "production" tag.
+This demonstrates the groups-based tag selection system.
 
 ## Understanding What Happened
 
@@ -326,17 +343,20 @@ changes:
 
 ### Multiple Environments
 
-Use tags to target specific environments:
+Use groups to target specific environments:
 
 ```bash
-# Development
-genifest run --include-tags dev
+# Development (assuming you have a 'dev' group defined)
+genifest run dev
 
-# Staging  
-genifest run --include-tags staging
+# Staging
+genifest run staging
 
 # Production
-genifest run --include-tags prod
+genifest run production
+
+# Add additional tag expressions to any group
+genifest run --tag "!secret-*" production
 ```
 
 ## Troubleshooting

@@ -1,5 +1,13 @@
 ## WIP  TBD
 
+* **Output Mode Support**: Flexible output formatting for different use cases and environments
+
+    * **Multiple output modes** supporting color, plain, markdown, and auto detection
+    * **TTY detection** automatically switches between color and plain modes based on terminal context
+    * **Markdown output** for documentation generation and integration with documentation workflows
+    * **Consistent interface** across validate and run commands with --output flag
+    * **Backwards compatibility** maintaining existing behavior when no output mode specified
+
 * **Installation Script Improvements**: Enhanced user documentation and binary optimization
 
     * **Documentation added** to install script explaining each step and why sudo is required
