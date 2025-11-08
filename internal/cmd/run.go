@@ -516,13 +516,6 @@ func countChangesToRun(cfg *config.Config, tagsToProcess []string) int {
 	return count
 }
 
-// processAllFilesWithCounting processes files and tracks statistics.
-func processAllFilesWithCounting(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
-	// Use default output mode for backwards compatibility
-	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
-	return processAllFilesWithCountingAndOutput(applier, cfg, tagsToProcess, workDir, writer)
-}
-
 // processAllFilesWithCountingAndOutput processes files and tracks statistics with output writer support.
 func processAllFilesWithCountingAndOutput(applier *changes.Applier, cfg *config.Config, tagsToProcess []string, workDir string, writer output.Writer) (*ProcessingStats, error) {
 	stats := &ProcessingStats{}
@@ -548,13 +541,6 @@ func processAllFilesWithCountingAndOutput(applier *changes.Applier, cfg *config.
 	}
 
 	return stats, nil
-}
-
-// processFileWithCounting processes a file and tracks statistics.
-func processFileWithCounting(applier *changes.Applier, filePath string, tagsToProcess []string, workDir string) (*ProcessingStats, error) {
-	// Use default output mode for backwards compatibility
-	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
-	return processFileWithCountingAndOutput(applier, filePath, tagsToProcess, workDir, writer)
 }
 
 // processFileWithCountingAndOutput processes a file and tracks statistics with output writer support.
@@ -635,13 +621,6 @@ func processFileWithCountingAndOutput(applier *changes.Applier, filePath string,
 	}
 
 	return stats, nil
-}
-
-// applyChangesToDocumentWithCounting applies changes to a document and tracks statistics.
-func applyChangesToDocumentWithCounting(applier *changes.Applier, filePath string, doc *yaml.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
-	// Use default output mode for backwards compatibility
-	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
-	return applyChangesToDocumentWithCountingAndOutput(applier, filePath, doc, tagsToProcess, docIndex, writer)
 }
 
 // applyChangesToDocumentWithCountingAndOutput applies changes to a document and tracks statistics with output writer support.
@@ -864,13 +843,6 @@ func getValueInDocument(doc *yaml.Node, keySelector string) (string, error) {
 
 	// Return the value
 	return current.Value, nil
-}
-
-// applyChangesToGenericDocumentWithCounting applies changes to a generic document and tracks statistics.
-func applyChangesToGenericDocumentWithCounting(applier *changes.Applier, filePath string, doc *fileformat.Node, tagsToProcess []string, docIndex int) (*ProcessingStats, error) {
-	// Use default output mode for backwards compatibility
-	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
-	return applyChangesToGenericDocumentWithCountingAndOutput(applier, filePath, doc, tagsToProcess, docIndex, writer)
 }
 
 // applyChangesToGenericDocumentWithCountingAndOutput applies changes to a generic document and tracks statistics with output writer support.

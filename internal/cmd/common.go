@@ -140,13 +140,6 @@ func isValidationError(err error) bool {
 		strings.Contains(errStr, "valueFrom")
 }
 
-// printValidationError prints a well-formatted validation error.
-func printValidationError(err error) {
-	// Use default output mode for backwards compatibility
-	writer := output.NewWriter(output.DetectDefaultMode(), os.Stderr)
-	printValidationErrorWithOutput(err, writer)
-}
-
 // printValidationErrorWithOutput prints a well-formatted validation error using the provided output writer.
 func printValidationErrorWithOutput(err error, writer output.Writer) {
 	// Check if it's our custom ValidationError type

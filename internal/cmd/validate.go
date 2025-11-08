@@ -242,4 +242,3 @@ func isValueFromEmpty(vf config.ValueFrom) bool {
 		vf.DefaultValue == nil &&
 		vf.DocumentRef == nil
 }
-
