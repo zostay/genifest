@@ -19,7 +19,7 @@ jobs:
       - name: Setup golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.3.0
+          version: v2.6.2
           args: --timeout=5m
       - name: Run tests
         run: go test ./...
