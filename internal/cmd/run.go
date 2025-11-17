@@ -36,20 +36,7 @@ The --tag option allows adding additional tag expressions to the selected group.
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Determine output mode from flags
-		outputModeStr, _ := cmd.Flags().GetString("output")
-		var outputMode output.OutputMode
-		switch outputModeStr {
-		case "color":
-			outputMode = output.ModeColor
-		case "plain":
-			outputMode = output.ModePlain
-		case "markdown":
-			outputMode = output.ModeMarkdown
-		case "auto":
-			outputMode = output.DetectDefaultMode()
-		default:
-			outputMode = output.DetectDefaultMode()
-		}
+		outputMode := parseOutputMode(cmd)
 
 		// Create output writer
 		writer := output.NewWriter(outputMode, os.Stdout)

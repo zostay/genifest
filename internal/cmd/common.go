@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/zostay/genifest/internal/config"
 	"github.com/zostay/genifest/internal/output"
 )
@@ -175,5 +177,22 @@ func printValidationErrorWithOutput(err error, writer output.Writer) {
 		}
 	} else {
 		writer.Printf("Issue: %s\n", errStr)
+	}
+}
+
+// parseOutputMode extracts the output mode from command flags and returns the corresponding OutputMode.
+func parseOutputMode(cmd *cobra.Command) output.OutputMode {
+	outputModeStr, _ := cmd.Flags().GetString("output")
+	switch outputModeStr {
+	case "color":
+		return output.ModeColor
+	case "plain":
+		return output.ModePlain
+	case "markdown":
+		return output.ModeMarkdown
+	case "auto":
+		return output.DetectDefaultMode()
+	default:
+		return output.DetectDefaultMode()
 	}
 }
