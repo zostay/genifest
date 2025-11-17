@@ -2,21 +2,8 @@ name: Deploy Documentation
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
-      - '.github/workflows/docs.yml'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
-      - '.github/workflows/docs.yml'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -71,9 +58,9 @@ jobs:
         with:
           path: ./site
 
-  # Deployment job for pushes to master
+  # Deployment job for tag pushes and workflow_dispatch
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

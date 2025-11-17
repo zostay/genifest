@@ -203,16 +203,14 @@ changes:
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	// Check output contains expected elements
+	// Check output contains expected elements (plain mode - no emojis when output is redirected)
 	expectedElements := []string{
-		"🔍",
 		"Validating configuration in",
 		"Summary:",
-		"0 file(s) managed",
-		"1 change(s) defined",
-		"1 function(s) defined",
-		"✅",
-		"Configuration validation successful!",
+		"file(s) managed 0",
+		"change(s) defined 1",
+		"function(s) defined 1",
+		"SUCCESS: Configuration validation successful!",
 	}
 
 	cleanOutput := stripANSI(outputStr)
@@ -281,16 +279,14 @@ changes:
 		}
 	}
 
-	// Check output contains expected elements
+	// Check output contains expected elements (plain mode - no emojis when output is redirected)
 	expectedElements := []string{
-		"🔍",
 		"Validating configuration in",
 		"Summary:",
-		"2 file(s) managed",
-		"1 change(s) defined",
-		"1 function(s) defined",
-		"❌",
-		"Configuration validation failed with 2 error(s):",
+		"file(s) managed 2",
+		"change(s) defined 1",
+		"function(s) defined 1",
+		"ERROR: Configuration validation failed with 2 error(s):",
 		"referenced file does not exist: missing1.yaml",
 		"referenced file does not exist: missing2.yaml",
 	}
@@ -378,12 +374,10 @@ changes:
 				}
 			}
 
-			// Check output contains expected elements
+			// Check output contains expected elements (plain mode - no emojis)
 			expectedElements := []string{
-				"🔍",
 				"Validating configuration in",
-				"❌",
-				"Configuration validation failed with 1 error:",
+				"ERROR: Configuration validation failed with 1 error:",
 				tt.expectedError,
 			}
 
@@ -501,13 +495,11 @@ changes: []`,
 				}
 			}
 
-			// Check basic structure elements are present
+			// Check basic structure elements are present (plain mode - no emojis)
 			expectedStructure := []string{
-				"🔍",
 				"Validating configuration in",
 				"Summary:",
-				"❌",
-				fmt.Sprintf("Configuration validation failed with %d error(s):", len(tt.expectedErrors)),
+				fmt.Sprintf("ERROR: Configuration validation failed with %d error(s):", len(tt.expectedErrors)),
 			}
 
 			for _, element := range expectedStructure {
@@ -578,17 +570,15 @@ changes:
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	// Check output contains tag information
+	// Check output contains tag information (plain mode - no emojis)
 	expectedElements := []string{
-		"🔍",
 		"Validating configuration in",
 		"Summary:",
-		"0 file(s) managed",
-		"3 change(s) defined",
-		"1 function(s) defined",
-		"2 unique tag(s) used", // Should show 2 unique tags (production, staging)
-		"✅",
-		"Configuration validation successful!",
+		"file(s) managed 0",
+		"change(s) defined 3",
+		"function(s) defined 1",
+		"unique tag(s) used 2", // Should show 2 unique tags (production, staging)
+		"SUCCESS: Configuration validation successful!",
 	}
 
 	cleanOutput := stripANSI(outputStr)

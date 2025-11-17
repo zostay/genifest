@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zostay/genifest/internal/config"
+	"github.com/zostay/genifest/internal/output"
 )
 
 // ValidationSummaryError is a special error type that indicates validation failed
@@ -53,9 +54,15 @@ of the current working directory.`,
 		strict, _ := cmd.Flags().GetBool("strict")
 		warn, _ := cmd.Flags().GetBool("warn")
 
+		// Determine output mode from flags
+		outputMode := parseOutputMode(cmd)
+
+		// Create output writer
+		writer := output.NewWriter(outputMode, os.Stdout)
+
 		var mode config.ValidationMode
 		if strict && warn {
-			fmt.Fprintf(os.Stderr, "❌ Cannot use both --strict and --warn flags together\n")
+			writer.Error("Cannot use both --strict and --warn flags together")
 			os.Exit(1)
 		} else if strict {
 			mode = config.ValidationModeStrict
@@ -65,7 +72,7 @@ of the current working directory.`,
 			mode = config.ValidationModePermissive
 		}
 
-		err := validateConfigurationWithMode(projectDir, mode)
+		err := validateConfigurationWithModeAndOutput(projectDir, mode, writer)
 		if err != nil {
 			// Check if it's our special validation summary error (handled by validateConfiguration)
 			var summaryErr *ValidationSummaryError
@@ -75,11 +82,11 @@ of the current working directory.`,
 			} else if isValidationError(err) {
 				// ValidationError from cfg.Validate() - these should be handled by validateConfiguration
 				// but if they reach here, we need to show them properly
-				fmt.Fprintf(os.Stderr, "❌ Configuration validation failed\n")
+				writer.Error("Configuration validation failed")
 				os.Exit(1)
 			} else {
 				// Other errors need normal handling
-				printError(err)
+				printErrorWithOutput(err, writer)
 			}
 		}
 	},
@@ -88,6 +95,7 @@ of the current working directory.`,
 func init() {
 	validateCmd.Flags().Bool("strict", false, "Enable strict schema validation (fail on unknown fields)")
 	validateCmd.Flags().Bool("warn", false, "Enable schema validation warnings (warn on unknown fields)")
+	validateCmd.Flags().String("output", "auto", "Output mode: color, plain, markdown, or auto (auto detects TTY)")
 	rootCmd.AddCommand(validateCmd)
 }
 
@@ -96,6 +104,12 @@ func validateConfiguration(projectDir string) error {
 }
 
 func validateConfigurationWithMode(projectDir string, mode config.ValidationMode) error {
+	// Use color output for backwards compatibility
+	writer := output.NewWriter(output.DetectDefaultMode(), os.Stdout)
+	return validateConfigurationWithModeAndOutput(projectDir, mode, writer)
+}
+
+func validateConfigurationWithModeAndOutput(projectDir string, mode config.ValidationMode, writer output.Writer) error {
 	// Load project configuration - if this fails with ValidationError, we need special handling
 	projectInfo, err := loadProjectConfigurationWithMode(projectDir, mode)
 	if err != nil {
@@ -104,13 +118,15 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 		if errors.As(err, &ve) {
 			// Show at least the basic info before the error
 			workDir, _ := resolveProjectDirectory(projectDir)
-			fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
+			writer.Header(fmt.Sprintf("Validating configuration in %s...", workDir))
+			writer.Println()
 
 			// Extract the clean message without the emoji prefix
 			msg := strings.TrimPrefix(ve.Error(), "❌ ")
 
-			fmt.Printf("❌ \033[1;31mConfiguration validation failed with 1 error:\033[0m\n\n")
-			fmt.Printf("  \033[31m•\033[0m %s\n", msg)
+			writer.Error("Configuration validation failed with 1 error:")
+			writer.Println()
+			writer.Printf("  • %s\n", msg)
 			return &ValidationSummaryError{ErrorCount: 1}
 		}
 		return err
@@ -119,7 +135,8 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 	workDir := projectInfo.WorkDir
 	cfg := projectInfo.Config
 
-	fmt.Printf("🔍 \033[1;34mValidating configuration in %s...\033[0m\n\n", workDir)
+	writer.Header(fmt.Sprintf("Validating configuration in %s...", workDir))
+	writer.Println()
 
 	// Collect all validation errors instead of short-circuiting
 	validationErrors := []string{}
@@ -164,14 +181,14 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 	}
 
 	// Always show summary information first
-	fmt.Printf("\033[1mSummary:\033[0m\n")
+	writer.Info("Summary:")
 	// Get resolved files count for display (reuse resolvedFiles from above)
 	if len(resolvedFiles) == 0 && len(cfg.Files.Include) > 0 {
 		resolvedFiles = cfg.Files.Include // Fallback
 	}
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m file(s) managed\n", len(resolvedFiles))
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m change(s) defined\n", len(cfg.Changes))
-	fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m function(s) defined\n", len(cfg.Functions))
+	writer.Bullet("file(s) managed", len(resolvedFiles))
+	writer.Bullet("change(s) defined", len(cfg.Changes))
+	writer.Bullet("function(s) defined", len(cfg.Functions))
 
 	// Show tags if any
 	tagSet := make(map[string]bool)
@@ -181,21 +198,22 @@ func validateConfigurationWithMode(projectDir string, mode config.ValidationMode
 		}
 	}
 	if len(tagSet) > 0 {
-		fmt.Printf("  \033[32m•\033[0m \033[36m%d\033[0m unique tag(s) used\n", len(tagSet))
+		writer.Bullet("unique tag(s) used", len(tagSet))
 	}
-	fmt.Println()
+	writer.Println()
 
 	// Report results
 	if len(validationErrors) > 0 {
-		fmt.Printf("❌ \033[1;31mConfiguration validation failed with %d error(s):\033[0m\n\n", len(validationErrors))
+		writer.Error(fmt.Sprintf("Configuration validation failed with %d error(s):", len(validationErrors)))
+		writer.Println()
 		for _, err := range validationErrors {
-			fmt.Printf("  \033[31m•\033[0m %s\n", err)
+			writer.Printf("  • %s\n", err)
 		}
 		return &ValidationSummaryError{ErrorCount: len(validationErrors)}
 	}
 
 	// Success message
-	fmt.Printf("✅ \033[1;32mConfiguration validation successful!\033[0m\n")
+	writer.Success("Configuration validation successful!")
 
 	return nil
 }
