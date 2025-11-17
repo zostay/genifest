@@ -1,4 +1,4 @@
-## WIP  TBD
+## v1.0.0-rc6  2025-11-17
 
 * **Output Mode Support**: Flexible output formatting for different use cases and environments
 
