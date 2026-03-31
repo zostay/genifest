@@ -325,6 +325,13 @@ When working with documentation:
 - **Reference**: Complete technical specifications and API documentation
 - **Development**: Contributor-focused technical documentation
 
+### Changelog (`Changes.md`)
+- Headings must be either `## <version-tag>  <date>` (e.g., `## v1.0.0-rc6  2025-11-17`) or `## WIP  TBD` for unreleased changes. No other heading format is acceptable.
+- Entries describe what changed, not process. Use the pattern from existing entries: ` * Updated <package> to <version>`, ` * Added ...`, ` * Fixed ...`, etc.
+- Never record things that didn't happen (e.g., skipped PRs, failed merges). A changelog records changes, not non-changes.
+- Follow the existing bullet style: ` * ` (space-asterisk-space) with one leading space.
+- For feature entries, use `* **Short Phrase**: Description` with sub-bullets indented four spaces.
+
 ### Writing Style
 - Use clear, concise language appropriate for technical audiences
 - Include code examples with proper syntax highlighting
