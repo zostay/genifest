@@ -1,3 +1,9 @@
+## Dependabot Sweep  2026-03-31
+
+* **Merged**: Merged Dependabot PR #75: chore(deps): bump github.com/pelletier/go-toml/v2 from 2.2.4 to 2.3.0
+* **Merged**: Merged Dependabot PR #76: chore(deps): bump actions/deploy-pages from 4 to 5
+* **Skipped**: PR #77 (chore(deps): bump actions/configure-pages from 5 to 6) has failing checks
+
 ## v1.0.0-rc6  2025-11-17
 
 * **Output Mode Support**: Flexible output formatting for different use cases and environments
