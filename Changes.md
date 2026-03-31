@@ -1,3 +1,8 @@
+## WIP  TBD
+
+ * Updated github.com/pelletier/go-toml/v2 to v2.3.0
+ * Updated actions/deploy-pages to v5
+
 ## v1.0.0-rc6  2025-11-17
 
 * **Output Mode Support**: Flexible output formatting for different use cases and environments
