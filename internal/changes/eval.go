@@ -2,11 +2,14 @@ package changes
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 
 	"gopkg.in/yaml.v3"
 
@@ -236,28 +239,23 @@ func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error)
 		return "", fmt.Errorf("script %q not found in any of the script directories: %v", se.ExecCommand, ctx.ScriptsDirs)
 	}
 
-	// Prepare command
-	cmd := exec.Command(scriptPath)
-
-	// Set working directory to CloudHome
-	cmd.Dir = ctx.CloudHome
-
-	// Evaluate and set environment variables
+	// Pre-evaluate environment variables
+	var envVars []string
 	if len(se.Env) > 0 {
-		env := os.Environ()
+		envVars = os.Environ()
 		for _, envArg := range se.Env {
 			value, err := ctx.Evaluate(envArg.ValueFrom)
 			if err != nil {
 				return "", fmt.Errorf("failed to evaluate environment variable %q: %w", envArg.Name, err)
 			}
-			env = append(env, fmt.Sprintf("%s=%s", envArg.Name, value))
+			envVars = append(envVars, fmt.Sprintf("%s=%s", envArg.Name, value))
 		}
-		cmd.Env = env
 	}
 
-	// Evaluate and set arguments
+	// Pre-evaluate arguments
+	var args []string
 	if len(se.Args) > 0 {
-		args := make([]string, len(se.Args))
+		args = make([]string, len(se.Args))
 		for i, arg := range se.Args {
 			value, err := ctx.Evaluate(arg.ValueFrom)
 			if err != nil {
@@ -265,41 +263,64 @@ func (ctx *EvalContext) evaluateScriptExec(se config.ScriptExec) (string, error)
 			}
 			args[i] = value
 		}
-		cmd.Args = append(cmd.Args, args...)
 	}
 
-	// Set stdin if provided
+	// Pre-evaluate stdin
+	var stdinValue string
 	if se.Stdin != nil {
-		stdinValue, err := ctx.Evaluate(*se.Stdin)
+		var err error
+		stdinValue, err = ctx.Evaluate(*se.Stdin)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate stdin: %w", err)
 		}
-		cmd.Stdin = strings.NewReader(stdinValue)
 	}
 
-	// Execute and capture both stdout and stderr
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		// Include both stdout and stderr in error message for debugging
-		var errorMsg strings.Builder
-		errorMsg.WriteString(fmt.Sprintf("script execution failed: %v", err))
-
-		if stderr.Len() > 0 {
-			errorMsg.WriteString(fmt.Sprintf("\nstderr: %s", strings.TrimSpace(stderr.String())))
+	// Execute with retry on ETXTBSY. On Linux, the kernel can briefly return
+	// ETXTBSY from execve() after the last writer closes a file. Retrying is
+	// the standard workaround (see https://github.com/golang/go/issues/22315).
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := range maxAttempts {
+		if attempt > 0 {
+			runtime.Gosched()
 		}
 
-		if stdout.Len() > 0 {
-			errorMsg.WriteString(fmt.Sprintf("\nstdout: %s", strings.TrimSpace(stdout.String())))
+		cmd := exec.Command(scriptPath)
+		cmd.Dir = ctx.CloudHome
+		if envVars != nil {
+			cmd.Env = envVars
+		}
+		if len(args) > 0 {
+			cmd.Args = append(cmd.Args, args...)
+		}
+		if se.Stdin != nil {
+			cmd.Stdin = strings.NewReader(stdinValue)
 		}
 
-		return "", fmt.Errorf("%s", errorMsg.String())
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		lastErr = cmd.Run()
+		if lastErr == nil {
+			return strings.TrimSpace(stdout.String()), nil
+		}
+
+		// Only retry on ETXTBSY; all other errors are immediate failures
+		if !errors.Is(lastErr, syscall.ETXTBSY) {
+			var errorMsg strings.Builder
+			errorMsg.WriteString(fmt.Sprintf("script execution failed: %v", lastErr))
+			if stderr.Len() > 0 {
+				errorMsg.WriteString(fmt.Sprintf("\nstderr: %s", strings.TrimSpace(stderr.String())))
+			}
+			if stdout.Len() > 0 {
+				errorMsg.WriteString(fmt.Sprintf("\nstdout: %s", strings.TrimSpace(stdout.String())))
+			}
+			return "", fmt.Errorf("%s", errorMsg.String())
+		}
 	}
 
-	return strings.TrimSpace(stdout.String()), nil
+	return "", fmt.Errorf("script execution failed after %d attempts: %w", maxAttempts, lastErr)
 }
 
 // evaluateFileInclusion reads a file and returns its contents.
