@@ -1,6 +1,7 @@
 ## WIP  TBD
 
  * Updated github.com/pelletier/go-toml/v2 to v2.3.0
+ * Updated github.com/pelletier/go-toml/v2 to v2.3.1
  * Updated actions/deploy-pages to v5
  * Updated actions/configure-pages to v6
 
