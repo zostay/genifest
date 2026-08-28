@@ -1,5 +1,8 @@
 ## WIP  TBD
 
+ * Updated mkdocs-material to >=9.7.7
+ * Updated mkdocs-git-committers-plugin-2 to >=2.5.0
+ * Updated pymdown-extensions to >=11.0.1
  * Updated mkdocs-git-revision-date-localized-plugin to >=1.5.3
  * Updated pygments to >=2.20.0
  * Added the pip ecosystem to Dependabot so the MkDocs documentation dependencies in requirements.txt are monitored for updates and vulnerabilities
